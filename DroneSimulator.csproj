@@ -8,4 +8,22 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Remove="Resources\aerospace-bg.jpg" />
+    <None Remove="Resources\aerospace-bg（2）.jpg" />
+    <None Remove="Resources\drone-icon-0.png" />
+    <None Remove="Resources\drone-icon.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="9.0.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\aerospace-bg.jpg" />
+    <Resource Include="Resources\aerospace-bg（2）.jpg" />
+    <Resource Include="Resources\drone-icon-0.png" />
+    <Resource Include="Resources\drone-icon.png" />
+  </ItemGroup>
+
 </Project>

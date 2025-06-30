@@ -1,48 +1,157 @@
-﻿using System;
+﻿using DroneSimulator;
+using System;
+using System.IO;
+using System.IO.Ports;
+using System.Text.Json;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Threading;
+using System.Windows.Controls;
+using System.Windows.Interop;
 
 namespace DroneSimulator
 {
+    public class SerialPortConfig
+    {
+        public string PortName { get; set; } = "";
+        public int BaudRate { get; set; } = 9600;
+        public Parity Parity { get; set; } = Parity.None;
+        public StopBits StopBits { get; set; } = StopBits.One;
+    }
+
     public partial class MainWindow : Window
     {
-        private Storyboard rotationStoryboard;
-        private Storyboard testStoryboard; // 添加测试动画的引用
-        private DispatcherTimer rpmTimer;
-        private bool isRunning = false;
-        private double currentSpeed = 0;
-        private Random random = new Random();
+        public static SerialPort GlobalSerialPort = new SerialPort();
+        public static SerialPortConfig SerialConfig = new SerialPortConfig();
 
-        public MainWindow()
+        private SerialPort serialPort;
+        private UserInfo currentUser;
+        private bool[] switchStates = new bool[3] { false, false, false };
+        private double currentSpeed = 0;
+        private bool isRunning = false;
+
+        // 获取 DroneStatusPanel 实例
+        private DroneStatusPanel? dronePanel => LeftPanel.Content as DroneStatusPanel;
+        // 在创建DroneStatusPanel时订阅事件
+        private void InitializeStudentPanel()
+        {
+            var studentPanel = new DroneStatusPanel();
+            LeftPanel.Content = studentPanel;
+
+            // 订阅开关状态改变事件
+            studentPanel.SwitchStateChanged += (index, state) =>
+            {
+                switchStates[index] = state;
+                UpdateButtonState();
+
+                // 只有全部开时才允许动画
+                if (studentPanel.AllSwitchOn)
+                {
+                    // 可选：自动启用“开始”按钮
+                }
+                else
+                {
+                    // 只要有一个断开，立即停止动画
+                    isRunning = false;
+                    dronePanel?.StopPropeller();
+                    UpdateButtonState();
+                }
+            };
+
+            InitializeSerialPort();
+
+            studentPanel.SetSerialPort(serialPort);
+            for (int i = 0; i < 3; i++)
+                studentPanel.SetSwitchState(i, switchStates[i]);
+            studentPanel.SetStatus("停止", System.Windows.Media.Colors.Red);
+            studentPanel.SetRpm(0);
+        }
+
+        public MainWindow(UserInfo user)
         {
             InitializeComponent();
-            this.RegisterName("PropellerRotation", PropellerRotation);
-            InitializeAnimation();
-            InitializeTimer();
+            LoadSerialPortConfigAndOpen();
+            currentUser = user;
+            // 你可以在这里根据 currentUser 做初始化
         }
 
-        private void InitializeAnimation()
+        private void LoadSerialPortConfigAndOpen()
         {
-            // 不在这里创建Storyboard，而是在需要时动态创建
-        }
-
-        private void InitializeTimer()
-        {
-            // 创建RPM更新定时器
-            rpmTimer = new DispatcherTimer
+            if (File.Exists("config_serialport.json"))
             {
-                Interval = TimeSpan.FromMilliseconds(100)
-            };
-            rpmTimer.Tick += RpmTimer_Tick;
+                try
+                {
+                    var json = File.ReadAllText("config_serialport.json");
+                    SerialConfig = JsonSerializer.Deserialize<SerialPortConfig>(json);
+
+                    GlobalSerialPort.PortName = SerialConfig.PortName;
+                    GlobalSerialPort.BaudRate = SerialConfig.BaudRate;
+                    GlobalSerialPort.Parity = SerialConfig.Parity;
+                    GlobalSerialPort.StopBits = SerialConfig.StopBits;
+                    GlobalSerialPort.Open();
+                }
+                catch
+                {
+                    ShowAdminDialog();
+                }
+            }
+            else
+            {
+                ShowAdminDialog();
+            }
+        }
+
+        private void ShowAdminDialog()
+        {
+            var dlg = new AdminDialog();
+            dlg.ShowDialog();
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var hwndSource = (HwndSource)PresentationSource.FromVisual(this);
+            if (hwndSource != null)
+                hwndSource.AddHook(WndProc);
+        }
+
+        private const int WM_NCLBUTTONDBLCLK = 0x00A3;
+
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_NCLBUTTONDBLCLK)
+            {
+                // 阻止标题栏双击最大化/还原
+                handled = true;
+                return IntPtr.Zero;
+            }
+            return IntPtr.Zero;
+        }
+
+        private void InitializeSerialPort()
+        {
+            serialPort = new SerialPort("COM11", 9600, Parity.None, 8, StopBits.One);
+            try
+            {
+                if (!serialPort.IsOpen)
+                    serialPort.Open();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"串口打开失败: {ex.Message}", "串口错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            if (!isRunning)
+            if (!isRunning && AllSwitchOn())
             {
-                StartPropeller();
+                isRunning = true;
+                dronePanel?.SetSpeed(currentSpeed);
+                dronePanel?.StartPropeller();
+                UpdateButtonState();
+            }
+            else if (!AllSwitchOn())
+            {
+                MessageBox.Show("请确保所有电源开关都已接通", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -50,245 +159,51 @@ namespace DroneSimulator
         {
             if (isRunning)
             {
-                StopPropeller();
+                isRunning = false;
+                dronePanel?.StopPropeller();
+                UpdateButtonState();
             }
         }
 
         private void TestButton_Click(object sender, RoutedEventArgs e)
         {
-            // 测试旋转 - 停止其他动画后执行
-            TestRotation();
+            if (!isRunning && AllSwitchOn())
+            {
+                dronePanel?.TestRotation();
+            }
+            else if (isRunning)
+            {
+                MessageBox.Show("请先停止电机运行再进行测试", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show("请确保所有电源开关都已接通", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void SpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             currentSpeed = e.NewValue;
-            if (SpeedValue != null) // 添加null检查
-            {
-                SpeedValue.Text = $"{currentSpeed:F0}%";
-            }
-
-            if (isRunning)
-            {
-                UpdateAnimationSpeed();
-            }
+            dronePanel?.SetSpeed(currentSpeed);
         }
-
-        private void StartPropeller()
+        
+        private void UpdateButtonState()
         {
-            isRunning = true;
-
-            // 停止测试动画（如果正在运行）
-            StopTestAnimation();
-
-            // 创建新的旋转动画
-            CreateAndStartAnimation();
-
-            // 更新UI状态
-            StatusIndicator.Fill = new SolidColorBrush(Colors.LimeGreen);
-            StatusText.Text = "运行中";
-            StatusText.Foreground = new SolidColorBrush(Colors.LimeGreen);
-
-            // 添加状态指示器闪烁效果
-            var pulseAnimation = new DoubleAnimation(0.3, 1.0, TimeSpan.FromSeconds(0.5))
-            {
-                RepeatBehavior = RepeatBehavior.Forever,
-                AutoReverse = true
-            };
-            StatusIndicator.BeginAnimation(OpacityProperty, pulseAnimation);
-
-            // 启动RPM更新
-            rpmTimer.Start();
-
-            // 禁用启动按钮，启用停止按钮
-            StartButton.IsEnabled = false;
-            StopButton.IsEnabled = true;
+            bool powerEnabled = dronePanel?.AllSwitchOn ?? false;
+            StartButton.IsEnabled = powerEnabled && !isRunning;
+            StopButton.IsEnabled = powerEnabled && isRunning;
+            TestButton.IsEnabled = powerEnabled && !isRunning;
         }
 
-        private void StopPropeller()
-        {
-            isRunning = false;
-
-            // 停止所有动画
-            StopAllAnimations();
-
-            // 重置旋转角度
-            PropellerRotation.Angle = 0;
-
-            // 更新UI状态
-            StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
-            StatusText.Text = "停止";
-            StatusText.Foreground = new SolidColorBrush(Colors.Red);
-
-            // 停止闪烁效果
-            StatusIndicator.BeginAnimation(OpacityProperty, null);
-            StatusIndicator.Opacity = 1.0;
-
-            // 停止RPM更新
-            rpmTimer.Stop();
-            RpmDisplay.Text = "转速: 0 RPM";
-
-            // 启用启动按钮，禁用停止按钮
-            StartButton.IsEnabled = true;
-            StopButton.IsEnabled = false;
-        }
-
-        private void UpdateAnimationSpeed()
-        {
-            if (isRunning)
-            {
-                // 重新創建動畫以應用新的速度
-                CreateAndStartAnimation();
-            }
-        }
-
-        private void CreateAndStartAnimation()
-        {
-            // 停止现有动画
-            if (rotationStoryboard != null)
-            {
-                rotationStoryboard.Stop(this);
-                rotationStoryboard = null;
-            }
-
-            rotationStoryboard = new Storyboard();
-
-            double minDuration = 0.02;
-            double maxDuration = 1.0;
-            double speedFactor = Math.Max(currentSpeed, 1) / 100.0;
-            double duration = maxDuration - speedFactor * (maxDuration - minDuration);
-            duration = Math.Max(duration, minDuration);
-
-            var rotationAnimation = new DoubleAnimation
-            {
-                From = 0,
-                To = 360,
-                Duration = TimeSpan.FromSeconds(duration),
-                RepeatBehavior = RepeatBehavior.Forever
-            };
-
-            // 关键：用名称绑定目标
-            Storyboard.SetTargetName(rotationAnimation, "PropellerRotation");
-            Storyboard.SetTargetProperty(rotationAnimation, new PropertyPath("Angle"));
-
-            rotationStoryboard.Children.Add(rotationAnimation);
-
-            try
-            {
-                // 关键：指定宿主为 this
-                rotationStoryboard.Begin(this, true);
-                System.Diagnostics.Debug.WriteLine($"动画已启动，持续时间: {duration:F2}秒，速度: {currentSpeed}%");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"动画启动失败: {ex.Message}");
-                MessageBox.Show($"动画启动失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void RpmTimer_Tick(object sender, EventArgs e)
-        {
-            if (isRunning)
-            {
-                // 计算RPM（基于速度百分比）
-                double baseRpm = 8000; // 最大RPM
-                double currentRpm = baseRpm * (currentSpeed / 100.0);
-
-                // 添加一些随机波动使其更真实
-                double fluctuation = (random.NextDouble() - 0.5) * 100;
-                currentRpm += fluctuation;
-                currentRpm = Math.Max(0, currentRpm);
-
-                RpmDisplay.Text = $"转速: {currentRpm:F0} RPM";
-            }
-        }
-
-        //private Storyboard testStoryboard; // 添加为成员变量
-
-        private void TestRotation()
-        {
-            try
-            {
-                StopAllAnimations();
-
-                if (isRunning)
-                {
-                    MessageBox.Show("请先停止电机运行再进行测试", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                testStoryboard = new Storyboard();
-                var testAnimation = new DoubleAnimation
-                {
-                    From = PropellerRotation.Angle,
-                    To = PropellerRotation.Angle + 1080,
-                    Duration = TimeSpan.FromSeconds(2),
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
-                };
-
-                Storyboard.SetTargetName(testAnimation, "PropellerRotation");
-                Storyboard.SetTargetProperty(testAnimation, new PropertyPath("Angle"));
-
-                testStoryboard.Children.Add(testAnimation);
-
-                testStoryboard.Completed += (s, e) =>
-                {
-                    PropellerRotation.Angle = PropellerRotation.Angle % 360;
-                };
-
-                // 关键：指定宿主为 this
-                testStoryboard.Begin(this, true);
-
-                StatusText.Text = "测试中";
-                StatusText.Foreground = new SolidColorBrush(Colors.Orange);
-                StatusIndicator.Fill = new SolidColorBrush(Colors.Orange);
-
-                var resetTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-                resetTimer.Tick += (s, e) =>
-                {
-                    resetTimer.Stop();
-                    if (!isRunning)
-                    {
-                        StatusText.Text = "停止";
-                        StatusText.Foreground = new SolidColorBrush(Colors.Red);
-                        StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
-                    }
-                };
-                resetTimer.Start();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"测试旋转失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void StopAllAnimations()
-        {
-            // 停止主旋转动画
-            if (rotationStoryboard != null)
-            {
-                rotationStoryboard.Stop(this);
-                rotationStoryboard = null;
-            }
-
-            // 停止测试动画
-            StopTestAnimation();
-        }
-
-        private void StopTestAnimation()
-        {
-            if (testStoryboard != null)
-            {
-                testStoryboard.Stop();
-                testStoryboard = null;
-            }
-        }
+        private bool AllSwitchOn() => switchStates[0] && switchStates[1] && switchStates[2];
 
         protected override void OnClosed(EventArgs e)
         {
-            // 清理资源
-            StopAllAnimations();
-            rpmTimer?.Stop();
+            if (serialPort != null && serialPort.IsOpen)
+            {
+                serialPort.Close();
+                serialPort.Dispose();
+            }
             base.OnClosed(e);
         }
     }

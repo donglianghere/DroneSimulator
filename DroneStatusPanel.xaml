@@ -1,0 +1,184 @@
+﻿<UserControl x:Class="DroneSimulator.DroneStatusPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:DroneSimulator"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1600">
+    <UserControl.Resources>
+        <DropShadowEffect x:Key="DropShadowEffect" 
+              ShadowDepth="5" BlurRadius="10" 
+              Color="Black" Opacity="0.3"/>
+    </UserControl.Resources>
+    <Grid>
+        <!-- 左侧 - 螺旋桨显示区域 -->
+        <Border Grid.Column="0" Background="White" CornerRadius="15" 
+        Margin="10" Padding="20" 
+        Effect="{StaticResource DropShadowEffect}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="无人机系统状态" FontSize="18" FontWeight="Bold" 
+                   HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+                <!-- 螺旋桨容器 -->
+                <Viewbox Width="264" Height="401" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Canvas Width="264" Height="305">
+                        <!-- 电源块（静止） -->
+                        <Rectangle x:Name="PowerSource" Width="90" Height="60"
+                           Canvas.Left="87" Canvas.Top="268"
+                           Fill="BlanchedAlmond" Stroke="BlueViolet" StrokeThickness="2" HorizontalAlignment="Center" VerticalAlignment="Top">
+                            <Rectangle.OpacityMask>
+                                <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                                    <GradientStop Color="Black"/>
+                                    <GradientStop Color="#FFB01515" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Rectangle.OpacityMask>
+                        </Rectangle>
+                        <!-- 电源线路1（左） -->
+                        <Line x:Name="PowerLine1"
+                      X1="90" Y1="300"
+                      X2="90" Y2="90"
+                      StrokeThickness="3"
+                      Stroke="Red" HorizontalAlignment="Left" VerticalAlignment="Center" Height="274" Canvas.Left="-2" Canvas.Top="-6"/>
+                        <!-- 电源线路2（中） -->
+                        <Line x:Name="PowerLine2"
+                      X1="132" Y1="250"
+                      X2="132" Y2="90"
+                      StrokeThickness="3"
+                      Stroke="Red" HorizontalAlignment="Center" Canvas.Top="34" VerticalAlignment="Top" Height="234"/>
+                        <!-- 电源线路3（右） -->
+                        <Line x:Name="PowerLine3"
+                      X1="180" Y1="300"
+                      X2="180" Y2="90"
+                      StrokeThickness="3"
+                      Stroke="Red" HorizontalAlignment="Left" VerticalAlignment="Center" Height="274" Canvas.Left="-4" Canvas.Top="-6"/>
+                        <!-- 三个按钮，均匀分布在圆圈下方，留有间隙 -->
+                        <Button x:Name="Switch1" Width="30" Height="40"
+                        Canvas.Left="72" Canvas.Top="177"
+                        Click="Switch_Click"
+                        Background="Red"
+                        Foreground="White"
+                        Content="on"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Button x:Name="Switch2" Width="30" Height="40"
+                        Canvas.Left="116" Canvas.Top="177"
+                        Click="Switch_Click"
+                        Background="Red"
+                        Foreground="White"
+                        Content="on" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Button x:Name="Switch3" Width="30" Height="40"
+                        Canvas.Left="162" Canvas.Top="177"
+                        Click="Switch_Click"
+                        Background="Red"
+                        Foreground="White"
+                        Content="on"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Canvas x:Name="PropellerCanvas" Width="120" Height="120" Canvas.Left="72" Canvas.Top="20">
+                            <Canvas.RenderTransform>
+                                <RotateTransform x:Name="PropellerRotation" CenterX="60" CenterY="60" Angle="0"/>
+                            </Canvas.RenderTransform>
+
+                            <!-- 8个叶片，全部以中心为原点 -->
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="0"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="45"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="90"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="135"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="180"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="225"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="270"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                            <Rectangle Width="6" Height="40" Fill="#2196F3"
+                               RadiusX="3" RadiusY="3"
+                               Canvas.Left="57" Canvas.Top="20"
+                               RenderTransformOrigin="0.5,1">
+                                <Rectangle.RenderTransform>
+                                    <RotateTransform Angle="315"/>
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+
+                            <!-- 新增：圆形边框 -->
+                            <Ellipse Width="90" Height="90" 
+                              Canvas.Left="15" Canvas.Top="15"
+                              Stroke="Black" StrokeThickness="2"
+                              Fill="Transparent"/>
+
+                            <!-- 电机中心 -->
+                            <Ellipse Width="20" Height="20" Fill="#333" Opacity="0.7"
+                             Canvas.Left="50" Canvas.Top="50"
+                             Stroke="#666" StrokeThickness="2"/>
+                        </Canvas>
+                    </Canvas>
+                </Viewbox>
+
+                <!-- RPM显示 -->
+                <TextBlock Grid.Row="2" x:Name="RpmDisplay" Text="转速: 0 RPM" 
+                 FontSize="16" FontWeight="Bold" Foreground="#2196F3"
+                 HorizontalAlignment="Center" Margin="10"/>
+
+                <!-- 状态指示器 -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="10">
+                    <TextBlock Text="状态: " FontSize="14" VerticalAlignment="Center"/>
+                    <Ellipse x:Name="StatusIndicator" Width="16" Height="16" 
+                   Fill="#f44336" Margin="5,0"/>
+                    <TextBlock x:Name="StatusText" Text="停止" FontSize="14" 
+                     VerticalAlignment="Center" Foreground="#f44336"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
