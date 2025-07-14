@@ -99,13 +99,15 @@ namespace DroneSimulator
                 return;
             }
 
+            // Questions = allQuestions
+            // 其中 IsChecked 为 true 的题就是选中的题。
             var examData = new ExamData
             {
                 ExamName = ExamNameBox.Text,
                 TeacherName = currentTeacher.Name,
                 TeacherId = currentTeacher.IdNumber,
                 CreationTime = DateTime.Now,
-                Questions = selectedQuestions
+                Questions = allQuestions
             };
 
             SaveExam(examData);

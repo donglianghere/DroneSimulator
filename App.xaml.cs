@@ -20,7 +20,7 @@ namespace DroneSimulator
                 {
                     Window? mainWin = null;
                     if (login.LoginUser.Type == UserType.Admin)
-                        mainWin = new AdminDialog();
+                        mainWin = new AdminDialog(login.LoginUser);
                     if (login.LoginUser.Type == UserType.Teacher)
                         mainWin = new QuestionPanel(login.LoginUser);
                     if (login.LoginUser.Type == UserType.Student)

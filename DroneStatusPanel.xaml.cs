@@ -1,5 +1,5 @@
 ﻿using System;
-using System.IO.Ports;
+using RJCP.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -17,9 +17,8 @@ namespace DroneSimulator
         private bool isRunning = false;
         private readonly Random random = new();
 
-        private SerialPort? serialPort;
+        private SerialPortStream? serialPort;
         private bool[] switchStates = new bool[3] { false, false, false };
-        // 添加开关状态改变事件
         public event Action<int, bool>? SwitchStateChanged;
         public bool AllSwitchOn => switchStates[0] && switchStates[1] && switchStates[2];
         public DroneStatusPanel()
@@ -34,7 +33,6 @@ namespace DroneSimulator
             rpmTimer.Tick += RpmTimer_Tick;
         }
 
-        // 设置状态文本和颜色
         public void SetStatus(string status, Color color)
         {
             StatusText.Text = status;
@@ -42,13 +40,11 @@ namespace DroneSimulator
             StatusIndicator.Fill = new SolidColorBrush(color);
         }
 
-        // 设置转速显示
         public void SetRpm(double rpm)
         {
             RpmDisplay.Text = $"转速: {rpm:F0} RPM";
         }
 
-        // 设置开关和线路状态
         public void SetSwitchState(int index, bool isOn)
         {
             var btn = index switch
@@ -73,7 +69,6 @@ namespace DroneSimulator
             }
         }
 
-        // 设置螺旋桨动画速度
         public void SetSpeed(double speed)
         {
             currentSpeed = speed;
@@ -81,7 +76,6 @@ namespace DroneSimulator
                 CreateAndStartAnimation();
         }
 
-        // 启动螺旋桨动画
         public void StartPropeller()
         {
             isRunning = true;
@@ -91,7 +85,6 @@ namespace DroneSimulator
             StartRpmTimer();
         }
 
-        // 停止螺旋桨动画
         public void StopPropeller()
         {
             isRunning = false;
@@ -102,7 +95,6 @@ namespace DroneSimulator
             SetRpm(0);
         }
 
-        // 测试旋转动画
         public void TestRotation()
         {
             if (isRunning)
@@ -195,13 +187,11 @@ namespace DroneSimulator
             }
         }
 
-        // 提供串口设置方法，供 MainWindow 初始化后调用
-        public void SetSerialPort(SerialPort port)
+        public void SetSerialPort(SerialPortStream port)
         {
             serialPort = port;
         }
 
-        // Switch_Click 事件处理
         public void Switch_Click(object sender, RoutedEventArgs e)
         {
             var button = sender as Button;
@@ -217,10 +207,8 @@ namespace DroneSimulator
                 switchStates[switchIndex] = !switchStates[switchIndex];
                 SetSwitchState(switchIndex, switchStates[switchIndex]);
 
-                // 触发开关状态改变事件
                 SwitchStateChanged?.Invoke(switchIndex, switchStates[switchIndex]);
 
-                // 串口数据发送逻辑
                 if (switchStates[switchIndex])
                 {
                     string? sendData = switchIndex switch

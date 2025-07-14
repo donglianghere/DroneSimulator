@@ -52,23 +52,32 @@ namespace DroneSimulator
         private void SetDefaultUserInfo()
         {
             string userTypeStr = (UserTypeCombo.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "学生";
-            if (userTypeStr == "老师")
+            if (userTypeStr == "管理员")
             {
-                NameBox.Text = "张老师";
-                IdBox.Text = "123456789012345678";
-                PasswordBox.Password = "112233";
+                NameBox.Text = "超级管理员";
+                IdBox.Text = "000000000000000001";
+                PasswordBox.Password = "";
             }
-            else if (userTypeStr == "学生")
+            else
             {
-                NameBox.Text = "李学生";
-                IdBox.Text = "202401010101010101";
-                PasswordBox.Password = "123456";
+                NameBox.Text = "";
+                IdBox.Text = "";
+                PasswordBox.Password = "";
             }
-            else if (userTypeStr == "管理员")
+        }
+
+        private void EnsureDefaultAdmin()
+        {
+            var admin = UserManager.FindUser("000000000000000001", UserType.Admin);
+            if (admin == null)
             {
-                NameBox.Text = "管理员";
-                IdBox.Text = "000000000000000000";
-                PasswordBox.Password = "admin888";
+                UserManager.AddUser(new UserInfo
+                {
+                    Name = "超级管理员",
+                    IdNumber = "000000000000000001",
+                    Password = "kanghe",
+                    Type = UserType.Admin
+                });
             }
         }
 
@@ -76,6 +85,9 @@ namespace DroneSimulator
         {
             InitializeComponent();            
             UserManager.Load(); // 加载所有用户
+
+            // 确保有初始管理员账户
+            EnsureDefaultAdmin();
 
             // 自动加载最近注册用户
             if (File.Exists("last_user.json"))
@@ -226,10 +238,11 @@ namespace DroneSimulator
                 return;
             }
 
-            var exist = UserManager.FindUser(id, UserType.Student);
-            if (exist != null)
+            // 新增：确保身份证号在所有用户中唯一
+            var allUsers = UserManager.GetAllUsers();
+            if (allUsers.Any(u => u.IdNumber == id))
             {
-                MessageBox.Show("该学生已注册，请直接登录。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("该身份证号已被注册，不能重复注册。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -254,12 +267,12 @@ namespace DroneSimulator
             UserType type = userTypeStr == "老师" ? UserType.Teacher :
                     userTypeStr == "管理员" ? UserType.Admin :
                     UserType.Student;
+
             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(id) || string.IsNullOrEmpty(pwd))
             {
                 MessageBox.Show("请填写所有信息！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-
             if (!IsChineseName(name))
             {
                 MessageBox.Show("姓名必须为汉字！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -276,97 +289,21 @@ namespace DroneSimulator
                 return;
             }
 
-            if (type == UserType.Admin)
+            var exist = UserManager.FindUser(id, type);
+            if (exist == null)
             {
-                var exist = UserManager.FindUser(id, UserType.Admin);
-                if (exist == null)
-                {
-                    if (pwd == "admin888")
-                    {
-                        var user = new UserInfo { Name = name, IdNumber = id, Password = pwd, Type = UserType.Admin };
-                        UserManager.AddUser(user);
-                        LoginUser = user;
-                        SaveLastUser(name, id, type);
-                        DialogResult = true;
-                    }
-                    else
-                    {
-                        MessageBox.Show("管理员密码错误！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-                else
-                {
-                    if (exist.Name == name && exist.Password == pwd)
-                    {
-                        LoginUser = exist;
-                        SaveLastUser(name, id, type);
-                        DialogResult = true;                        
-                    }
-                    else
-                    {
-                        MessageBox.Show("管理员信息或密码错误！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
+                MessageBox.Show("用户不存在，请先注册！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            else if (type == UserType.Teacher)
+            if (exist.Name != name || exist.Password != pwd)
             {
-                var exist = UserManager.FindUser(id, UserType.Teacher);
-                if (exist == null)
-                {
-                    if (pwd == "112233")
-                    {
-                        var user = new UserInfo { Name = name, IdNumber = id, Password = pwd, Type = UserType.Teacher };
-                        UserManager.AddUser(user);
-                        LoginUser = user;
-                        SaveLastUser(name, id, type); // 新注册老师后也保存
-                        DialogResult = true;
-                    }
-                    else
-                    {
-                        MessageBox.Show("管理员密码错误，无法注册老师用户！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-                else
-                {
-                    if (exist.Name == name && exist.Password == pwd)
-                    {
-                        LoginUser = exist;
-                        SaveLastUser(name, id, type); // 老师登录成功也保存
-                        DialogResult = true;                        
-                    }
-                    else
-                    {
-                        MessageBox.Show("老师信息或密码错误！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
+                MessageBox.Show("用户名或密码错误！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            else
-            {
-                var exist = UserManager.FindUser(id, UserType.Student);
-                if (exist == null)
-                {
-                    var user = new UserInfo { Name = name, IdNumber = id, Password = pwd, Type = UserType.Student };
-                    UserManager.AddUser(user);
-                    LoginUser = user;
-                    SaveLastUser(name, id, type);
-                    DialogResult = true;
-                }
-                else
-                {
-                    if (exist.Name == name && exist.Password == pwd)
-                    {
-                        LoginUser = exist;
-                        SaveLastUser(name, id, type);
-                        DialogResult = true;                        
-                    }
-                    else
-                    {
-                        MessageBox.Show("学生信息或密码错误！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
-            }
+
+            LoginUser = exist;
+            SaveLastUser(name, id, type);
+            DialogResult = true;
         }
     }
 }
