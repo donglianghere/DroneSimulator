@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="DroneSimulator.AdminDialog"
         xmlns:local="clr-namespace:DroneSimulator"    
-        Title="系统管理" Height="350" Width="690"
+        Title="系统管理" Height="360" Width="690"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#181F2A"
