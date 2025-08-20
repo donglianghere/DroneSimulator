@@ -210,10 +210,11 @@ namespace DroneSimulator
         // 生成试卷信息概述
         private string GenerateExamSummary(ExamData examData)
         {
+            int selectedCount = examData.Questions?.Count(q => q.IsChecked) ?? 0;
             return $"试卷名称：{examData.ExamName}\n" +
                    $"出题教师：{examData.TeacherName}\n" +
                    $"教师工号：{examData.TeacherId}\n" +
-                   $"题目数量：{examData.Questions?.Count ?? 0}\n" +
+                   $"题目数量：{selectedCount}\n" +
                    $"创建时间：{examData.CreationTime:yyyy-MM-dd HH:mm}\n";
         }
 
@@ -255,55 +256,5 @@ namespace DroneSimulator
             }
             return questions;
         }
-    }
-
-    public class ExamData
-    {
-        public string ExamName { get; set; }
-        public string TeacherName { get; set; }
-        public string TeacherId { get; set; }
-        public DateTime CreationTime { get; set; }
-        public List<Question> Questions { get; set; } = new();
-
-        // 新增：记录所有学生的成绩
-        public List<StudentExamResult> StudentResults { get; set; } = new();
-    }
-
-    // 学生成绩
-    public class StudentExamResult
-    {
-        public string StudentName { get; set; }      // 学生姓名
-        public string StudentId { get; set; }        // 学号或唯一标识
-        public double Score { get; set; }            // 成绩
-        public DateTime SubmitTime { get; set; }     // 提交时间（可选）
-    }
-
-    public class Question
-    {
-        public string Name { get; set; }           // 试题控件的x:Name
-        public string Content { get; set; }        // 试题内容（CheckBox的Content）
-        public bool IsChecked { get; set; }        // 是否选中
-        public string CommandString { get; set; }  // CommandString附加属性
-
-        // 通过CheckBox控件初始化
-        public Question(CheckBox checkBox)
-        {
-            Name = checkBox.Name;
-            Content = checkBox.Content?.ToString() ?? "";
-            IsChecked = checkBox.IsChecked == true;
-            CommandString = CheckBoxCommandHelper.GetCommandString(checkBox);
-        }
-
-        // 全属性构造函数
-        public Question(string name, string content, bool isChecked, string commandString)
-        {
-            Name = name;
-            Content = content;
-            IsChecked = isChecked;
-            CommandString = commandString;
-        }
-
-        // 无参构造函数
-        public Question() { }
     }
 }

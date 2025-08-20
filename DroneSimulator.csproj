@@ -7,19 +7,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
+    <!-- 确保程序集名称唯一 -->
+    <AssemblyName>康鹤多旋翼无人机检修平台</AssemblyName>
+    <RootNamespace>DroneSimulator</RootNamespace>
+    <!-- 添加应用程序图标 -->
+    <ApplicationIcon>Resources\shortcut_icon.ico</ApplicationIcon>
+    <Title>康鹤多旋翼无人机检修平台</Title>
   </PropertyGroup>
-
+	
   <ItemGroup>
-    <None Remove="Image1.png" />
-    <None Remove="Image2.png" />
-    <None Remove="Image3.png" />
-    <None Remove="Image4.png" />
-    <None Remove="Image5.png" />
-    <None Remove="Resources\aerospace-bg.jpg" />
-    <None Remove="Resources\aerospace-bg（2）.jpg" />
-    <None Remove="Resources\drone-icon-0.png" />
-    <None Remove="Resources\drone-icon.png" />
-  </ItemGroup>
+	<Resource Include="Resources\shortcut_icon.ico" />
+  </ItemGroup>  
 
   <ItemGroup>
     <Resource Include="Image1.png" />
@@ -35,13 +33,41 @@
   <ItemGroup>
     <Resource Include="Image4.png" />
     <Resource Include="Image5.png" />
+    <Resource Include="logo.png" />
     <Resource Include="Resources\aerospace-bg.jpg" />
     <Resource Include="Resources\aerospace-bg（2）.jpg" />
     <Resource Include="Resources\drone-icon-0.png" />
     <Resource Include="Resources\drone-icon.png" />
+    <Resource Include="Resources\logo.png" />
+    <Resource Include="扩展-飞控-电源.jpg" />
+    <Resource Include="飞控-电调-电机.jpg" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
     <None Update="serial_bridge.py">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

@@ -16,15 +16,6 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace DroneSimulator
 {
-    public class SerialPortConfig
-    {
-        public string PortName { get; set; } = "";
-        public int BaudRate { get; set; } = 9600;
-        // *** 关键改动：将枚举类型统一为新库的类型 ***
-        public RJCP.IO.Ports.Parity Parity { get; set; } = RJCP.IO.Ports.Parity.None;
-        public RJCP.IO.Ports.StopBits StopBits { get; set; } = RJCP.IO.Ports.StopBits.One;
-    }
-
     public partial class MainWindow : Window
     {
         public static SerialPortConfig SerialConfig = new SerialPortConfig();
@@ -65,14 +56,24 @@ namespace DroneSimulator
         // 禁用所有修复按钮
         private void DisableAllRepairButtons()
         {
-            // 遍历Canvas中的所有子元素，找到修复按钮并禁用
-            foreach (var child in ZoomCanvas.Children)
+            // 处理第一个页面的按钮
+            DisableCanvasButtons(ZoomCanvas);
+            // 处理第二个页面的按钮
+            DisableCanvasButtons(MotorCanvas);
+            // 处理第三个页面的按钮(如果需要)
+            DisableCanvasButtons(ExtensionCanvas);
+        }
+
+        private void DisableCanvasButtons(Canvas canvas)
+        {
+            if (canvas == null) return;
+
+            foreach (var child in canvas.Children)
             {
                 if (child is Button btn && btn.Content?.ToString() == "修  复")
                 {
                     btn.IsEnabled = false;
                     btn.Background = new SolidColorBrush(Colors.Gray);
-                    btn.Content = "已提交";
                 }
             }
         }
@@ -143,15 +144,21 @@ namespace DroneSimulator
         public MainWindow(UserInfo user)
         {
             InitializeComponent();
-            ZoomCanvas.MouseWheel += ZoomCanvas_MouseWheel;
-            MainScrollViewer.SizeChanged += MainScrollViewer_SizeChanged;
-
+            // 注册所有ScrollViewer的滚轮事件
+            MainScrollViewer.PreviewMouseWheel += ScrollViewer_PreviewMouseWheel;
+            MotorScrollViewer.PreviewMouseWheel += ScrollViewer_PreviewMouseWheel;
+            ExtensionScrollViewer.PreviewMouseWheel += ScrollViewer_PreviewMouseWheel;
             // 初始化计时器
             InitializeExamTimer();
 
+            // 添加窗口加载完成事件
+            this.Loaded += MainWindow_Loaded;
+
+            // 添加TabControl选择变化事件
+            MainTabControl.SelectionChanged += MainTabControl_SelectionChanged;
+
             this.Loaded += async(s, e) =>
             {
-                UpdateCanvasScale();
                 await ShowStudentAndExamInfoAsync();
             };
             currentUser = user;
@@ -161,6 +168,123 @@ namespace DroneSimulator
             {
                 // 学生用户可以看到TabControl，但功能有限
                 InitializeSerialPort();
+            }
+        }
+
+        // 窗口加载完成后自动缩放当前TabItem的Canvas
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            // 延迟执行，确保UI完全渲染
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                FitCanvasToView();
+            }), DispatcherPriority.Loaded);
+        }
+
+        // TabControl选择变化时自动缩放新选中的Canvas
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.Source == MainTabControl)
+            {
+                // 延迟执行，确保TabItem切换完成
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FitCanvasToView();
+                }), DispatcherPriority.Loaded);
+            }
+        }
+
+        // 自动缩放Canvas到视窗大小并居中
+        private void FitCanvasToView()
+        {
+            var selectedTabItem = MainTabControl.SelectedItem as TabItem;
+            if (selectedTabItem == null) return;
+
+            ScrollViewer? scrollViewer = null;
+            Canvas? canvas = null;
+            ScaleTransform? scaleTransform = null;
+
+            // 根据选中的TabItem确定对应的ScrollViewer、Canvas和ScaleTransform
+            if (selectedTabItem.Header.ToString() == "GPS～飞控～接收机")
+            {
+                scrollViewer = MainScrollViewer;
+                canvas = ZoomCanvas;
+                scaleTransform = CanvasScale;
+            }
+            else if (selectedTabItem.Header.ToString() == "电机～电调～飞控")
+            {
+                scrollViewer = MotorScrollViewer;
+                canvas = MotorCanvas;
+                scaleTransform = MotorCanvasScale;
+            }
+            else if (selectedTabItem.Header.ToString() == "扩展～飞控～电源")
+            {
+                scrollViewer = ExtensionScrollViewer;
+                canvas = ExtensionCanvas;
+                scaleTransform = ExtensionCanvasScale;
+            }
+
+            if (scrollViewer == null || canvas == null || scaleTransform == null) return;
+
+            // 获取ScrollViewer的可视区域大小
+            double viewportWidth = scrollViewer.ViewportWidth;
+            double viewportHeight = scrollViewer.ViewportHeight;
+
+            // 如果ViewportWidth/Height为0，使用ActualWidth/Height
+            if (viewportWidth == 0) viewportWidth = scrollViewer.ActualWidth;
+            if (viewportHeight == 0) viewportHeight = scrollViewer.ActualHeight;
+
+            // 如果仍然为0，说明控件还没有完全渲染，退出
+            if (viewportWidth <= 0 || viewportHeight <= 0) return;
+
+            // 计算缩放比例，保持宽高比
+            double scaleX = viewportWidth / canvas.Width;
+            double scaleY = viewportHeight / canvas.Height;
+            double scale = Math.Min(scaleX, scaleY) * 0.9; // 留10%边距
+
+            // 确保缩放比例不小于0.1
+            scale = Math.Max(0.1, scale);
+
+            // 应用缩放
+            scaleTransform.ScaleX = scale;
+            scaleTransform.ScaleY = scale;
+
+            // 重置ScrollViewer滚动位置到中心
+            scrollViewer.ScrollToHorizontalOffset((scrollViewer.ExtentWidth - scrollViewer.ViewportWidth) / 2);
+            scrollViewer.ScrollToVerticalOffset((scrollViewer.ExtentHeight - scrollViewer.ViewportHeight) / 2);
+        }
+
+        // 添加公共方法，允许手动调用缩放
+        public void ResetCanvasScale()
+        {
+            FitCanvasToView();
+        }
+
+        // 修改现有的滚轮缩放方法，添加边界检查
+        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                ScrollViewer scrollViewer = sender as ScrollViewer;
+                ScaleTransform scaleTransform = null;
+
+                if (scrollViewer == MainScrollViewer)
+                    scaleTransform = CanvasScale;
+                else if (scrollViewer == MotorScrollViewer)
+                    scaleTransform = MotorCanvasScale;
+                else if (scrollViewer == ExtensionScrollViewer)
+                    scaleTransform = ExtensionCanvasScale;
+
+                if (scaleTransform != null)
+                {
+                    double zoom = e.Delta > 0 ? 0.1 : -0.1;
+                    double newScaleX = Math.Max(0.1, Math.Min(5.0, scaleTransform.ScaleX + zoom));
+                    double newScaleY = Math.Max(0.1, Math.Min(5.0, scaleTransform.ScaleY + zoom));
+
+                    scaleTransform.ScaleX = newScaleX;
+                    scaleTransform.ScaleY = newScaleY;
+                    e.Handled = true;
+                }
             }
         }
 
@@ -283,8 +407,8 @@ namespace DroneSimulator
                                 _ => 1
                             };
 
-                            var checkedQuestions = latestExam.Questions.Where(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)).ToList();
-                            int total = checkedQuestions.Count;
+                            var allQuestions = latestExam.Questions.Where(q => !string.IsNullOrEmpty(q.CommandString)).ToList();
+                            int total = allQuestions.Count;
                             int done = 0;
                             LoadingProgressBar.Visibility = Visibility.Visible;
                             LoadingProgressBar.Value = 0;
@@ -292,11 +416,20 @@ namespace DroneSimulator
                             bool initializationSuccessful = true;
                             string errorMessage = "";
 
-                            foreach (var question in checkedQuestions)
+                            foreach (var question in allQuestions)
                             {
                                 try
                                 {
                                     string cmd = question.CommandString;
+
+                                    // 对未选中试题，指令第10位（下标9）改为 '0'
+                                    if (!question.IsChecked && !string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
+                                    {
+                                        var sb = new StringBuilder(cmd);
+                                        sb[9] = '0';
+                                        cmd = sb.ToString();
+                                    }
+                                    // 对选中试题，保持原始指令
 
                                     // 在后台线程执行串口操作
                                     string result = await Task.Run(() =>
@@ -310,17 +443,16 @@ namespace DroneSimulator
                                     }
                                     else
                                     {
-                                        // 记录错误信息，准备退出
                                         errorMessage = $"试题初始化失败：指令 {cmd} 未能成功发送。错误：{error}";
                                         initializationSuccessful = false;
-                                        break; // 退出foreach循环
+                                        break;
                                     }
                                 }
                                 catch (Exception ex)
                                 {
                                     errorMessage = $"串口发送异常：{ex.Message}";
                                     initializationSuccessful = false;
-                                    break; // 退出foreach循环
+                                    break;
                                 }
                             }
 
@@ -329,8 +461,6 @@ namespace DroneSimulator
                             {
                                 LoadingProgressText.Text = "试题加载完毕，设备初始化完成！";
                                 ExamMachineText.Text = "考试设备：正常";
-
-                                // 试题初始化完成，开始计时
                                 StartExamTimer();
                             }
                             else
@@ -355,50 +485,7 @@ namespace DroneSimulator
             }
         }
         
-        private void MainScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            UpdateCanvasScale();
-        }
-
-        private void UpdateCanvasScale()
-        {
-            // 获取ScrollViewer可视区域大小
-            double viewWidth = MainScrollViewer.ViewportWidth;
-            double viewHeight = MainScrollViewer.ViewportHeight;
-
-            // 如果ScrollViewer还没布局好，直接返回
-            if (viewWidth <= 0 || viewHeight <= 0) return;
-
-            // Canvas原始大小
-            double canvasWidth = ZoomCanvas.Width;
-            double canvasHeight = ZoomCanvas.Height;
-
-            // 计算缩放比例（宽高都适应，取较小值，防止变形）
-            double scaleX = viewWidth / canvasWidth;
-            double scaleY = viewHeight / canvasHeight;
-            double scale = Math.Min(scaleX, scaleY);
-
-            // 设置缩放
-            CanvasScale.ScaleX = scale;
-            CanvasScale.ScaleY = scale;
-        }
-
-        private void ZoomCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            // 获取当前缩放
-            var scale = (ScaleTransform)ZoomCanvas.LayoutTransform;
-            double zoom = e.Delta > 0 ? 1.1 : 0.9;
-            double newScaleX = scale.ScaleX * zoom;
-            double newScaleY = scale.ScaleY * zoom;
-
-            // 限制缩放范围
-            if (newScaleX < 0.2) newScaleX = newScaleY = 0.2;
-            if (newScaleX > 5.0) newScaleX = newScaleY = 5.0;
-
-            scale.ScaleX = newScaleX;
-            scale.ScaleY = newScaleY;
-        }
-
+        
         private void ShowAdminDialog()
         {
             var dlg = new AdminDialog();
@@ -413,12 +500,6 @@ namespace DroneSimulator
                 hwndSource.AddHook(WndProc);
         }
 
-        // 定义数据结构
-        public class ExamStatItem
-        {
-            public string Name { get; set; } = "";
-            public string Value { get; set; } = "";
-        }
 
         // 填充数据示例
         private void ShowExamStats(int total, int correct, int wrong, TimeSpan duration)
@@ -474,7 +555,28 @@ namespace DroneSimulator
 
             btn.IsEnabled = false;
 
+            // 调试信息1：显示按钮Tag和试卷信息
+            string debugInfo = $"按钮Tag: {questionName}\n";
+            debugInfo += $"试卷是否为空: {latestExam == null}\n";
+            debugInfo += $"Questions列表是否为空: {latestExam?.Questions == null}\n";
+            if (latestExam?.Questions != null)
+            {
+                debugInfo += $"Questions总数: {latestExam.Questions.Count}\n";
+                debugInfo += $"已选中Questions数: {latestExam.Questions.Count(q => q.IsChecked)}\n";
+            }
+
             var question = latestExam.Questions?.Find(q => q.Name == questionName);
+
+            // 调试信息2：Question查找结果
+            debugInfo += $"找到的Question: {question?.Name ?? "未找到"}\n";
+            if (question != null)
+            {
+                debugInfo += $"Question.IsChecked: {question.IsChecked}\n";
+                debugInfo += $"Question.CommandString: {question.CommandString ?? "空"}\n";
+            }
+
+            // MessageBox.Show(debugInfo, "调试信息", MessageBoxButton.OK, MessageBoxImage.Information);
+
 
             if (question != null && question.IsChecked)
             {
@@ -489,6 +591,11 @@ namespace DroneSimulator
                     try
                     {
                         string cmd = question.CommandString;
+
+                        // 调试信息3：指令处理前后
+                        // MessageBox.Show($"原始指令: {cmd}", "指令调试", MessageBoxButton.OK, MessageBoxImage.Information);
+
+
                         if (!string.IsNullOrEmpty(cmd) && cmd.Length >= 9)
                         {
                             var sb = new StringBuilder(cmd);
@@ -507,8 +614,10 @@ namespace DroneSimulator
                             return;
                         }
 
-                            // 读取串口配置
-                            var cfg = SerialConfig;
+                        // MessageBox.Show($"修改后指令: {cmd}", "指令调试", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                        // 读取串口配置
+                        var cfg = SerialConfig;
                         // parity 转换为 N/E/O/M/S
                         string parity = cfg.Parity switch
                         {
@@ -528,6 +637,10 @@ namespace DroneSimulator
                         };
 
                         string result = SendSerialByPython(cfg.PortName, cfg.BaudRate, parity, stopbits, cmd);
+                        // 调试信息4：串口发送结果
+                        // MessageBox.Show($"串口发送结果: {result}", "串口调试", MessageBoxButton.OK, MessageBoxImage.Information);
+
+
                         if (IsSerialWriteSuccessful(result, out string error, out string received))
                         {
                             ;// MessageBox.Show($"修复指令发送成功：{cmd}\n接收数据：{received}", "操作成功", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -625,6 +738,9 @@ namespace DroneSimulator
         {
             // 停止计时
             StopExamTimer();
+
+            // 设置对话框结果并关闭
+            this.DialogResult = false;
             this.Close();
         }
     }

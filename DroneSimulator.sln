@@ -5,8 +5,6 @@ VisualStudioVersion = 17.14.36212.18
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DroneSimulator", "DroneSimulator.csproj", "{5EDD3E44-ECE3-44D4-922C-E1CCFEC952A7}"
 EndProject
-Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "DroneSetup", "..\DroneSetup\DroneSetup.vdproj", "{DF2121F8-45E4-B04D-C367-76C30045CE33}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,16 +39,6 @@ Global
 		{5EDD3E44-ECE3-44D4-922C-E1CCFEC952A7}.Release|x64.Build.0 = Release|Any CPU
 		{5EDD3E44-ECE3-44D4-922C-E1CCFEC952A7}.Release|x86.ActiveCfg = Release|Any CPU
 		{5EDD3E44-ECE3-44D4-922C-E1CCFEC952A7}.Release|x86.Build.0 = Release|Any CPU
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Debug|Any CPU.ActiveCfg = Debug
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Debug|ARM.ActiveCfg = Debug
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Debug|ARM64.ActiveCfg = Debug
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Debug|x64.ActiveCfg = Debug
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Debug|x86.ActiveCfg = Debug
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Release|Any CPU.ActiveCfg = Release
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Release|ARM.ActiveCfg = Release
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Release|ARM64.ActiveCfg = Release
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Release|x64.ActiveCfg = Release
-		{DF2121F8-45E4-B04D-C367-76C30045CE33}.Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

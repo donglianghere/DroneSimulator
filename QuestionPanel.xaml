@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:DroneSimulator"
         Title="出题窗口" Height="Auto" Width="Auto"
-        WindowStyle="None" WindowState="Maximized"
+        WindowStyle="SingleBorderWindow" WindowState="Maximized" ShowInTaskbar="True"
         Background="#FFFFFF">
     <Window.Resources>
         <!-- GroupBox 样式 -->
@@ -18,10 +18,10 @@
                         <Border BorderBrush="#23395d" BorderThickness="2" CornerRadius="6" Background="#F8F9FA">
                             <StackPanel>
                                 <TextBlock Text="{TemplateBinding Header}"
-                                   Foreground="#23395d"
-                                   FontWeight="Bold"
-                                   FontSize="18"
-                                   Margin="12,8,0,8"/>
+                                           Foreground="#23395d"
+                                           FontWeight="Bold"
+                                           FontSize="18"
+                                           Margin="12,8,0,8"/>
                                 <ContentPresenter Margin="12,0,12,12"/>
                             </StackPanel>
                         </Border>
@@ -44,13 +44,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#2D3A4A"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#2D3A4A"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -72,9 +72,9 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" 
-                        BorderBrush="{TemplateBinding BorderBrush}" 
-                        BorderThickness="{TemplateBinding BorderThickness}" 
-                        CornerRadius="4">
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="4">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -109,13 +109,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#23395d"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#23395d"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -134,13 +134,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#7B341E"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#7B341E"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -159,13 +159,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#226644"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#226644"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -184,13 +184,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#1B4965"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#1B4965"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -209,13 +209,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#7C4700"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#7C4700"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -234,13 +234,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#4B3869"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#4B3869"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -259,13 +259,13 @@
                                 </DockPanel>
                             </Border>
                             <TextBlock Text="{TemplateBinding Header}" 
-                               Foreground="#B22222"
-                               Background="#F8F9FA"
-                               FontWeight="Bold"
-                               FontSize="18"
-                               Margin="16,0,0,0"
-                               Padding="4,0"
-                               VerticalAlignment="Top"/>
+                                       Foreground="#B22222"
+                                       Background="#F8F9FA"
+                                       FontWeight="Bold"
+                                       FontSize="18"
+                                       Margin="16,0,0,0"
+                                       Padding="4,0"
+                                       VerticalAlignment="Top"/>
                         </Grid>
                     </ControlTemplate>
                 </Setter.Value>
@@ -288,19 +288,19 @@
                 </Grid.ColumnDefinitions>
                 <!-- 标题跨两列，整行居中 -->
                 <TextBlock Grid.Column="0" Grid.ColumnSpan="2"
-               Text="题库面板"
-               FontSize="24"
-               FontWeight="Bold"
-               Foreground="#23395d"
-               Margin="0,20,0,0"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Top"/>
+                           Text="题库面板"
+                           FontSize="24"
+                           FontWeight="Bold"
+                           Foreground="#23395d"
+                           Margin="0,20,0,0"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Top"/>
                 <!-- 右侧RadioButton组 -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,20,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <RadioButton x:Name="SelectAllRadio" Content="全选  " Margin="0,0,10,0"
-                     GroupName="SelectGroup" Checked="SelectAllRadio_Checked" FontSize="20"/>
+                                 GroupName="SelectGroup" Checked="SelectAllRadio_Checked" FontSize="20"/>
                     <RadioButton x:Name="ClearAllRadio" Content="清空       "
-                     GroupName="SelectGroup" Checked="ClearAllRadio_Checked" FontSize="20"/>
+                                 GroupName="SelectGroup" Checked="ClearAllRadio_Checked" FontSize="20"/>
                 </StackPanel>
             </Grid>
             <!-- 可滚动内容，顶部留出空间避免被标题遮挡 -->
@@ -498,58 +498,68 @@
         </Grid>
         <!-- 右侧控制面板 -->
         <Border Grid.Column="1" Background="#90C0A0" Margin="10">
-            <StackPanel Margin="20">
+            <DockPanel>
+                <!-- 标题固定在顶部，不随滚动 -->
                 <TextBlock Text="试卷面板" FontSize="24" FontWeight="Bold"
-                 HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                   HorizontalAlignment="Center" Margin="0,10,0,15"
+                   DockPanel.Dock="Top"/>
 
-                <!-- 教师信息显示区 -->
-                <GroupBox Header="教师信息" Padding="10" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                    <StackPanel>
-                        <TextBlock x:Name="TeacherNameText" Text="姓名：" FontSize="20"  FontWeight="Normal"/>
-                        <TextBlock x:Name="TeacherIdText" Text="工号：" FontSize="20" Margin="0,10,0,0"  FontWeight="Normal"/>
+                <!-- 按钮固定在底部，不随滚动 -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="20,10,20,10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button x:Name="DeleteButton" Content="删 除 试 卷" Height="40" Background="#F44336" Foreground="White"
+                                FontSize="20" Style="{StaticResource SeriousButton}" Click="DeleteButton_Click" Width="150"/>
+                        <Button x:Name="GenerateButton" Content="生 成 试 卷" Height="40"
+                                Margin="0,10,10,0" Background="#2196F3" Foreground="White"
+                                FontSize="20" Style="{StaticResource SeriousButton}" Click="GenerateButton_Click" Width="150"/>
                     </StackPanel>
-                </GroupBox>
 
-                <!-- 试卷名称输入 -->
-                <GroupBox Header="试卷信息" Padding="10" Margin="0,0,0,5" Style="{StaticResource ClosedGroupBox}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="试卷名称：" FontSize="20" Margin="0,0,0,5"  FontWeight="Normal"/>
-                        <TextBox x:Name="ExamNameBox" Grid.Row="1" Height="30"/>
-                    </Grid>
-                </GroupBox>
-
-                <!-- 试卷列表 -->
-                <GroupBox Header="试卷列表" Padding="10" Margin="0,5,0,5" FontSize="13" Style="{StaticResource ClosedGroupBox}">
-                    <StackPanel>
-                        <ListBox x:Name="ExamList" Height="300" FontSize="20" 
-                                    SelectionChanged="ExamList_SelectionChanged"/>
-                        <Border BorderBrush="#23395d" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,10,0,0" Background="#F8F9FA">
-                            <TextBlock x:Name="ExamSummaryText"
-                                       FontSize="16"
-                                       Foreground="#23395d"
-                                       TextWrapping="Wrap"
-                                       MinHeight="150"/>
-                        </Border>
-                    </StackPanel>
-                </GroupBox>
-
-                <!-- 控制按钮 -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="DeleteButton" Content="删 除 试 卷" Height="40" Background="#F44336" Foreground="White"
-                            FontSize="20" Style="{StaticResource SeriousButton}" Click="DeleteButton_Click" Width="150"/>
-                    <Button x:Name="GenerateButton" Content="生 成 试 卷" Height="40"
-                            Margin="0,10,10,0" Background="#2196F3" Foreground="White"
-                            FontSize="20" Style="{StaticResource SeriousButton}" Click="GenerateButton_Click" Width="150"/>
+                    <Button x:Name="ExitButton" Content="退    出" Height="40"
+                            Margin="15,10,15,0" Background="#FF4081" Foreground="White"
+                            FontSize="20" Style="{StaticResource SeriousButton}" Click="ExitButton_Click"/>
                 </StackPanel>
 
-                <Button x:Name="ExitButton" Content="退    出" Height="40"
-                Margin="15,10,15,0" Background="#FF4081" Foreground="White"
-				FontSize="20" Style="{StaticResource SeriousButton}" Click="ExitButton_Click"/>
-            </StackPanel>
+                <!-- 中间内容区域可滚动 -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                              Margin="20,0,20,0">
+                    <StackPanel>
+                        <!-- 教师信息显示区 -->
+                        <GroupBox Header="教师信息" Padding="10" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
+                            <StackPanel>
+                                <TextBlock x:Name="TeacherNameText" Text="姓名：" FontSize="20"  FontWeight="Normal"/>
+                                <TextBlock x:Name="TeacherIdText" Text="工号：" FontSize="20" Margin="0,10,0,0"  FontWeight="Normal"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- 试卷名称输入 -->
+                        <GroupBox Header="试卷信息" Padding="10" Margin="0,0,0,5" Style="{StaticResource ClosedGroupBox}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="试卷名称：" FontSize="20" Margin="0,0,0,5"  FontWeight="Normal"/>
+                                <TextBox x:Name="ExamNameBox" Grid.Row="1" Height="30"/>
+                            </Grid>
+                        </GroupBox>
+
+                        <!-- 试卷列表 -->
+                        <GroupBox Header="试卷列表" Padding="10" Margin="0,5,0,5" FontSize="13" Style="{StaticResource ClosedGroupBox}">
+                            <StackPanel>
+                                <ListBox x:Name="ExamList" Height="300" FontSize="20" 
+                                         SelectionChanged="ExamList_SelectionChanged"/>
+                                <Border BorderBrush="#23395d" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,10,0,0" Background="#F8F9FA">
+                                    <TextBlock x:Name="ExamSummaryText"
+                                               FontSize="16"
+                                               Foreground="#23395d"
+                                               TextWrapping="Wrap"
+                                               MinHeight="150"/>
+                                </Border>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
     </Grid>
 </Window>
