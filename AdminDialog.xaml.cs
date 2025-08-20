@@ -1,5 +1,4 @@
-﻿using RJCP.IO.Ports;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.IO.Ports;
@@ -8,7 +7,6 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using RjcpPorts = RJCP.IO.Ports;
 
 namespace DroneSimulator
 {
@@ -65,8 +63,8 @@ namespace DroneSimulator
 
         private void AdminDialog_Loaded(object sender, RoutedEventArgs e)
         {
-            // 3. 使用新库的方法获取串口列表
-            PortComboBox.ItemsSource = System.IO.Ports.SerialPort.GetPortNames();
+            // 使用System.IO.Ports获取串口列表
+            PortComboBox.ItemsSource = SerialPort.GetPortNames();
 
             int defaultBaudIndex = 0;
             int defaultParityIndex = 0;
@@ -120,8 +118,8 @@ namespace DroneSimulator
                 return;
             }
 
-            // 4. 使用新库的 "using" 模式来测试端口，确保资源被释放
-            using (var testPort = new RjcpPorts.SerialPortStream())
+            // 使用System.IO.Ports.SerialPort测试端口
+            using (var testPort = new SerialPort())
             {
                 try
                 {
@@ -134,7 +132,7 @@ namespace DroneSimulator
                 {
                     MessageBox.Show($"串口打开失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
-            } // testPort 在这里会自动关闭和释放
+            }
         }
 
         private void SaveConfig_Click(object sender, RoutedEventArgs e)
@@ -143,9 +141,8 @@ namespace DroneSimulator
             {
                 PortName = PortComboBox.Text,
                 BaudRate = int.Parse(BaudRateComboBox.Text),
-                // *** 关键改动：保存时，也使用新库的枚举类型 ***
-                Parity = (RjcpPorts.Parity)ParityComboBox.SelectedIndex,
-                StopBits = (RjcpPorts.StopBits)StopBitsComboBox.SelectedIndex
+                Parity = (Parity)ParityComboBox.SelectedIndex,
+                StopBits = (StopBits)StopBitsComboBox.SelectedIndex
             };
 
             string json = JsonSerializer.Serialize(config);
@@ -238,7 +235,7 @@ namespace DroneSimulator
             if (dlg.ShowDialog() == true)
             {
                 selected.Password = dlg.NewPassword;
-                UserManager.UpdateUserPassword(selected.IdNumber, selected.Type, dlg.NewPassword); // 你需实现此方法
+                UserManager.UpdateUserPassword(selected.IdNumber, selected.Type, dlg.NewPassword);
                 MessageBox.Show("密码修改成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }

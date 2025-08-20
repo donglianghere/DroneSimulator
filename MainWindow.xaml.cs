@@ -1,18 +1,18 @@
 ﻿using DroneSimulator;
-using RJCP.IO.Ports;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace DroneSimulator
 {
@@ -35,6 +35,7 @@ namespace DroneSimulator
 
         // 添加考试状态变量
         private bool isExamSubmitted = false;
+
         // 添加计算分数的方法
         private int CalculateExamScore()
         {
@@ -78,34 +79,6 @@ namespace DroneSimulator
             }
         }
 
-        // 发送串口数据的Python脚本
-        private string SendSerialByPython(string port, int baudrate, string parity, double stopbits, string data)
-        {
-            string pythonExe = "python"; // 或指定绝对路径
-            string script = "serial_bridge.py";
-            string args = $"send {port} {baudrate} {parity} {stopbits} \"{data.Replace("\"", "\\\"")}\"";
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = pythonExe,
-                Arguments = $"{script} {args}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(psi);
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
-
-            if (!string.IsNullOrEmpty(error))
-                throw new Exception("Python错误: " + error);
-
-            return output;
-        }
-
         private bool IsSerialWriteSuccessful(string result, out string errorMessage, out string receivedData)
         {
             errorMessage = "";
@@ -141,6 +114,43 @@ namespace DroneSimulator
             }
         }
 
+        // 使用 System.IO.Ports 发送串口数据
+        private string SendSerialData(string portName, int baudRate, Parity parity, StopBits stopBits, string data)
+        {
+            try
+            {
+                using var serialPort = new SerialPort(portName, baudRate, parity, 8, stopBits)
+                {
+                    ReadTimeout = 3000,  // 3秒读取超时
+                    WriteTimeout = 3000  // 3秒写入超时
+                };
+
+                serialPort.Open();
+
+                // 发送数据
+                serialPort.Write(data);
+
+                // 等待并读取响应
+                Thread.Sleep(100); // 短暂等待设备响应
+
+                string receivedData = "";
+                if (serialPort.BytesToRead > 0)
+                {
+                    receivedData = serialPort.ReadExisting();
+                }
+
+                serialPort.Close();
+
+                // 返回JSON格式的成功结果，保持与原有代码兼容
+                return JsonSerializer.Serialize(new { result = "ok", recv = receivedData });
+            }
+            catch (Exception ex)
+            {
+                // 返回JSON格式的错误结果，保持与原有代码兼容
+                return JsonSerializer.Serialize(new { error = ex.Message });
+            }
+        }
+
         public MainWindow(UserInfo user)
         {
             InitializeComponent();
@@ -157,7 +167,7 @@ namespace DroneSimulator
             // 添加TabControl选择变化事件
             MainTabControl.SelectionChanged += MainTabControl_SelectionChanged;
 
-            this.Loaded += async(s, e) =>
+            this.Loaded += async (s, e) =>
             {
                 await ShowStudentAndExamInfoAsync();
             };
@@ -386,27 +396,10 @@ namespace DroneSimulator
                         int totalQuestions = latestExam.Questions?.Count(q => q.IsChecked) ?? 0;
                         ShowExamStats(totalQuestions, 0, 0, TimeSpan.Zero);
 
-                        // 设备初始化（如需异步，建议用Task.Run包裹耗时操作）
+                        // 设备初始化
                         if (latestExam?.Questions != null)
                         {
                             var cfg = SerialConfig;
-                            string parity = cfg.Parity switch
-                            {
-                                RJCP.IO.Ports.Parity.None => "N",
-                                RJCP.IO.Ports.Parity.Even => "E",
-                                RJCP.IO.Ports.Parity.Odd => "O",
-                                RJCP.IO.Ports.Parity.Mark => "M",
-                                RJCP.IO.Ports.Parity.Space => "S",
-                                _ => "N"
-                            };
-                            double stopbits = cfg.StopBits switch
-                            {
-                                RJCP.IO.Ports.StopBits.One5 => 1.5,
-                                RJCP.IO.Ports.StopBits.One => 1,
-                                RJCP.IO.Ports.StopBits.Two => 2,
-                                _ => 1
-                            };
-
                             var allQuestions = latestExam.Questions.Where(q => !string.IsNullOrEmpty(q.CommandString)).ToList();
                             int total = allQuestions.Count;
                             int done = 0;
@@ -429,11 +422,10 @@ namespace DroneSimulator
                                         sb[9] = '0';
                                         cmd = sb.ToString();
                                     }
-                                    // 对选中试题，保持原始指令
 
                                     // 在后台线程执行串口操作
                                     string result = await Task.Run(() =>
-                                        SendSerialByPython(cfg.PortName, cfg.BaudRate, parity, stopbits, cmd));
+                                        SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd));
 
                                     // 在UI线程处理结果
                                     if (IsSerialWriteSuccessful(result, out string error, out string received))
@@ -484,8 +476,8 @@ namespace DroneSimulator
                 }
             }
         }
-        
-        
+
+
         private void ShowAdminDialog()
         {
             var dlg = new AdminDialog();
@@ -499,7 +491,6 @@ namespace DroneSimulator
             if (hwndSource != null)
                 hwndSource.AddHook(WndProc);
         }
-
 
         // 填充数据示例
         private void ShowExamStats(int total, int correct, int wrong, TimeSpan duration)
@@ -518,7 +509,7 @@ namespace DroneSimulator
         private void UpdateExamStats()
         {
             int totalQuestions = latestExam?.Questions?.Count(q => q.IsChecked) ?? 0;
-            var duration = GetElapsedExamTime(); // 这里可以根据需要计算实际答题时间
+            var duration = GetElapsedExamTime();
             ShowExamStats(totalQuestions, correctAnswers, wrongAnswers, duration);
         }
 
@@ -533,7 +524,7 @@ namespace DroneSimulator
                 return IntPtr.Zero;
             }
             return IntPtr.Zero;
-        }        
+        }
 
         protected override void OnClosed(EventArgs e)
         {
@@ -555,28 +546,7 @@ namespace DroneSimulator
 
             btn.IsEnabled = false;
 
-            // 调试信息1：显示按钮Tag和试卷信息
-            string debugInfo = $"按钮Tag: {questionName}\n";
-            debugInfo += $"试卷是否为空: {latestExam == null}\n";
-            debugInfo += $"Questions列表是否为空: {latestExam?.Questions == null}\n";
-            if (latestExam?.Questions != null)
-            {
-                debugInfo += $"Questions总数: {latestExam.Questions.Count}\n";
-                debugInfo += $"已选中Questions数: {latestExam.Questions.Count(q => q.IsChecked)}\n";
-            }
-
             var question = latestExam.Questions?.Find(q => q.Name == questionName);
-
-            // 调试信息2：Question查找结果
-            debugInfo += $"找到的Question: {question?.Name ?? "未找到"}\n";
-            if (question != null)
-            {
-                debugInfo += $"Question.IsChecked: {question.IsChecked}\n";
-                debugInfo += $"Question.CommandString: {question.CommandString ?? "空"}\n";
-            }
-
-            // MessageBox.Show(debugInfo, "调试信息", MessageBoxButton.OK, MessageBoxImage.Information);
-
 
             if (question != null && question.IsChecked)
             {
@@ -592,10 +562,6 @@ namespace DroneSimulator
                     {
                         string cmd = question.CommandString;
 
-                        // 调试信息3：指令处理前后
-                        // MessageBox.Show($"原始指令: {cmd}", "指令调试", MessageBoxButton.OK, MessageBoxImage.Information);
-
-
                         if (!string.IsNullOrEmpty(cmd) && cmd.Length >= 9)
                         {
                             var sb = new StringBuilder(cmd);
@@ -608,42 +574,16 @@ namespace DroneSimulator
                             btn.IsEnabled = true;
                             btn.Background = new SolidColorBrush(Colors.Goldenrod);
                             btn.Content = "修  复";
-
-                            // 回退正确答题计数
                             correctAnswers--;
                             return;
                         }
 
-                        // MessageBox.Show($"修改后指令: {cmd}", "指令调试", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                        // 读取串口配置
                         var cfg = SerialConfig;
-                        // parity 转换为 N/E/O/M/S
-                        string parity = cfg.Parity switch
-                        {
-                            RJCP.IO.Ports.Parity.None => "N",
-                            RJCP.IO.Ports.Parity.Even => "E",
-                            RJCP.IO.Ports.Parity.Odd => "O",
-                            RJCP.IO.Ports.Parity.Mark => "M",
-                            RJCP.IO.Ports.Parity.Space => "S",
-                            _ => "N"
-                        };
-                        double stopbits = cfg.StopBits switch
-                        {
-                            RJCP.IO.Ports.StopBits.One5 => 1.5,
-                            RJCP.IO.Ports.StopBits.One => 1,
-                            RJCP.IO.Ports.StopBits.Two => 2,
-                            _ => 1
-                        };
-
-                        string result = SendSerialByPython(cfg.PortName, cfg.BaudRate, parity, stopbits, cmd);
-                        // 调试信息4：串口发送结果
-                        // MessageBox.Show($"串口发送结果: {result}", "串口调试", MessageBoxButton.OK, MessageBoxImage.Information);
-
+                        string result = SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd);
 
                         if (IsSerialWriteSuccessful(result, out string error, out string received))
                         {
-                            ;// MessageBox.Show($"修复指令发送成功：{cmd}\n接收数据：{received}", "操作成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                            // 修复成功
                         }
                         else
                         {
@@ -651,12 +591,10 @@ namespace DroneSimulator
                             btn.IsEnabled = true;
                             btn.Background = new SolidColorBrush(Colors.Goldenrod);
                             btn.Content = "修  复";
-
-                            // 回退正确答题计数
                             correctAnswers--;
                             return;
                         }
-                        
+
                     }
                     catch (Exception ex)
                     {
@@ -664,7 +602,6 @@ namespace DroneSimulator
                         btn.IsEnabled = true;
                         btn.Background = new SolidColorBrush(Colors.Goldenrod);
                         btn.Content = "修  复";
-                        // 回退正确答题计数
                         correctAnswers--;
                         return;
                     }
@@ -674,7 +611,6 @@ namespace DroneSimulator
             {
                 btn.Content = "误修复";
                 btn.Background = new SolidColorBrush(Colors.IndianRed);
-                // 增加误答题计数
                 wrongAnswers++;
                 MessageBox.Show("请仔细检查，该连接不需要修复！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -684,7 +620,6 @@ namespace DroneSimulator
         }
 
         // 提交与退出按钮事件
-        // 修改提交按钮事件
         private void SubmitButton_Click(object sender, RoutedEventArgs e)
         {
             // 防止重复提交
