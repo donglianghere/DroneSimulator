@@ -13,11 +13,153 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using AutoPilot.Parameters;   
 
 namespace DroneSimulator
 {
     public partial class MainWindow : Window
     {
+        // ========== 使用 FcuOperate 提供的 ParameterService 重写电机测试 ==========
+        private ParameterService? _fcService;
+
+        // 电机测试初始化
+        // 修改初始化方法支持取消令牌
+        private async Task<bool> InitFlightControllerAsync(CancellationToken cancellationToken = default)
+        {
+            if (_fcService != null && _fcService.IsConnected) return true;
+
+            try
+            {
+                _fcService = new ParameterService();
+
+                // 注册状态事件...
+                _fcService.StatusChanged += (s, e) =>
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (MotorTestStatusText != null)
+                        {
+                            MotorTestStatusText.Text = $"状态：{e.Message}";
+                        }
+                    });
+                };
+
+                // 添加超时保护的连接
+                bool ok = await _fcService.ConnectAsync("COM7", 115200).ConfigureAwait(false);
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    MotorTestStatusText.Text = $"状态：初始化失败 - {ex.Message}";
+                });
+                return false;
+            }
+        }
+
+        // 发送单个电机测试
+        private async Task<bool> SendMotorTestAsync(byte motorNumber, int throttlePercent = 50, int durationSeconds = 5)
+        {
+            if (_fcService == null || !_fcService.IsConnected)
+            {
+                await InitFlightControllerAsync();
+                if (_fcService == null || !_fcService.IsConnected)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        MotorTestStatusText.Text = "状态：未连接飞控，无法测试";
+                        MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Crimson);
+                    });
+                    return false;
+                }
+            }
+
+            // 可在此处提示确保已解锁（如需要自动解锁可调用 _fcService.ArmAsync(true)）
+            return await _fcService.MotorTestAsync(motorNumber, throttlePercent, durationSeconds);
+        }
+
+        // 顺序测试全部电机
+        private async Task RunAllMotorsSequentialAsync(int throttlePercent = 60, int durationSeconds = 5, int gapMs = 500)
+        {
+            for (byte m = 1; m <= 4; m++)
+            {
+                bool ok = await SendMotorTestAsync(m, throttlePercent, durationSeconds);
+                if (!ok) break;
+                await Task.Delay(gapMs);
+            }
+            Dispatcher.Invoke(() =>
+            {
+                MotorTestStatusText.Text += " | 全部完成";
+            });
+        }
+
+        // 按钮事件——测试单个电机
+        private async void MotorTestButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && byte.TryParse(btn.Tag?.ToString(), out byte motor))
+            {
+                btn.IsEnabled = false;
+
+                try
+                {
+                    // 添加超时保护
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+                    // 先确保已连接
+                    if (_fcService == null || !_fcService.IsConnected)
+                    {
+                        MotorTestStatusText.Text = "状态：正在连接...";
+                        bool connected = await InitFlightControllerAsync(cts.Token);
+                        if (!connected)
+                        {
+                            MotorTestStatusText.Text = "状态：连接失败";
+                            return;
+                        }
+                    }
+
+                    MotorTestStatusText.Text = $"状态：正在测试电机{motor}...";
+                    bool ok = await _fcService.MotorTestAsync(motor, 35, 4).ConfigureAwait(false);
+                    MotorTestStatusText.Text = ok ? $"状态：电机{motor}测试完成" : $"状态：电机{motor}测试失败";
+                }
+                catch (OperationCanceledException)
+                {
+                    MotorTestStatusText.Text = "状态：操作超时";
+                }
+                catch (Exception ex)
+                {
+                    MotorTestStatusText.Text = $"状态：错误 - {ex.Message}";
+                }
+                finally
+                {
+                    await Task.Delay(500);
+                    btn.IsEnabled = true;
+                }
+            }
+        }
+
+        // 按钮事件——测试全部电机
+        private async void MotorTestAllButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                btn.IsEnabled = false;
+                if (_fcService == null || !_fcService.IsConnected)
+                    await InitFlightControllerAsync();
+
+                // await _fcService.ArmAsync(true);
+
+                for (byte m = 1; m <= 4; m++)
+                {
+                    await _fcService.MotorTestAsync(m, 35, 3);
+                    await Task.Delay(700);
+                }
+                MotorTestStatusText.Text += " | 顺序测试完成";
+                btn.IsEnabled = true;
+            }
+        }
+
+
         public static SerialPortConfig SerialConfig = new SerialPortConfig();
 
         private UserInfo currentUser;
@@ -172,12 +314,38 @@ namespace DroneSimulator
                 await ShowStudentAndExamInfoAsync();
             };
             currentUser = user;
-            // 你可以在这里根据 currentUser 做初始化
-            // 修正：根据用户类型初始化相应界面
+
+            // 检查COM7是否可用
+            CheckSerialPortAvailability();
+
             if (user.Type == UserType.Student)
             {
                 // 学生用户可以看到TabControl，但功能有限
                 InitializeSerialPort();
+            }
+        }
+
+        private void CheckSerialPortAvailability()
+        {
+            try
+            {
+                var availablePorts = SerialPort.GetPortNames();
+                if (!availablePorts.Contains("COM7"))
+                {
+                    // 更新UI显示端口不可用
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (MotorTestStatusText != null)
+                        {
+                            MotorTestStatusText.Text = "状态：COM7端口不可用";
+                            MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"检查串口失败: {ex.Message}");
             }
         }
 

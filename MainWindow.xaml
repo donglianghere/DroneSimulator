@@ -67,7 +67,7 @@
 
             <!-- 右侧 - 控制面板 -->
             <!-- 左侧 - TabControl -->
-            <TabControl x:Name="MainTabControl" Grid.Column="0" Margin="0">   
+            <TabControl x:Name="MainTabControl" Grid.Column="0" Margin="0">
                 <!-- 第一个页面 -->
                 <TabItem Header="电机～电调～飞控" Height="19" VerticalAlignment="Bottom">
                     <ScrollViewer x:Name="MotorScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
@@ -76,7 +76,24 @@
                                 <ScaleTransform x:Name="MotorCanvasScale" ScaleX="1" ScaleY="1"/>
                             </Canvas.LayoutTransform>
                             <!-- 底图 -->
-                            <Image Source="/飞控-电调-电机.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
+                            <Image Source="/Resources/飞控-电调-电机.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
+
+                            <!--  ========= 新增 电机测试 按钮区域 ========= -->
+                            <Border Canvas.Left="541" Width="580" Height="246" Background="#CCFFFFFF" CornerRadius="12" BorderBrush="#888" BorderThickness="1" Padding="10" Panel.ZIndex="20" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="-240">
+                                <StackPanel Margin="6,0,-6,0">
+                                    <TextBlock Text="电机测试" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,6" Foreground="#2D3A4A"/>
+                                    <WrapPanel Margin="0,4,0,0">
+                                        <Button x:Name="BtnMotor1" FontSize="25"  Content="M1 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="1"/>
+                                        <Button x:Name="BtnMotor3" FontSize="25"  Content="M2 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="3"/>
+                                        <Button x:Name="BtnMotor4" FontSize="25"  Content="M3 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="4"/>
+                                        <Button x:Name="BtnMotor2" FontSize="25"  Content="M4 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="2"/>
+                                        <Button x:Name="BtnAllMotors" FontSize="25"  Content="全 部 电 机" Width="544" Height="46" Background="Orange" Click="MotorTestAllButton_Click" Tag="ALL"/>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="MotorTestStatusText" Text="状态：未测试" FontSize="20" Margin="4,10,0,0" Foreground="DarkSlateGray"/>
+                                    <TextBlock Text="提示：确保已拆除桨叶再测试。" FontSize="20" Foreground="Crimson" Margin="4,2,0,0"/>
+                                </StackPanel>
+                            </Border>
+
                             <Button Content="修  复" Tag="M3_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="458" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="8"/>
                             <Button Content="修  复" Tag="M3_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="324" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="52"/>
                             <Button Content="修  复" Tag="M3_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="212" Click="RepairButton_Click" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="98"/>
@@ -149,9 +166,9 @@
                             <Button Content="修  复" Tag="Receiver_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="287" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
                             <Button Content="修  复" Tag="Receiver_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="363" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
                             <Button Content="修  复" Tag="Receiver_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="444" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Image Panel.ZIndex="1" Height="350" Source="/Image3.png" Stretch="Fill" Width="148" Canvas.Left="1381" Canvas.Top="167" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Image Panel.ZIndex="1" Height="308" Source="/Image4.png" Stretch="Fill" Width="301" Canvas.Left="34" Canvas.Top="248" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Image x:Name="V5" Panel.ZIndex="1" Height="402" Source="/Image5.png" Stretch="Fill" Width="246" Canvas.Left="699" Canvas.Top="187" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <Image Panel.ZIndex="1" Height="350" Source="/Resources/Image3.png" Stretch="Fill" Width="148" Canvas.Left="1381" Canvas.Top="167" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <Image Panel.ZIndex="1" Height="308" Source="/Resources/Image4.png" Stretch="Fill" Width="301" Canvas.Left="34" Canvas.Top="248" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                            <Image x:Name="V5" Panel.ZIndex="1" Height="402" Source="/Resources/Image5.png" Stretch="Fill" Width="246" Canvas.Left="699" Canvas.Top="187" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                             <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" Stroke="Black" Canvas.Top="254" Width="235" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                             <Label Panel.ZIndex="1" Content="RX" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="334" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
                             <Label Panel.ZIndex="1" Content="TX" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="424" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
@@ -191,7 +208,7 @@
                             </Canvas.LayoutTransform>
                             <!-- 这里放置第三个页面的内容 -->
                             <!-- 底图 -->
-                            <Image Source="/扩展-飞控-电源.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
+                            <Image Source="/Resources/扩展-飞控-电源.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
                             <Button Content="修  复" Tag="S7_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" Click="RepairButton_Click" Canvas.Top="565" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                             <Button Content="修  复" Tag="S8_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" Click="RepairButton_Click" Canvas.Top="498" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                             <Button Content="修  复" Tag="S8_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="124" Click="RepairButton_Click" Canvas.Top="452" HorizontalAlignment="Left" VerticalAlignment="Center"/>

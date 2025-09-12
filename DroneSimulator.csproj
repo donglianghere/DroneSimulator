@@ -14,33 +14,39 @@
     <ApplicationIcon>Resources\shortcut_icon.ico</ApplicationIcon>
     <Title>康鹤多旋翼无人机检修平台</Title>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="ArduPilot.Core\**" />
+    <EmbeddedResource Remove="ArduPilot.Core\**" />
+    <None Remove="ArduPilot.Core\**" />
+    <Page Remove="ArduPilot.Core\**" />
+  </ItemGroup>
 	
   <ItemGroup>
 	<Resource Include="Resources\shortcut_icon.ico" />
   </ItemGroup>  
 
   <ItemGroup>
-    <Resource Include="Image1.png" />
-    <Resource Include="Image2.png" />
-    <Resource Include="Image3.png" />
+    <Resource Include="Resources\Image1.png" />
+    <Resource Include="Resources\Image2.png" />
+    
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="RJCP.SerialPortStream" Version="3.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.IO.Ports" Version="9.0.6" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Image4.png" />
-    <Resource Include="Image5.png" />
-    <Resource Include="logo.png" />
+	<Resource Include="Resources\Image3.png" />
+    <Resource Include="Resources\Image4.png" />
+    <Resource Include="Resources\Image5.png" />	
     <Resource Include="Resources\aerospace-bg.jpg" />
-    <Resource Include="Resources\aerospace-bg（2）.jpg" />
     <Resource Include="Resources\drone-icon-0.png" />
     <Resource Include="Resources\drone-icon.png" />
     <Resource Include="Resources\logo.png" />
-    <Resource Include="扩展-飞控-电源.jpg" />
-    <Resource Include="飞控-电调-电机.jpg" />
+    <Resource Include="Resources\扩展-飞控-电源.jpg" />
+    <Resource Include="Resources\飞控-电调-电机.jpg" />
   </ItemGroup>
 
   <ItemGroup>
