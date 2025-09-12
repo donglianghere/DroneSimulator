@@ -48,6 +48,9 @@ namespace DroneSimulator
             // 添加试卷名称输入框的实时检查
             ExamNameBox.TextChanged += ExamNameBox_TextChanged;
 
+            // 初始化状态检查（在窗口加载完成后执行）
+            this.Loaded += (s, e) => CheckExamNameConflict();
+
         }
 
         private void UpdateWindowTitle()
@@ -78,6 +81,12 @@ namespace DroneSimulator
                 // 重置生成按钮状态
                 GenerateButton.IsEnabled = true;
                 GenerateButton.ToolTip = "生成试卷";
+
+                // 清空状态提示
+                if (ExamNameStatusText != null)
+                {
+                    ExamNameStatusText.Text = "";
+                }
                 return;
             }
 
@@ -98,13 +107,27 @@ namespace DroneSimulator
                         {
                             // 不能修改，禁用生成按钮
                             GenerateButton.IsEnabled = false;
-                            GenerateButton.ToolTip = $"试卷名称已被教师{ existingExam.TeacherName}使用，请更换名称";
+                            GenerateButton.ToolTip = $"试卷名称已被教师 { existingExam.TeacherName} 使用，请更换名称";
+
+                            // 更新状态提示
+                            if (ExamNameStatusText != null)
+                            {
+                                ExamNameStatusText.Text = $"⚠️ 试卷名称已被教师 { existingExam.TeacherName} 使用";
+                                ExamNameStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                            }
                         }
                         else
                         {
                             // 可以覆盖，启用生成按钮但提示用户
                             GenerateButton.IsEnabled = true;
                             GenerateButton.ToolTip = $"试卷已存在，点击将覆盖现有试卷（创建于{existingExam.CreationTime:yyyy-MM-dd HH:mm}）";
+
+                            // 更新状态提示
+                            if (ExamNameStatusText != null)
+                            {
+                                ExamNameStatusText.Text = $"ℹ️ 试卷已存在，将覆盖现有版本（{existingExam.CreationTime:yyyy-MM-dd HH:mm}）";
+                                ExamNameStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                            }
                         }
                     }
                 }
@@ -113,6 +136,13 @@ namespace DroneSimulator
                     // 文件读取失败，建议更换名称
                     GenerateButton.IsEnabled = false;
                     GenerateButton.ToolTip = "试卷文件存在异常，请更换名称";
+
+                    // 更新状态提示
+                    if (ExamNameStatusText != null)
+                    {
+                        ExamNameStatusText.Text = "❌ 试卷文件异常，请更换名称";
+                        ExamNameStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    }
                 }
             }
             else
@@ -120,8 +150,17 @@ namespace DroneSimulator
                 // 名称可用
                 GenerateButton.IsEnabled = true;
                 GenerateButton.ToolTip = "生成试卷";
+
+                // 更新状态提示
+                if (ExamNameStatusText != null)
+                {
+                    ExamNameStatusText.Text = "✓ 试卷名称可用";
+                    ExamNameStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                }
             }
         }
+
+
 
         private string GetUserTypeDisplayName(UserType type)
         {
@@ -261,6 +300,7 @@ namespace DroneSimulator
                 MessageBox.Show($"保存试卷失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
 
         /// <summary>
         /// 检查当前用户是否可以修改指定试卷
@@ -534,7 +574,7 @@ namespace DroneSimulator
                     checkbox.IsChecked = question.IsChecked;
                 }
             }
-            ExamNameBox.Text = examData.ExamName;
+            // ExamNameBox.Text = examData.ExamName;
         }
 
         private void ViewExamRecords_Click(object sender, RoutedEventArgs e)
