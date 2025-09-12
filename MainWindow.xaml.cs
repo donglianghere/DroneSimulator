@@ -19,6 +19,9 @@ namespace DroneSimulator
 {
     public partial class MainWindow : Window
     {
+        // 在 MainWindow 类中添加字段来跟踪题目状态
+        private Dictionary<string, bool> _questionRepairStatus = new Dictionary<string, bool>();
+
         // ========== 使用 FcuOperate 提供的 ParameterService 重写电机测试 ==========
         private ParameterService? _fcService;
 
@@ -723,6 +726,7 @@ namespace DroneSimulator
             StopExamTimer();
         }
 
+        // 修改 RepairButton_Click 方法，记录修复状态
         private void RepairButton_Click(object sender, RoutedEventArgs e)
         {
             // 如果考试已提交，禁止继续答题
@@ -746,6 +750,9 @@ namespace DroneSimulator
                 // 增加正确答题计数
                 correctAnswers++;
 
+                // 记录正确修复
+                _questionRepairStatus[questionName] = true;
+
                 if (!string.IsNullOrEmpty(question.CommandString))
                 {
                     try
@@ -765,6 +772,7 @@ namespace DroneSimulator
                             btn.Background = new SolidColorBrush(Colors.Goldenrod);
                             btn.Content = "修  复";
                             correctAnswers--;
+                            _questionRepairStatus.Remove(questionName);
                             return;
                         }
 
@@ -782,6 +790,7 @@ namespace DroneSimulator
                             btn.Background = new SolidColorBrush(Colors.Goldenrod);
                             btn.Content = "修  复";
                             correctAnswers--;
+                            _questionRepairStatus.Remove(questionName);
                             return;
                         }
 
@@ -793,6 +802,7 @@ namespace DroneSimulator
                         btn.Background = new SolidColorBrush(Colors.Goldenrod);
                         btn.Content = "修  复";
                         correctAnswers--;
+                        _questionRepairStatus.Remove(questionName);
                         return;
                     }
                 }
@@ -802,6 +812,10 @@ namespace DroneSimulator
                 btn.Content = "误修复";
                 btn.Background = new SolidColorBrush(Colors.IndianRed);
                 wrongAnswers++;
+
+                // 记录误修复
+                _questionRepairStatus[questionName] = false;
+
                 MessageBox.Show("请仔细检查，该连接不需要修复！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
@@ -810,6 +824,7 @@ namespace DroneSimulator
         }
 
         // 提交与退出按钮事件
+        // 修改 SubmitButton_Click 方法，添加保存考试记录的功能
         private void SubmitButton_Click(object sender, RoutedEventArgs e)
         {
             // 防止重复提交
@@ -849,6 +864,9 @@ namespace DroneSimulator
             // 更新最终统计
             UpdateExamStats();
 
+            // 保存考试记录
+            SaveExamRecord(finalScore);
+
             // 显示提交成功消息
             var elapsedTime = GetElapsedExamTime();
             MessageBox.Show($"提交成功！\n" +
@@ -857,6 +875,124 @@ namespace DroneSimulator
                            $"误答题：{wrongAnswers}题\n" +
                            $"答题耗时：{elapsedTime:hh\\:mm\\:ss}",
                            "考试结果", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // 新增：保存考试记录方法
+        private void SaveExamRecord(int finalScore)
+        {
+            try
+            {
+                var examRecord = new DetailedExamRecord // 改为 DetailedExamRecord
+                {
+                    StudentName = currentUser.Name,
+                    StudentId = currentUser.IdNumber,
+                    Score = finalScore,
+                    CorrectAnswers = correctAnswers,
+                    WrongAnswers = wrongAnswers,
+                    ElapsedTime = GetElapsedExamTime(),
+                    StartTime = examStartTime,
+                    SubmitTime = DateTime.Now
+                };
+
+                // 设置考试信息
+                if (latestExam != null)
+                {
+                    examRecord.ExamInfo = new ExamInfo
+                    {
+                        ExamName = latestExam.ExamName,
+                        TeacherName = latestExam.TeacherName,
+                        TeacherId = latestExam.TeacherId,
+                        CreationTime = latestExam.CreationTime,
+                        TotalQuestions = latestExam.Questions?.Count(q => q.IsChecked) ?? 0
+                    };
+
+                    // 分析所有题目状态
+                    AnalyzeQuestionStatuses(examRecord);
+                }
+
+                // 保存记录
+                bool saveSuccess = ExamRecordManager.SaveExamRecord(examRecord);
+
+                if (saveSuccess)
+                {
+                    System.Diagnostics.Debug.WriteLine($"考试记录已保存，序号：{examRecord.ExamSequence}");
+                }
+                else
+                {
+                    MessageBox.Show("考试记录保存失败，但成绩已记录！", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"保存考试记录时发生错误: {ex.Message}");
+                MessageBox.Show("考试记录保存时发生错误，但成绩已记录！", "警告", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // 新增：分析题目状态方法
+        // 修改 AnalyzeQuestionStatuses 方法的参数类型
+        private void AnalyzeQuestionStatuses(DetailedExamRecord examRecord)
+        {
+            // 方法内容保持不变
+            if (latestExam?.Questions == null) return;
+
+            foreach (var question in latestExam.Questions)
+            {
+                var questionStatus = new QuestionStatus
+                {
+                    QuestionName = question.Name,
+                    QuestionContent = question.Content,
+                    ShouldRepair = question.IsChecked,
+                    CommandString = question.CommandString
+                };
+
+                // 检查学生是否修复了这个问题
+                bool studentRepaired = _questionRepairStatus.ContainsKey(question.Name);
+                questionStatus.StudentRepaired = studentRepaired;
+
+                // 确定修复状态
+                if (!studentRepaired)
+                {
+                    if (question.IsChecked)
+                    {
+                        // 应该修复但没修复
+                        questionStatus.Status = RepairStatus.Unrepaired;
+                        examRecord.UnrepairedQuestions.Add(question.Name);
+                    }
+                    else
+                    {
+                        // 不需要修复也没修复，正确
+                        questionStatus.Status = RepairStatus.NotTouched;
+                    }
+                }
+                else
+                {
+                    if (question.IsChecked)
+                    {
+                        // 应该修复并且修复了
+                        bool repairedCorrectly = _questionRepairStatus[question.Name];
+                        if (repairedCorrectly)
+                        {
+                            questionStatus.Status = RepairStatus.CorrectlyRepaired;
+                            examRecord.CorrectlyRepairedQuestions.Add(question.Name);
+                        }
+                        else
+                        {
+                            // 这种情况理论上不应该发生，因为IsChecked=true意味着应该修复
+                            questionStatus.Status = RepairStatus.WronglyRepaired;
+                            examRecord.WronglyRepairedQuestions.Add(question.Name);
+                        }
+                    }
+                    else
+                    {
+                        // 不应该修复但修复了，误修复
+                        questionStatus.Status = RepairStatus.WronglyRepaired;
+                        examRecord.WronglyRepairedQuestions.Add(question.Name);
+                    }
+                }
+
+                examRecord.QuestionStatuses.Add(questionStatus);
+            }
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)

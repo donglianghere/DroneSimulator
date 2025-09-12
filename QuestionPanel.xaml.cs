@@ -259,6 +259,20 @@ namespace DroneSimulator
             ExamNameBox.Text = examData.ExamName;
         }
 
+        private void ViewExamRecords_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var recordsWindow = new ExamRecordsWindow(currentTeacher);
+                recordsWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"´ò¿ª¿¼ÊÔ¼ÇÂ¼´°¿ÚÊ§°Ü£º{ex.Message}", "´íÎó",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();            

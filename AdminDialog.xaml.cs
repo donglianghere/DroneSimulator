@@ -272,6 +272,6 @@ namespace DroneSimulator
                 UserManager.UpdateUserPassword(selected.IdNumber, selected.Type, dlg.NewPassword);
                 MessageBox.Show("密码修改成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-        }
+        }        
     }
 }
