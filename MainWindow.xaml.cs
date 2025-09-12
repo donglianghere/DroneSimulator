@@ -572,90 +572,86 @@ namespace DroneSimulator
             StudentNameText.Text = $"考生姓名：{currentUser.Name}";
             StudentIdText.Text = $"身份证号：{currentUser.IdNumber}";
 
-            // 查找最近试卷
-            string examDir = "Exams";
-            if (Directory.Exists(examDir))
+            // 使用新的方法获取考卷信息
+            string examFile = QuestionPanel.GetActiveExamForStudent();
+
+            if (!string.IsNullOrEmpty(examFile) && File.Exists(examFile))
             {
-                var files = Directory.GetFiles(examDir, "*.json");
-                if (files.Length > 0)
+                var json = await File.ReadAllTextAsync(examFile);
+                latestExam = System.Text.Json.JsonSerializer.Deserialize<ExamData>(json);
+                if (latestExam != null)
                 {
-                    var latestFile = files.OrderByDescending(f => File.GetLastWriteTime(f)).First();
-                    var json = await File.ReadAllTextAsync(latestFile);
-                    latestExam = System.Text.Json.JsonSerializer.Deserialize<ExamData>(json);
-                    if (latestExam != null)
+                    ExamTitleText.Text = $"试题名称：{latestExam.ExamName}";
+                    ExamTeacherText.Text = $"出题老师：{latestExam.TeacherName}";
+                    int totalQuestions = latestExam.Questions?.Count(q => q.IsChecked) ?? 0;
+                    ShowExamStats(totalQuestions, 0, 0, TimeSpan.Zero);
+
+                    // 设备初始化
+                    if (latestExam?.Questions != null)
                     {
-                        ExamTitleText.Text = $"试题名称：{latestExam.ExamName}";
-                        ExamTeacherText.Text = $"出题老师：{latestExam.TeacherName}";
-                        int totalQuestions = latestExam.Questions?.Count(q => q.IsChecked) ?? 0;
-                        ShowExamStats(totalQuestions, 0, 0, TimeSpan.Zero);
+                        var cfg = SerialConfig;
+                        var allQuestions = latestExam.Questions.Where(q => !string.IsNullOrEmpty(q.CommandString)).ToList();
+                        int total = allQuestions.Count;
+                        int done = 0;
+                        LoadingProgressBar.Visibility = Visibility.Visible;
+                        LoadingProgressBar.Value = 0;
 
-                        // 设备初始化
-                        if (latestExam?.Questions != null)
+                        bool initializationSuccessful = true;
+                        string errorMessage = "";
+
+                        foreach (var question in allQuestions)
                         {
-                            var cfg = SerialConfig;
-                            var allQuestions = latestExam.Questions.Where(q => !string.IsNullOrEmpty(q.CommandString)).ToList();
-                            int total = allQuestions.Count;
-                            int done = 0;
-                            LoadingProgressBar.Visibility = Visibility.Visible;
-                            LoadingProgressBar.Value = 0;
-
-                            bool initializationSuccessful = true;
-                            string errorMessage = "";
-
-                            foreach (var question in allQuestions)
+                            try
                             {
-                                try
+                                string cmd = question.CommandString;
+
+                                // 对未选中试题，指令第10位（下标9）改为 '0'
+                                if (!question.IsChecked && !string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
                                 {
-                                    string cmd = question.CommandString;
-
-                                    // 对未选中试题，指令第10位（下标9）改为 '0'
-                                    if (!question.IsChecked && !string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
-                                    {
-                                        var sb = new StringBuilder(cmd);
-                                        sb[9] = '0';
-                                        cmd = sb.ToString();
-                                    }
-
-                                    // 在后台线程执行串口操作
-                                    string result = await Task.Run(() =>
-                                        SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd));
-
-                                    // 在UI线程处理结果
-                                    if (IsSerialWriteSuccessful(result, out string error, out string received))
-                                    {
-                                        done++;
-                                        LoadingProgressBar.Value = (double)done / total * 100;
-                                    }
-                                    else
-                                    {
-                                        errorMessage = $"试题初始化失败：指令 {cmd} 未能成功发送。错误：{error}";
-                                        initializationSuccessful = false;
-                                        break;
-                                    }
+                                    var sb = new StringBuilder(cmd);
+                                    sb[9] = '0';
+                                    cmd = sb.ToString();
                                 }
-                                catch (Exception ex)
+
+                                // 在后台线程执行串口操作
+                                string result = await Task.Run(() =>
+                                    SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd));
+
+                                // 在UI线程处理结果
+                                if (IsSerialWriteSuccessful(result, out string error, out string received))
                                 {
-                                    errorMessage = $"串口发送异常：{ex.Message}";
+                                    done++;
+                                    LoadingProgressBar.Value = (double)done / total * 100;
+                                }
+                                else
+                                {
+                                    errorMessage = $"试题初始化失败：指令 {cmd} 未能成功发送。错误：{error}";
                                     initializationSuccessful = false;
                                     break;
                                 }
                             }
-
-                            // 根据初始化结果设置UI状态
-                            if (initializationSuccessful)
+                            catch (Exception ex)
                             {
-                                LoadingProgressText.Text = "试题加载完毕，设备初始化完成！";
-                                ExamMachineText.Text = "考试设备：正常";
-                                StartExamTimer();
-                            }
-                            else
-                            {
-                                LoadingProgressText.Text = "试题加载失败，设备初始化未完成！";
-                                ExamMachineText.Text = "考试设备：异常！";
-                                MessageBox.Show(errorMessage, "初始化错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                                errorMessage = $"串口发送异常：{ex.Message}";
+                                initializationSuccessful = false;
+                                break;
                             }
                         }
-                    }
+
+                        // 根据初始化结果设置UI状态
+                        if (initializationSuccessful)
+                        {
+                            LoadingProgressText.Text = "试题加载完毕，设备初始化完成！";
+                            ExamMachineText.Text = "考试设备：正常";
+                            StartExamTimer();
+                        }
+                        else
+                        {
+                            LoadingProgressText.Text = "试题加载失败，设备初始化未完成！";
+                            ExamMachineText.Text = "考试设备：异常！";
+                            MessageBox.Show(errorMessage, "初始化错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    }                
                     else
                     {
                         MessageBox.Show("试卷文件可能损坏，请联系管理员！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);

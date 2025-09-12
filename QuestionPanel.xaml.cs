@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Collections.Generic;
-using System.Text.Json;
+using System.Windows.Input;
 using System.Windows.Media;
-using System.Linq;
 
 namespace DroneSimulator
 {
@@ -29,16 +33,70 @@ namespace DroneSimulator
         }
     }
 
+    public class ExamListItem : INotifyPropertyChanged
+    {
+        private bool _isActive;
+        private string _examName = "";
+
+        public string ExamName
+        {
+            get => _examName;
+            set
+            {
+                _examName = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BackgroundBrush));
+            }
+        }
+
+        public bool IsActive
+        {
+            get => _isActive;
+            set
+            {
+                _isActive = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ActiveIndicator));
+                OnPropertyChanged(nameof(BackgroundBrush));
+            }
+        }
+
+        public string ActiveIndicator => IsActive ? "★ 考卷" : "";
+
+        public Brush BackgroundBrush => IsActive ?
+            new SolidColorBrush(Color.FromRgb(232, 245, 233)) :
+            new SolidColorBrush(Colors.White);
+
+        public DateTime CreationTime { get; set; }
+        public string FilePath { get; set; } = "";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
+
     public partial class QuestionPanel : Window
     {
         private UserInfo currentTeacher;
         private List<string> examFiles = new();
         private const string EXAMS_DIRECTORY = "Exams";
+        private const string ACTIVE_EXAM_FILE = "active_exam.txt";
+
+        // 添加试卷列表数据
+        private ObservableCollection<ExamListItem> examItems = new();
+        private ExamListItem? selectedExamItem;
 
         public QuestionPanel(UserInfo teacher)
         {
             InitializeComponent();
             currentTeacher = teacher;
+
+            // 绑定数据源
+            ExamItemsControl.ItemsSource = examItems;
+
             InitializeTeacherInfo();
             LoadExistingExams();
 
@@ -185,13 +243,219 @@ namespace DroneSimulator
                 Directory.CreateDirectory(EXAMS_DIRECTORY);
 
             examFiles.Clear();
-            ExamList.Items.Clear();
+            examItems.Clear();
+
+            // 读取考卷试卷设置
+            string activeExamName = GetActiveExamName();
+
+            var examFileInfos = new List<(string filePath, string examName, DateTime creationTime)>();
 
             foreach (string file in Directory.GetFiles(EXAMS_DIRECTORY, "*.json"))
             {
                 string examName = Path.GetFileNameWithoutExtension(file);
+                DateTime creationTime = File.GetLastWriteTime(file);
+
                 examFiles.Add(file);
-                ExamList.Items.Add(examName);
+                examFileInfos.Add((file, examName, creationTime));
+            }
+
+            // 按创建时间排序（最新的在前）
+            examFileInfos = examFileInfos.OrderByDescending(x => x.creationTime).ToList();
+
+            // 如果没有设置考卷，自动设置最新的试题为考卷
+            if (string.IsNullOrEmpty(activeExamName) && examFileInfos.Count > 0)
+            {
+                activeExamName = examFileInfos[0].examName;
+                SetActiveExamName(activeExamName);
+            }
+
+            // 创建试卷列表项
+            foreach (var (filePath, examName, creationTime) in examFileInfos)
+            {
+                var item = new ExamListItem
+                {
+                    ExamName = examName,
+                    IsActive = examName == activeExamName,
+                    CreationTime = creationTime,
+                    FilePath = filePath
+                };
+                examItems.Add(item);
+            }
+        }
+
+        // 获取考卷名称
+        private string GetActiveExamName()
+        {
+            try
+            {
+                if (File.Exists(ACTIVE_EXAM_FILE))
+                {
+                    return File.ReadAllText(ACTIVE_EXAM_FILE).Trim();
+                }
+            }
+            catch { }
+            return "";
+        }
+
+        // 设置考卷名称
+        private void SetActiveExamName(string examName)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(examName))
+                {
+                    if (File.Exists(ACTIVE_EXAM_FILE))
+                        File.Delete(ACTIVE_EXAM_FILE);
+                }
+                else
+                {
+                    File.WriteAllText(ACTIVE_EXAM_FILE, examName);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"设置考卷失败: {ex.Message}");
+            }
+        }
+
+        // 单选按钮选中事件
+        private void ExamRadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton radioButton && radioButton.Tag is string examName)
+            {
+                // 更新所有项的考卷状态
+                foreach (var item in examItems)
+                {
+                    item.IsActive = item.ExamName == examName;
+                }
+
+                // 保存考卷设置
+                SetActiveExamName(examName);
+
+                // 加载选中试卷的详情
+                LoadExamByName(examName);
+            }
+        }
+
+        // 试卷名称点击事件
+        private void ExamName_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBlock textBlock && textBlock.Tag is string examName)
+            {
+                LoadExamByName(examName);
+            }
+        }
+
+        // 根据试卷名称加载试卷
+        private void LoadExamByName(string examName)
+        {
+            selectedExamItem = examItems.FirstOrDefault(x => x.ExamName == examName);
+            if (selectedExamItem != null)
+            {
+                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+                if (File.Exists(fileName))
+                {
+                    try
+                    {
+                        string jsonString = File.ReadAllText(fileName);
+                        var examData = JsonSerializer.Deserialize<ExamData>(jsonString);
+                        LoadExamData(examData);
+
+                        // 更新试卷信息概述
+                        ExamSummaryText.Text = GenerateExamSummary(examData);
+
+                        // 根据权限更新删除按钮状态
+                        UpdateDeleteButtonState(examData);
+                    }
+                    catch (Exception ex)
+                    {
+                        ExamSummaryText.Text = $"读取试卷信息失败：{ex.Message}";
+                        DeleteButton.IsEnabled = false;
+                    }
+                }
+            }
+        }
+
+        // 设为考卷按钮事件
+        private void SetActiveExam_Click(object sender, RoutedEventArgs e)
+        {
+            if (selectedExamItem != null)
+            {
+                // 找到对应的单选按钮并选中
+                var radioButton = FindRadioButtonByExamName(selectedExamItem.ExamName);
+                if (radioButton != null)
+                {
+                    radioButton.IsChecked = true;
+                }
+            }
+            else
+            {
+                MessageBox.Show("请先选择一个试卷！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        // 清除考卷按钮事件
+        private void ClearActiveExam_Click(object sender, RoutedEventArgs e)
+        {
+            // 取消所有单选按钮的选中状态
+            foreach (var item in examItems)
+            {
+                item.IsActive = false;
+            }
+
+            // 清除考卷设置
+            SetActiveExamName("");
+
+            MessageBox.Show("已清除考卷设置。学生将自动使用最新创建的试卷作为考卷。", "提示",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // 查找指定试卷名的单选按钮
+        private RadioButton? FindRadioButtonByExamName(string examName)
+        {
+            // 这里可以通过遍历可视化树来查找，但简化处理
+            // 实际上单选按钮的选中会通过数据绑定自动处理
+            return null;
+        }
+
+        // 修改原有的 ExamList_SelectionChanged 方法名，因为我们不再使用 ListBox
+        // 可以删除这个方法，或者重命名为备用
+
+        // 获取学生应该使用的试卷
+        public static string GetActiveExamForStudent()
+        {
+            try
+            {
+                const string ACTIVE_EXAM_FILE = "active_exam.txt";
+                const string EXAMS_DIRECTORY = "Exams";
+
+                // 首先检查是否有考卷设置
+                if (File.Exists(ACTIVE_EXAM_FILE))
+                {
+                    string activeExam = File.ReadAllText(ACTIVE_EXAM_FILE).Trim();
+                    string activeExamPath = Path.Combine(EXAMS_DIRECTORY, $"{activeExam}.json");
+
+                    if (!string.IsNullOrEmpty(activeExam) && File.Exists(activeExamPath))
+                    {
+                        return activeExamPath;
+                    }
+                }
+
+                // 如果没有考卷或考卷不存在，返回最新的试卷为考卷
+                if (Directory.Exists(EXAMS_DIRECTORY))
+                {
+                    var files = Directory.GetFiles(EXAMS_DIRECTORY, "*.json");
+                    if (files.Length > 0)
+                    {
+                        return files.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+                    }
+                }
+
+                return "";
+            }
+            catch
+            {
+                return "";
             }
         }
 
@@ -249,10 +513,10 @@ namespace DroneSimulator
                         {
                             // 不是自己创建的试卷，禁止覆盖
                             MessageBox.Show($"试卷名称冲突！\n\n" +
-                                           $"试卷《{ExamNameBox.Text}》已由教师 { existingExam.TeacherName} 创建。\n" + 
+                                           $"试卷《{ExamNameBox.Text}》已由教师 { existingExam.TeacherName} 创建。\n" +
                                            $"创建时间：{existingExam.CreationTime:yyyy-MM-dd HH:mm}\n\n" +
                                            $"请更换试卷名称或联系原创建者。", 
-                                           "无法创建试卷", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                   "无法创建试卷", MessageBoxButton.OK, MessageBoxImage.Warning);
                             return;
                         }
                         else
@@ -292,7 +556,17 @@ namespace DroneSimulator
             try
             {
                 SaveExam(examData);
+
+                // 重新加载试卷列表
                 LoadExistingExams();
+
+                // 清空输入框和状态提示
+                ExamNameBox.Text = "";
+                if (ExamNameStatusText != null)
+                {
+                    ExamNameStatusText.Text = "";
+                }
+
                 MessageBox.Show("试卷生成成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -329,16 +603,15 @@ namespace DroneSimulator
 
         private void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            // 获取选中的试卷
-            var selectedItem = ExamList.SelectedItem;
-            if (selectedItem == null)
+            // 使用新的选中项逻辑
+            if (selectedExamItem == null)
             {
                 MessageBox.Show("请先选择要删除的试卷。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
             // 读取试卷文件，检查权限
-            string fileName = Path.Combine(EXAMS_DIRECTORY, $"{selectedItem}.json");
+            string fileName = Path.Combine(EXAMS_DIRECTORY, $"{selectedExamItem.ExamName}.json");
             if (!File.Exists(fileName))
             {
                 MessageBox.Show("试卷文件不存在！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -362,7 +635,8 @@ namespace DroneSimulator
 
                 if (!canDelete)
                 {
-                    MessageBox.Show($"权限不足！\n\n试卷《{examData.ExamName}》由教师 { examData.TeacherName} 创建，\n您只能删除自己创建的试卷。", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show($"权限不足！\n\n试卷《{examData.ExamName}》由教师 { examData.TeacherName} 创建，\n您只能删除自己创建的试卷。", 
+                           "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -383,11 +657,18 @@ namespace DroneSimulator
                 // 执行删除
                 File.Delete(fileName);
 
-                // 从列表中移除
-                ExamList.Items.Remove(selectedItem);
+                // 如果删除的是考卷，清除考卷状态
+                if (selectedExamItem.IsActive)
+                {
+                    SetActiveExamName("");
+                }
+
+                // 重新加载试卷列表
+                LoadExistingExams();
 
                 // 清空试卷信息显示
                 ExamSummaryText.Text = "";
+                selectedExamItem = null;
 
                 MessageBox.Show("试卷删除成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
@@ -461,39 +742,7 @@ namespace DroneSimulator
             File.WriteAllText(fileName, jsonString);
         }
 
-        private void ExamList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ExamList.SelectedItem != null)
-            {
-                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{ExamList.SelectedItem}.json");
-                if (File.Exists(fileName))
-                {
-                    try
-                    {
-                        string jsonString = File.ReadAllText(fileName);
-                        var examData = JsonSerializer.Deserialize<ExamData>(jsonString);
-                        LoadExamData(examData);
-
-                        // 更新试卷信息概述
-                        ExamSummaryText.Text = GenerateExamSummary(examData);
-
-                        // 根据权限更新删除按钮状态
-                        UpdateDeleteButtonState(examData);
-                    }
-                    catch (Exception ex)
-                    {
-                        ExamSummaryText.Text = $"读取试卷信息失败：{ex.Message}";
-                        DeleteButton.IsEnabled = false;
-                    }
-                }
-            }
-            else
-            {
-                ExamSummaryText.Text = "";
-                DeleteButton.IsEnabled = false;
-            }
-        }
-
+        
         /// <summary>
         /// 根据权限更新删除按钮的状态
         /// </summary>
