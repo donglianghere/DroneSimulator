@@ -507,11 +507,12 @@
                 <!-- 按钮固定在底部，不随滚动 -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="20,10,20,10">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button x:Name="DeleteButton" Content="删 除 试 卷" Height="40" Background="#F44336" Foreground="White"
-                                FontSize="20" Style="{StaticResource SeriousButton}" Click="DeleteButton_Click" Width="150"/>
                         <Button x:Name="GenerateButton" Content="生 成 试 卷" Height="40"
-                                Margin="0,10,10,0" Background="#2196F3" Foreground="White"
+                                Background="#2196F3" Foreground="White"
                                 FontSize="20" Style="{StaticResource SeriousButton}" Click="GenerateButton_Click" Width="150"/>
+                        <Button x:Name="DeleteButton" Content="删 除 试 卷" Height="40" Background="#FF4081" Foreground="White"
+                                Margin="0,10,10,0"  FontSize="20" Style="{StaticResource SeriousButton}" Click="DeleteButton_Click" Width="150"/>
+                        
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -519,7 +520,7 @@
                         <Button x:Name="ViewExamRecordsButton" Content="考 试 记 录" Width="150" Height="40" Background="#1F4081" Foreground="White"
                                 FontSize="20" Style="{StaticResource SeriousButton}" Click="ViewExamRecords_Click" />
                         <Button x:Name="ExitButton" Content="退    出" Height="40" Width="150"
-                                Margin="0,10,10,0" Background="#FF4081" Foreground="White"
+                                Margin="0,10,10,0" Background="#F44336" Foreground="White"
                                 FontSize="20" Style="{StaticResource SeriousButton}" Click="ExitButton_Click"/>
                     </StackPanel>
                 </StackPanel>
