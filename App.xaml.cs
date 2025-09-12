@@ -20,21 +20,33 @@ namespace DroneSimulator
 
                 if (loginResult == true && login.LoginUser != null)
                 {
-                    Window? mainWin = null;
+                    // 如果用户有多个可选角色，显示角色选择窗口
+                    UserType selectedRole = login.LoginUser.Type;
 
-                    // 根据用户类型创建相应的窗口
-                    switch (login.LoginUser.Type)
+                    if (HasMultipleRoles(login.LoginUser.Type))
                     {
-                        case UserType.Admin:
-                            mainWin = new AdminDialog(login.LoginUser);
-                            break;
-                        case UserType.Teacher:
-                            mainWin = new QuestionPanel(login.LoginUser);
-                            break;
-                        case UserType.Student:
-                            mainWin = new MainWindow(login.LoginUser);
-                            break;
+                        var roleSelection = new RoleSelectionWindow(login.LoginUser);
+                        var roleResult = roleSelection.ShowDialog();
+
+                        if (roleResult == true && roleSelection.IsRoleSelected)
+                        {
+                            selectedRole = roleSelection.SelectedRole;
+                            // 设置当前角色
+                            login.LoginUser.CurrentRole = selectedRole;
+                        }
+                        else
+                        {
+                            // 用户取消角色选择，回到登录界面
+                            continue;
+                        }
                     }
+                    else
+                    {
+                        // 如果只有一个角色，直接设置
+                        login.LoginUser.CurrentRole = login.LoginUser.Type;
+                    }
+
+                    Window? mainWin = CreateWindowForRole(selectedRole, login.LoginUser);
 
                     if (mainWin != null)
                     {
@@ -60,6 +72,22 @@ namespace DroneSimulator
 
             // 退出应用程序
             Application.Current.Shutdown();
+        }
+
+        private bool HasMultipleRoles(UserType userType)
+        {
+            return userType == UserType.Admin || userType == UserType.Teacher;
+        }
+
+        private Window? CreateWindowForRole(UserType role, UserInfo user)
+        {
+            return role switch
+            {
+                UserType.Admin => new AdminDialog(user),
+                UserType.Teacher => new QuestionPanel(user),
+                UserType.Student => new MainWindow(user),
+                _ => null
+            };
         }
     }
 }

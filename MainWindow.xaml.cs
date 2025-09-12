@@ -318,11 +318,12 @@ namespace DroneSimulator
             // 检查COM7是否可用
             CheckSerialPortAvailability();
 
-            if (user.Type == UserType.Student)
-            {
-                // 学生用户可以看到TabControl，但功能有限
-                InitializeSerialPort();
-            }
+            // 修改：不再仅限制学生用户，所有以学生身份登录的用户都可以使用
+            // 因为管理员和教师也可能以学生身份登录
+            InitializeSerialPort();
+
+            // 在窗口标题中显示当前登录身份信息
+            UpdateWindowTitle();
         }
 
         private void CheckSerialPortAvailability()
@@ -347,6 +348,27 @@ namespace DroneSimulator
             {
                 Debug.WriteLine($"检查串口失败: {ex.Message}");
             }
+        }
+
+        private void UpdateWindowTitle()
+        {
+            string roleInfo = "";
+            if (currentUser.Type != UserType.Student)
+            {
+                roleInfo = $" - {GetUserTypeDisplayName(currentUser.Type)}以学生身份登录";
+            }
+            this.Title = $"康鹤多旋翼无人机检修平台-V1.0{roleInfo}";
+        }
+
+        private string GetUserTypeDisplayName(UserType type)
+        {
+            return type switch
+            {
+                UserType.Admin => "管理员",
+                UserType.Teacher => "教师",
+                UserType.Student => "学生",
+                _ => "未知"
+            };
         }
 
         // 窗口加载完成后自动缩放当前TabItem的Canvas

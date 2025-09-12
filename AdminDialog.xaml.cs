@@ -51,14 +51,52 @@ namespace DroneSimulator
             _currentAdmin = currentAdmin;
             LoadAccounts();
 
-            // 权限控制：非管理员禁用账户管理按钮
-            if (!IsCurrentUserAdmin())
+            // 权限控制：基于原始身份而不是当前角色
+            if (!IsCurrentUserRealAdmin())
             {
                 var addBtn = this.FindName("AddAccountButton") as Button;
                 var delBtn = this.FindName("DeleteAccountButton") as Button;
+                var editBtn = this.FindName("EditAccountButton") as Button;
                 if (addBtn != null) addBtn.IsEnabled = false;
                 if (delBtn != null) delBtn.IsEnabled = false;
+                if (editBtn != null) editBtn.IsEnabled = false;
             }
+
+            // 在窗口标题中显示当前登录身份信息
+            UpdateWindowTitle();
+        }
+
+        private void UpdateWindowTitle()
+        {
+            string roleInfo = "";
+            if (_currentAdmin != null && _currentAdmin.Type != UserType.Admin)
+            {
+                roleInfo = $" - {GetUserTypeDisplayName(_currentAdmin.Type)}以管理员身份登录";
+            }
+            this.Title = $"系统管理{roleInfo}";
+        }
+
+        private string GetUserTypeDisplayName(UserType type)
+        {
+            return type switch
+            {
+                UserType.Admin => "管理员",
+                UserType.Teacher => "教师",
+                UserType.Student => "学生",
+                _ => "未知"
+            };
+        }
+
+        // 修改权限验证：检查原始身份而不是当前角色
+        private bool IsCurrentUserRealAdmin()
+        {
+            return _currentAdmin != null && _currentAdmin.Type == UserType.Admin;
+        }
+
+        // 保持现有方法兼容性
+        private bool IsCurrentUserAdmin()
+        {
+            return IsCurrentUserRealAdmin();
         }
 
         private void AdminDialog_Loaded(object sender, RoutedEventArgs e)
@@ -155,14 +193,10 @@ namespace DroneSimulator
             this.Close();
         }
 
-        private bool IsCurrentUserAdmin()
-        {
-            return _currentAdmin != null && _currentAdmin.Type == UserType.Admin;
-        }
 
         private void AddAccount_Click(object sender, RoutedEventArgs e)
         {
-            if (!IsCurrentUserAdmin())
+            if (!IsCurrentUserRealAdmin())
             {
                 MessageBox.Show("只有管理员才能添加账户！", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -184,7 +218,7 @@ namespace DroneSimulator
 
         private void DeleteAccount_Click(object sender, RoutedEventArgs e)
         {
-            if (!IsCurrentUserAdmin())
+            if (!IsCurrentUserRealAdmin())
             {
                 MessageBox.Show("只有管理员才能删除账户！", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -220,7 +254,7 @@ namespace DroneSimulator
 
         private void EditAccount_Click(object sender, RoutedEventArgs e)
         {
-            if (!IsCurrentUserAdmin())
+            if (!IsCurrentUserRealAdmin())
             {
                 MessageBox.Show("只有管理员才能编辑账户！", "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;

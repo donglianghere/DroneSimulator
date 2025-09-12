@@ -9,6 +9,15 @@ namespace DroneSimulator
         public required string IdNumber { get; set; }
         public required string Password { get; set; }
         public required UserType Type { get; set; }
+
+        // 新增：当前登录的角色（用于角色切换）
+        public UserType CurrentRole { get; set; }
+
+        // 构造函数设置默认角色为原始身份
+        public UserInfo()
+        {
+            CurrentRole = Type;
+        }
     }
 
     /// <summary>

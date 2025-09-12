@@ -40,6 +40,30 @@ namespace DroneSimulator
             currentTeacher = teacher;
             InitializeTeacherInfo();
             LoadExistingExams();
+
+            // 在窗口标题中显示当前登录身份信息
+            UpdateWindowTitle();
+        }
+
+        private void UpdateWindowTitle()
+        {
+            string roleInfo = "";
+            if (currentTeacher.Type != UserType.Teacher)
+            {
+                roleInfo = $" - {GetUserTypeDisplayName(currentTeacher.Type)}以教师身份登录";
+            }
+            this.Title = $"试题管理面板{roleInfo}";
+        }
+
+        private string GetUserTypeDisplayName(UserType type)
+        {
+            return type switch
+            {
+                UserType.Admin => "管理员",
+                UserType.Teacher => "教师",
+                UserType.Student => "学生",
+                _ => "未知"
+            };
         }
 
         private void InitializeTeacherInfo()
