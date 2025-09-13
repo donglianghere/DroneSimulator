@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="DroneSimulator.AdminDialog"
         xmlns:local="clr-namespace:DroneSimulator"    
-        Title="系统管理" Height="360" Width="690"
+        Title="系统管理" Height="458" Width="690"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#181F2A"
@@ -32,9 +32,9 @@
             <Setter Property="BorderBrush" Value="#5EC6FF"/>
             <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Margin" Value="0,0,15,0"/>
+            <Setter Property="Margin" Value="5,0"/>
             <Setter Property="Effect">
                 <Setter.Value>
                     <DropShadowEffect Color="#5EC6FF" BlurRadius="8" ShadowDepth="0"/>
@@ -90,7 +90,7 @@
             <Setter Property="Foreground" Value="#5EC6FF"/>
             <Setter Property="BorderBrush" Value="#5EC6FF"/>
             <Setter Property="BorderThickness" Value="2"/>
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="Padding" Value="6,2"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="MinWidth" Value="100"/>
@@ -98,7 +98,7 @@
         <!-- 标签样式：高亮蓝 -->
         <Style x:Key="TechLabel" TargetType="{x:Type TextBlock}">
             <Setter Property="Foreground" Value="#5EC6FF"/>
-            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
     </Window.Resources>
@@ -108,61 +108,90 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧：参数设置 -->
-        <Border Grid.Column="0" Background="#232F3E" CornerRadius="12" Padding="15">
+        <!-- 左侧：串口配置 -->
+        <Border Grid.Column="0" Background="#232F3E" CornerRadius="12" Padding="20" HorizontalAlignment="Center" Width="370">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text="参数设置" Style="{StaticResource TechLabel}" 
-                           HorizontalAlignment="Center" Margin="0,0,0,15"/>
-                <Grid Grid.Row="1" Height="244" VerticalAlignment="Top">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" MinHeight="45"/>
-                        <RowDefinition Height="Auto" MinHeight="45"/>
-                        <RowDefinition Height="Auto" MinHeight="45"/>
-                        <RowDefinition Height="Auto" MinHeight="45"/>
-                        <RowDefinition Height="Auto" MinHeight="45"/>
-                        <RowDefinition/>
-                    </Grid.RowDefinitions>
-                    <!-- 原参数设置内容 -->
-                    <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,15" HorizontalAlignment="Center" Width="206">
-                        <TextBlock Text="串口号：" Width="100" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
-                        <ComboBox x:Name="PortComboBox" TabIndex="0" Width="100" Style="{StaticResource TechComboBox}" HorizontalContentAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,15" HorizontalAlignment="Center" Width="206">
-                        <TextBlock Text="波特率：" Width="100" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
-                        <ComboBox x:Name="BaudRateComboBox" TabIndex="1" Width="100" Style="{StaticResource TechComboBox}" HorizontalContentAlignment="Center">
-                            <ComboBoxItem Content="9600"  IsSelected="True"/>
-                            <ComboBoxItem Content="19200"/>
-                            <ComboBoxItem Content="38400"/>
-                            <ComboBoxItem Content="57600"/>
-                            <ComboBoxItem Content="115200"/>
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Grid.Row="2" Margin="0,0,0,15" HorizontalAlignment="Center" Width="206">
-                        <TextBlock Text="奇偶校验：" Width="100" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
-                        <ComboBox x:Name="ParityComboBox" TabIndex="2" Width="100" Style="{StaticResource TechComboBox}" HorizontalContentAlignment="Center">
-                            <ComboBoxItem Content="无" IsSelected="True"/>
-                            <ComboBoxItem Content="有"/>
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Grid.Row="3" Margin="0,0,0,15" HorizontalAlignment="Center" Width="206">
-                        <TextBlock Text="停止位：" Width="100" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
-                        <ComboBox x:Name="StopBitsComboBox" TabIndex="3" Width="100" Style="{StaticResource TechComboBox}" HorizontalContentAlignment="Center">
-                            <ComboBoxItem Content="0"/>
-                            <ComboBoxItem Content="1"  IsSelected="True"/>
-                            <ComboBoxItem Content="2"/>
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Grid.Row="4" HorizontalAlignment="Center" Margin="10,10,0,10" Width="240" >
-                        <Button Content="退 出" TabIndex="4" Width="65" Height="36" Style="{StaticResource ExitButtonStyle}" Click="Exit_Click"/>
-                        <Button Content="打 开" TabIndex="5" Width="65" Height="36" Style="{StaticResource TechButton}" Click="OpenPort_Click"/>
-                        <Button Content="保 存" TabIndex="6" Width="65" Height="36" Style="{StaticResource TechButton}" Click="SaveConfig_Click"/>
-                        
-                    </StackPanel>
-                </Grid>
+
+                <!-- 标题 -->
+                <TextBlock Text="端  口  配  置" FontSize="18" Style="{StaticResource TechLabel}" 
+                           HorizontalAlignment="Center" Margin="0,-4,0,20"/>
+
+                <!-- 配置选项框 -->
+                <Border Background="#1A1A1A" BorderBrush="#5EC6FF" BorderThickness="2" 
+                        Padding="15" Margin="0,25,0,25" Grid.RowSpan="2">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <!-- 串口号选择 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15" HorizontalAlignment="Center">
+                                <TextBlock Text="串口号：" Width="80" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
+                                <ComboBox x:Name="PortComboBox" TabIndex="0" Width="180" Style="{StaticResource TechComboBox}" 
+                                          SelectionChanged="PortComboBox_SelectionChanged"/>
+                            </StackPanel>
+
+                            <!-- 串口用途选择 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15" HorizontalAlignment="Center">
+                                <TextBlock Text="用途：" Width="80" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
+                                <ComboBox x:Name="PurposeComboBox" TabIndex="1" Width="180" Style="{StaticResource TechComboBox}" 
+                                          SelectionChanged="PurposeComboBox_SelectionChanged"/>
+                            </StackPanel>
+
+                            <!-- 波特率 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15" HorizontalAlignment="Center">
+                                <TextBlock Text="波特率：" Width="80" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
+                                <ComboBox x:Name="BaudRateComboBox" TabIndex="2" Width="180" Style="{StaticResource TechComboBox}">
+                                    <ComboBoxItem Content="9600"/>
+                                    <ComboBoxItem Content="19200"/>
+                                    <ComboBoxItem Content="38400"/>
+                                    <ComboBoxItem Content="57600"/>
+                                    <ComboBoxItem Content="115200" IsSelected="True"/>
+                                    <ComboBoxItem Content="230400"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- 奇偶校验 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15" HorizontalAlignment="Center">
+                                <TextBlock Text="奇偶校验：" Width="80" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
+                                <ComboBox x:Name="ParityComboBox" TabIndex="3" Width="180" Style="{StaticResource TechComboBox}">
+                                    <ComboBoxItem Content="无" IsSelected="True"/>
+                                    <ComboBoxItem Content="偶校验"/>
+                                    <ComboBoxItem Content="奇校验"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- 停止位 -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15" HorizontalAlignment="Center">
+                                <TextBlock Text="停止位：" Width="80" VerticalAlignment="Center" Style="{StaticResource TechLabel}"/>
+                                <ComboBox x:Name="StopBitsComboBox" TabIndex="4" Width="180" Style="{StaticResource TechComboBox}">
+                                    <ComboBoxItem Content="1" IsSelected="True"/>
+                                    <ComboBoxItem Content="1.5"/>
+                                    <ComboBoxItem Content="2"/>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <!-- 状态显示 -->
+                            <Border Background="DarkBlue" CornerRadius="2" Padding="10" Margin="0,2,0,0" Width="259">
+                                <TextBlock x:Name="PortStatusText" Text="状态：未选择端口" 
+                                           Style="{StaticResource TechLabel}" FontSize="12" 
+                                           HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- 操作按钮 -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="测 试 连 接" TabIndex="5" Width="95" Height="36" Style="{StaticResource TechButton}" 
+                            Click="OpenPort_Click"/>
+                    <Button Content="保 存 配 置" TabIndex="6" Width="95" Height="36" Style="{StaticResource TechButton}" 
+                            Click="SaveConfig_Click"/>
+                    <Button Content="端 口 管 理" TabIndex="7" Width="95" Height="36" Style="{StaticResource TechButton}" 
+                            Click="ManageAllPorts_Click"/>                    
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -174,7 +203,7 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text="账户管理" FontSize="18" Style="{StaticResource TechLabel}" 
+                <TextBlock Text="账  户  管  理" FontSize="18" Style="{StaticResource TechLabel}" 
                            HorizontalAlignment="Center" Margin="0,-4,0,20"/>
                 <!-- 账户列表 -->
                 <ListView x:Name="AccountListView" Margin="0,25,0,25" Background="#232F3E" BorderBrush="#5EC6FF" BorderThickness="2" 
@@ -213,10 +242,10 @@
                         </GridView>
                     </ListView.View>
                 </ListView>
-                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" >                    
-                    <Button x:Name="DeleteAccountButton" TabIndex="7" Content="删除账户" Width="90" Height="36" Style="{StaticResource TechButton}" Click="DeleteAccount_Click"/>
-                    <Button x:Name="EditAccountButton" TabIndex="8" Content="编辑账户" Width="90" Height="36" Style="{StaticResource TechButton}" Click="EditAccount_Click"/>
-                    <Button x:Name="AddAccountButton" TabIndex="9" Content="添加账户" Width="90" Height="36" Style="{StaticResource TechButton}" Click="AddAccount_Click"/>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" >
+                    <Button x:Name="DeleteAccountButton" TabIndex="9" Content="删 除 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="DeleteAccount_Click"/>
+                    <Button x:Name="EditAccountButton" TabIndex="10" Content="编 辑 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="EditAccount_Click"/>
+                    <Button x:Name="AddAccountButton" TabIndex="11" Content="添 加 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="AddAccount_Click"/>
                 </StackPanel>
             </Grid>
         </Border>

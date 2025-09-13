@@ -27,6 +27,7 @@ namespace DroneSimulator
 
         // 电机测试初始化
         // 修改初始化方法支持取消令牌
+        // 修改 InitFlightControllerAsync 方法
         private async Task<bool> InitFlightControllerAsync(CancellationToken cancellationToken = default)
         {
             if (_fcService != null && _fcService.IsConnected) return true;
@@ -35,7 +36,7 @@ namespace DroneSimulator
             {
                 _fcService = new ParameterService();
 
-                // 注册状态事件...
+                // 注册状态事件
                 _fcService.StatusChanged += (s, e) =>
                 {
                     Dispatcher.BeginInvoke(() =>
@@ -47,9 +48,33 @@ namespace DroneSimulator
                     });
                 };
 
-                // 添加超时保护的连接
-                bool ok = await _fcService.ConnectAsync("COM7", 115200).ConfigureAwait(false);
-                return ok;
+                // ========== 使用飞控通信端口而不是硬编码COM7 ==========
+                var flightControllerConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.FlightController);
+
+                if (flightControllerConfig != null && flightControllerConfig.IsEnabled)
+                {
+                    bool ok = await _fcService.ConnectAsync(flightControllerConfig.PortName, flightControllerConfig.BaudRate).ConfigureAwait(false);
+
+                    if (ok)
+                    {
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            MotorTestStatusText.Text = $"状态：已连接到{flightControllerConfig.PortName} - 飞控通信";
+                            MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                        });
+                    }
+
+                    return ok;
+                }
+                else
+                {
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        MotorTestStatusText.Text = "状态：未配置飞控通信端口";
+                        MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                    });
+                    return false;
+                }
             }
             catch (Exception ex)
             {
@@ -264,34 +289,56 @@ namespace DroneSimulator
         {
             try
             {
-                using var serialPort = new SerialPort(portName, baudRate, parity, 8, stopBits)
+                // 尝试从配置管理器获取配置
+                var config = SerialPortManager.GetConfigByPort(portName);
+                if (config != null)
                 {
-                    ReadTimeout = 3000,  // 3秒读取超时
-                    WriteTimeout = 3000  // 3秒写入超时
-                };
+                    // 标记端口为使用中
+                    SerialPortManager.SetPortInUse(portName, true);
 
-                serialPort.Open();
+                    using var serialPort = config.CreateSerialPort();
+                    serialPort.Open();
+                    serialPort.Write(data);
 
-                // 发送数据
-                serialPort.Write(data);
+                    Thread.Sleep(100);
+                    string receivedData = "";
+                    if (serialPort.BytesToRead > 0)
+                    {
+                        receivedData = serialPort.ReadExisting();
+                    }
 
-                // 等待并读取响应
-                Thread.Sleep(100); // 短暂等待设备响应
+                    serialPort.Close();
 
-                string receivedData = "";
-                if (serialPort.BytesToRead > 0)
-                {
-                    receivedData = serialPort.ReadExisting();
+                    // 标记端口使用完毕
+                    SerialPortManager.SetPortInUse(portName, false);
+
+                    return JsonSerializer.Serialize(new { result = "ok", recv = receivedData });
                 }
+                else
+                {
+                    // 使用传统方式（向后兼容）
+                    using var serialPort = new SerialPort(portName, baudRate, parity, 8, stopBits)
+                    {
+                        ReadTimeout = 3000,
+                        WriteTimeout = 3000
+                    };
 
-                serialPort.Close();
+                    serialPort.Open();
+                    serialPort.Write(data);
+                    Thread.Sleep(100);
 
-                // 返回JSON格式的成功结果，保持与原有代码兼容
-                return JsonSerializer.Serialize(new { result = "ok", recv = receivedData });
+                    string receivedData = "";
+                    if (serialPort.BytesToRead > 0)
+                    {
+                        receivedData = serialPort.ReadExisting();
+                    }
+
+                    serialPort.Close();
+                    return JsonSerializer.Serialize(new { result = "ok", recv = receivedData });
+                }
             }
             catch (Exception ex)
             {
-                // 返回JSON格式的错误结果，保持与原有代码兼容
                 return JsonSerializer.Serialize(new { error = ex.Message });
             }
         }
@@ -318,7 +365,7 @@ namespace DroneSimulator
             };
             currentUser = user;
 
-            // 检查COM7是否可用
+            // ========== 检查所有串口状态 ==========
             CheckSerialPortAvailability();
 
             // 修改：不再仅限制学生用户，所有以学生身份登录的用户都可以使用
@@ -329,28 +376,50 @@ namespace DroneSimulator
             UpdateWindowTitle();
         }
 
+        // 修改 CheckSerialPortAvailability 方法，同时检查两个端口
         private void CheckSerialPortAvailability()
         {
+            // 检查飞控通信端口
             try
             {
-                var availablePorts = SerialPort.GetPortNames();
-                if (!availablePorts.Contains("COM7"))
+                var flightControllerConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.FlightController);
+
+                if (flightControllerConfig != null)
                 {
-                    // 更新UI显示端口不可用
+                    var availablePorts = SerialPort.GetPortNames();
+                    if (!availablePorts.Contains(flightControllerConfig.PortName))
+                    {
+                        // 更新UI显示飞控端口不可用
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            if (MotorTestStatusText != null)
+                            {
+                                MotorTestStatusText.Text = $"状态：飞控通信端口{flightControllerConfig.PortName}不可用";
+                                MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                            }
+                        });
+                    }
+                }
+                else
+                {
+                    // 没有配置飞控通信端口
                     Dispatcher.BeginInvoke(() =>
                     {
                         if (MotorTestStatusText != null)
                         {
-                            MotorTestStatusText.Text = "状态：COM7端口不可用";
-                            MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                            MotorTestStatusText.Text = "状态：未配置飞控通信端口";
+                            MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Orange);
                         }
                     });
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"检查串口失败: {ex.Message}");
+                Debug.WriteLine($"检查飞控端口失败: {ex.Message}");
             }
+
+            // ========== 检查检修端口 ==========
+            CheckRepairPortAvailability();
         }
 
         private void UpdateWindowTitle()
@@ -543,26 +612,145 @@ namespace DroneSimulator
             }
         }
 
+        // 修改 InitializeSerialPort 方法，添加检修端口状态检测
         private void InitializeSerialPort()
         {
-            if (!File.Exists("config_serialport.json"))
-            {
-                ShowAdminDialog();
-                if (!File.Exists("config_serialport.json"))
-                {
-                    MessageBox.Show("串口配置文件未找到，无法进行操作。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-
             try
             {
-                var json = File.ReadAllText("config_serialport.json");
-                SerialConfig = JsonSerializer.Deserialize<SerialPortConfig>(json) ?? new SerialPortConfig();
+                // 确保串口配置已加载
+                SerialPortManager.LoadConfigurations();
+
+                // ========== 检查飞控通信端口状态（用于电机测试） ==========
+                var flightControllerConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.FlightController);
+
+                if (flightControllerConfig != null && flightControllerConfig.IsEnabled)
+                {
+                    // 更新状态显示为飞控通信端口
+                    if (MotorTestStatusText != null)
+                    {
+                        MotorTestStatusText.Text = $"状态：已配置{flightControllerConfig.PortName} - 飞控通信端口";
+                        MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                    }
+                }
+                else
+                {
+                    // 飞控通信端口未配置，显示警告
+                    if (MotorTestStatusText != null)
+                    {
+                        MotorTestStatusText.Text = "状态：未配置飞控通信端口，电机测试不可用";
+                        MotorTestStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                    }
+                }
+
+                // ========== 检查检修端口状态（用于修复功能） ==========
+                var droneConfig = SerialPortManager.GetDroneRepairConfig();
+
+                if (droneConfig != null && droneConfig.IsEnabled)
+                {
+                    // 更新全局配置以保持向后兼容（用于修复按钮）
+                    SerialConfig = droneConfig;
+
+                    // 更新检修端口状态显示
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = $"检修端口：{droneConfig.PortName} - 就绪";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                    }
+                }
+                else
+                {
+                    // 检修端口未配置，显示警告
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = "检修端口：未配置，修复功能不可用";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                    }
+
+                    // 尝试加载旧配置文件
+                    if (File.Exists("config_serialport.json"))
+                    {
+                        var json = File.ReadAllText("config_serialport.json");
+                        SerialConfig = JsonSerializer.Deserialize<SerialPortConfig>(json) ?? new SerialPortConfig();
+
+                        if (!string.IsNullOrEmpty(SerialConfig.PortName) && RepairPortStatusText != null)
+                        {
+                            RepairPortStatusText.Text = $"检修端口：{SerialConfig.PortName} - 旧配置";
+                            RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                        }
+                    }
+                    else
+                    {
+                        // 显示配置对话框
+                        ShowAdminDialog();
+                    }
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"初始化或打开串口失败: {ex.Message}", "串口错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"初始化串口配置失败: {ex.Message}", "串口错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // 添加检修端口状态检测方法
+        private void CheckRepairPortAvailability()
+        {
+            try
+            {
+                var droneRepairConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.DroneRepair);
+
+                if (droneRepairConfig != null)
+                {
+                    var availablePorts = SerialPort.GetPortNames();
+                    if (!availablePorts.Contains(droneRepairConfig.PortName))
+                    {
+                        // 检修端口不可用
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            if (RepairPortStatusText != null)
+                            {
+                                RepairPortStatusText.Text = $"检修端口：{droneRepairConfig.PortName} - 不可用";
+                                RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // 检修端口可用
+                        Dispatcher.BeginInvoke(() =>
+                        {
+                            if (RepairPortStatusText != null)
+                            {
+                                RepairPortStatusText.Text = $"检修端口：{droneRepairConfig.PortName} - 就绪";
+                                RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                            }
+                        });
+                    }
+                }
+                else
+                {
+                    // 没有配置检修端口
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (RepairPortStatusText != null)
+                        {
+                            RepairPortStatusText.Text = "检修端口：未配置";
+                            RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"检查检修端口失败: {ex.Message}");
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = "检修端口：检测失败";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    }
+                });
             }
         }
 
@@ -722,7 +910,7 @@ namespace DroneSimulator
             StopExamTimer();
         }
 
-        // 修改 RepairButton_Click 方法，记录修复状态
+        // 修改 RepairButton_Click 方法，记录修复状态，添加检修端口状态更新
         private void RepairButton_Click(object sender, RoutedEventArgs e)
         {
             // 如果考试已提交，禁止继续答题
@@ -773,14 +961,34 @@ namespace DroneSimulator
                         }
 
                         var cfg = SerialConfig;
+
+                        // ========== 检修端口状态更新 ==========
+                        if (RepairPortStatusText != null)
+                        {
+                            RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 发送指令中...";
+                            // RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Yellow);
+                        }
+
                         string result = SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd);
 
                         if (IsSerialWriteSuccessful(result, out string error, out string received))
                         {
-                            // 修复成功
+                            // 修复成功，更新状态
+                            if (RepairPortStatusText != null)
+                            {
+                                RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送成功";
+                                // RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                            }
                         }
                         else
                         {
+                            // 修复失败，更新状态
+                            if (RepairPortStatusText != null)
+                            {
+                                RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送失败";
+                                RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                            }
+
                             MessageBox.Show($"修复指令发送失败：{error}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                             btn.IsEnabled = true;
                             btn.Background = new SolidColorBrush(Colors.Goldenrod);
@@ -793,6 +1001,13 @@ namespace DroneSimulator
                     }
                     catch (Exception ex)
                     {
+                        // 异常处理，更新状态
+                        if (RepairPortStatusText != null)
+                        {
+                            RepairPortStatusText.Text = $"检修端口：发送异常";
+                            RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                        }
+
                         MessageBox.Show($"端口发送异常: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                         btn.IsEnabled = true;
                         btn.Background = new SolidColorBrush(Colors.Goldenrod);
@@ -817,6 +1032,61 @@ namespace DroneSimulator
 
             // 更新统计显示
             UpdateExamStats();
+        }
+
+        // 添加检修端口连接测试方法
+        private async Task<bool> TestRepairPortConnection()
+        {
+            try
+            {
+                var droneConfig = SerialPortManager.GetDroneRepairConfig();
+                if (droneConfig == null)
+                {
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = "检修端口：未配置";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                    }
+                    return false;
+                }
+
+                if (RepairPortStatusText != null)
+                {
+                    RepairPortStatusText.Text = $"检修端口：{droneConfig.PortName} - 测试连接中...";
+                    RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Yellow);
+                }
+
+                bool success = await Task.Run(() => SerialPortManager.TestPortConnection(droneConfig));
+
+                if (success)
+                {
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = $"检修端口：{droneConfig.PortName} - 连接正常";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                    }
+                    return true;
+                }
+                else
+                {
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = $"检修端口：{droneConfig.PortName} - 连接失败";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    }
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (RepairPortStatusText != null)
+                {
+                    RepairPortStatusText.Text = "检修端口：测试异常";
+                    RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                }
+                Debug.WriteLine($"测试检修端口连接失败: {ex.Message}");
+                return false;
+            }
         }
 
         // 提交与退出按钮事件

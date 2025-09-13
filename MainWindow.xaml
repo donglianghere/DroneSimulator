@@ -83,10 +83,10 @@
                                 <StackPanel Margin="6,0,-6,0">
                                     <TextBlock Text="电机测试" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,6" Foreground="#2D3A4A"/>
                                     <WrapPanel Margin="0,4,0,0">
-                                        <Button x:Name="BtnMotor1" FontSize="25"  Content="M1 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="1"/>
-                                        <Button x:Name="BtnMotor3" FontSize="25"  Content="M2 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="3"/>
-                                        <Button x:Name="BtnMotor4" FontSize="25"  Content="M3 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="4"/>
-                                        <Button x:Name="BtnMotor2" FontSize="25"  Content="M4 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="2"/>
+                                        <Button x:Name="BtnMotor1" FontSize="25"  Content="M1 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="1"/>
+                                        <Button x:Name="BtnMotor3" FontSize="25"  Content="M2 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="3"/>
+                                        <Button x:Name="BtnMotor4" FontSize="25"  Content="M3 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="4"/>
+                                        <Button x:Name="BtnMotor2" FontSize="25"  Content="M4 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="2"/>
                                         <Button x:Name="BtnAllMotors" FontSize="25"  Content="全 部 电 机" Width="544" Height="46" Background="Orange" Click="MotorTestAllButton_Click" Tag="ALL"/>
                                     </WrapPanel>
                                     <TextBlock x:Name="MotorTestStatusText" Text="状态：未测试" FontSize="20" Margin="4,10,0,0" Foreground="DarkSlateGray"/>
@@ -304,6 +304,8 @@
                                     <TextBlock x:Name="ExamTeacherText" Text="出题老师：" 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
                                     <TextBlock x:Name="ExamMachineText" Text="考试设备：正在初始化试题！" 
+                                               FontSize="16" FontWeight="Normal" Margin="0,4"/>
+                                    <TextBlock x:Name="RepairPortStatusText" Text="检修端口：正在检测..." 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
                                     <TextBlock x:Name="ExamScoreText" Text="考试得分：" 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
