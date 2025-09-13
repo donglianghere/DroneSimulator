@@ -37,6 +37,7 @@ namespace DroneSimulator
     {
         private bool _isActive;
         private string _examName = "";
+        private bool _isSelected; // 添加选中状态
 
         public string ExamName
         {
@@ -58,14 +59,50 @@ namespace DroneSimulator
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(ActiveIndicator));
                 OnPropertyChanged(nameof(BackgroundBrush));
+                OnPropertyChanged(nameof(FontWeight));
+            }
+        }
+
+        // 添加选中状态属性
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                _isSelected = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(BackgroundBrush));
+                OnPropertyChanged(nameof(BorderBrush));
             }
         }
 
         public string ActiveIndicator => IsActive ? "★ 考卷" : "";
 
-        public Brush BackgroundBrush => IsActive ?
-            new SolidColorBrush(Color.FromRgb(232, 245, 233)) :
-            new SolidColorBrush(Colors.White);
+        // 修改背景刷，支持选中高亮
+        public Brush BackgroundBrush
+        {
+            get
+            {
+                if (IsSelected)
+                    return new SolidColorBrush(Color.FromRgb(173, 216, 230)); // 浅蓝色高亮
+                if (IsActive)
+                    return new SolidColorBrush(Color.FromRgb(232, 245, 233)); // 浅绿色活跃
+                return new SolidColorBrush(Colors.White); // 默认白色
+            }
+        }
+
+        // 添加边框刷属性
+        public Brush BorderBrush
+        {
+            get
+            {
+                if (IsSelected)
+                    return new SolidColorBrush(Color.FromRgb(70, 130, 180)); // 蓝色边框
+                return new SolidColorBrush(Color.FromRgb(129, 209, 221)); // 默认边框颜色
+            }
+        }
+
+        public FontWeight FontWeight => IsActive ? FontWeights.Bold : FontWeights.Normal;
 
         public DateTime CreationTime { get; set; }
         public string FilePath { get; set; } = "";
@@ -342,6 +379,20 @@ namespace DroneSimulator
         {
             if (sender is TextBlock textBlock && textBlock.Tag is string examName)
             {
+                // 清除所有项的选中状态
+                foreach (var item in examItems)
+                {
+                    item.IsSelected = false;
+                }
+
+                // 设置当前点击项为选中状态
+                var clickedItem = examItems.FirstOrDefault(x => x.ExamName == examName);
+                if (clickedItem != null)
+                {
+                    clickedItem.IsSelected = true;
+                }
+
+                // 加载试卷详情
                 LoadExamByName(examName);
             }
         }
@@ -376,39 +427,96 @@ namespace DroneSimulator
             }
         }
 
-        // 设为考卷按钮事件
-        private void SetActiveExam_Click(object sender, RoutedEventArgs e)
+        // 通用的获取右键菜单试卷名称的方法
+        private string GetExamNameFromContextMenu(object sender)
         {
-            if (selectedExamItem != null)
+            if (sender is not MenuItem menuItem)
+                return "";
+
+            // 方法1：直接从 MenuItem.Tag 获取
+            if (menuItem.Tag is string examName)
             {
-                // 找到对应的单选按钮并选中
-                var radioButton = FindRadioButtonByExamName(selectedExamItem.ExamName);
-                if (radioButton != null)
+                return examName;
+            }
+
+            // 方法2：从父级 ContextMenu 的 PlacementTarget 获取
+            if (menuItem.Parent is ContextMenu contextMenu)
+            {
+                if (contextMenu.PlacementTarget is TextBlock textBlock &&
+                    textBlock.Tag is string examName2)
                 {
-                    radioButton.IsChecked = true;
+                    return examName2;
+                }
+
+                // 方法3：从数据上下文获取
+                if (contextMenu.PlacementTarget is FrameworkElement element &&
+                    element.DataContext is ExamListItem examItem)
+                {
+                    return examItem.ExamName;
                 }
             }
-            else
-            {
-                MessageBox.Show("请先选择一个试卷！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
+            return "";
         }
 
-        // 清除考卷按钮事件
+        // 右键菜单：设为考试用卷
+        private void SetAsActiveExam_Click(object sender, RoutedEventArgs e)
+        {
+            string examName = GetExamNameFromContextMenu(sender);
+
+            if (string.IsNullOrEmpty(examName))
+            {
+                MessageBox.Show("无法获取试卷信息，请重试。", "错误",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // 更新所有项的活跃状态
+            foreach (var item in examItems)
+            {
+                item.IsActive = item.ExamName == examName;
+            }
+
+            // 保存活跃试卷设置
+            SetActiveExamName(examName);
+
+            // 加载选中试卷的详情
+            LoadExamByName(examName);
+
+            MessageBox.Show($"已将试卷{ examName}设为考试用卷。", "设置成功", 
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void ViewExamDetails_Click(object sender, RoutedEventArgs e)
+        {
+            string examName = GetExamNameFromContextMenu(sender);
+
+            if (string.IsNullOrEmpty(examName))
+            {
+                MessageBox.Show("无法获取试卷信息，请重试。", "错误",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            LoadExamByName(examName);
+            MessageBox.Show($"已加载试卷{ examName}的详细信息。", "查看详情", 
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        // 右键菜单：取消考试用卷
         private void ClearActiveExam_Click(object sender, RoutedEventArgs e)
         {
-            // 取消所有单选按钮的选中状态
+            // 取消所有试卷的活跃状态
             foreach (var item in examItems)
             {
                 item.IsActive = false;
             }
 
-            // 清除考卷设置
+            // 清除活跃试卷设置
             SetActiveExamName("");
 
-            MessageBox.Show("已清除考卷设置。学生将自动使用最新创建的试卷作为考卷。", "提示",
+            MessageBox.Show("已取消考试用卷设置。学生将自动使用最新创建的试卷。", "取消成功",
                 MessageBoxButton.OK, MessageBoxImage.Information);
-        }
+        }        
 
         // 查找指定试卷名的单选按钮
         private RadioButton? FindRadioButtonByExamName(string examName)
