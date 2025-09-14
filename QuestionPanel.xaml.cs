@@ -9,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -131,10 +132,19 @@ namespace DroneSimulator
         // 新增：用于缓存所有题目CheckBox的名称
         private List<string>? _questionCheckBoxNames;
 
+        // 理论题库相关字段
+        private List<TheoryQuestion> theoryQuestions = new List<TheoryQuestion>();
+        private List<TheoryQuestion> selectedTheoryQuestions = new List<TheoryQuestion>();
+        private List<TheoryQuestion> currentDisplayedQuestions = new List<TheoryQuestion>();
+
+
         public QuestionPanel(UserInfo teacher)
         {
             InitializeComponent();
             currentTeacher = teacher;
+
+            // 初始化理论题库
+            InitializeTheoryQuestionBank();
 
             // 绑定数据源
             ExamItemsControl.ItemsSource = examItems;
@@ -164,6 +174,9 @@ namespace DroneSimulator
 
                     UpdateCategoryStats(); // 验证分类统计
                     UpdateSelectionStats(); // 初始化选择统计
+
+                    // 初始化理论题库显示
+                    LoadTheoryQuestions();
                 }), DispatcherPriority.Loaded);
             };
         }
@@ -177,6 +190,590 @@ namespace DroneSimulator
             }
             this.Title = $"试题管理面板{roleInfo}";
         }
+
+        #region 理论题库功能实现
+
+        /// <summary>
+        /// 初始化理论题库
+        /// </summary>
+        private void InitializeTheoryQuestionBank()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 初始化理论题库 ===");
+                LoadTheoryQuestions();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"初始化理论题库失败：{ex.Message}");
+                MessageBox.Show($"初始化理论题库失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 加载理论题目
+        /// </summary>
+        private void LoadTheoryQuestions()
+        {
+            try
+            {
+                theoryQuestions = TheoryQuestionBankManager.GetAllQuestions()
+                    .Where(q => q.IsActive)
+                    .ToList();
+
+                System.Diagnostics.Debug.WriteLine($"加载了 {theoryQuestions.Count} 道理论题目");
+
+                // 默认显示前5道题目
+                if (theoryQuestions.Any())
+                {
+                    var defaultQuestions = theoryQuestions.Take(5).ToList();
+                    DisplayTheoryQuestions(defaultQuestions);
+                    selectedTheoryQuestions = new List<TheoryQuestion>(defaultQuestions);
+                }
+                else
+                {
+                    ShowEmptyTheoryBank();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载理论题目失败：{ex.Message}");
+                ShowTheoryBankError(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 显示空题库提示
+        /// </summary>
+        private void ShowEmptyTheoryBank()
+        {
+            TheoryQuestionsPanel.Children.Clear();
+
+            var emptyPanel = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(20, 50, 20, 20)
+            };
+
+            var emptyIcon = new TextBlock
+            {
+                Text = "📚",
+                FontSize = 48,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            var emptyText = new TextBlock
+            {
+                Text = "理论题库为空,请点击'题库管理'添加理论题目",
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var manageButton = new Button
+            {
+                Content = "打开题库管理",
+                Width = 120,
+                Height = 35,
+                Background = new SolidColorBrush(Color.FromRgb(76, 175, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 14,
+                Margin = new Thickness(0, 20, 0, 0)
+            };
+            manageButton.Click += ManageTheoryBank_Click;
+
+            emptyPanel.Children.Add(emptyIcon);
+            emptyPanel.Children.Add(emptyText);
+            emptyPanel.Children.Add(manageButton);
+
+            TheoryQuestionsPanel.Children.Add(emptyPanel);
+        }
+
+        /// <summary>
+        /// 显示题库错误信息
+        /// </summary>
+        private void ShowTheoryBankError(string errorMessage)
+        {
+            TheoryQuestionsPanel.Children.Clear();
+
+            var errorPanel = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(20, 50, 20, 20)
+            };
+
+            var errorIcon = new TextBlock
+            {
+                Text = "⚠️",
+                FontSize = 48,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            var errorText = new TextBlock
+            {
+                Text = $"加载理论题库失败\n\n错误信息：{errorMessage}",
+                FontSize = 16,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(Colors.Red)
+            };
+
+            errorPanel.Children.Add(errorIcon);
+            errorPanel.Children.Add(errorText);
+
+            TheoryQuestionsPanel.Children.Add(errorPanel);
+        }
+
+        /// <summary>
+        /// 动态显示理论题目（两列布局）
+        /// </summary>
+        private void DisplayTheoryQuestions(List<TheoryQuestion> questions)
+        {
+            try
+            {
+                TheoryQuestionsPanel.Children.Clear();
+                currentDisplayedQuestions = new List<TheoryQuestion>(questions);
+
+                if (!questions.Any())
+                {
+                    ShowEmptyTheoryBank();
+                    return;
+                }
+
+                // 添加标题
+                var titlePanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 20)
+                };
+
+                var titleText = new TextBlock
+                {
+                    Text = $"理论试卷预览（共 {questions.Count} 题）",
+                    FontSize = 20,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(35, 57, 93))
+                };
+
+                titlePanel.Children.Add(titleText);
+                TheoryQuestionsPanel.Children.Add(titlePanel);
+
+                // 分两列显示题目
+                for (int i = 0; i < questions.Count; i += 2)
+                {
+                    var rowPanel = new UniformGrid
+                    {
+                        Columns = 2,
+                        Margin = new Thickness(0, 0, 0, 20)
+                    };
+
+                    // 左列题目
+                    var leftQuestion = questions[i];
+                    var leftQuestionPanel = CreateQuestionPanel(leftQuestion, i + 1);
+                    rowPanel.Children.Add(leftQuestionPanel);
+
+                    // 右列题目（如果存在）
+                    if (i + 1 < questions.Count)
+                    {
+                        var rightQuestion = questions[i + 1];
+                        var rightQuestionPanel = CreateQuestionPanel(rightQuestion, i + 2);
+                        rowPanel.Children.Add(rightQuestionPanel);
+                    }
+                    else
+                    {
+                        // 如果右列没有题目，添加空白占位
+                        rowPanel.Children.Add(new Border());
+                    }
+
+                    TheoryQuestionsPanel.Children.Add(rowPanel);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"已显示 {questions.Count} 道理论题目");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"显示理论题目失败：{ex.Message}");
+                ShowTheoryBankError(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 创建单个题目面板
+        /// </summary>
+        private Border CreateQuestionPanel(TheoryQuestion question, int questionNumber)
+        {
+            var border = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromRgb(35, 57, 93)),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
+                Margin = new Thickness(10),
+                Padding = new Thickness(15)
+            };
+
+            var mainPanel = new StackPanel();
+
+            // 题目标题行
+            var headerPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            // 题号
+            var questionNumberText = new TextBlock
+            {
+                Text = $"{questionNumber}. ",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(35, 57, 93))
+            };
+
+            // 题目类型标识
+            var typeText = new TextBlock
+            {
+                Text = question.Type == TheoryQuestionType.SingleChoice ? "[单选]" : "[多选]",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = question.Type == TheoryQuestionType.SingleChoice
+                    ? new SolidColorBrush(Color.FromRgb(76, 175, 80))
+                    : new SolidColorBrush(Color.FromRgb(255, 152, 0)),
+                Margin = new Thickness(5, 0, 10, 0)
+            };
+
+            // 题目ID（小字体显示）
+            var idText = new TextBlock
+            {
+                Text = $"ID: {question.Id.Substring(0, 8)}...",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Colors.Gray),
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            headerPanel.Children.Add(questionNumberText);
+            headerPanel.Children.Add(typeText);
+            headerPanel.Children.Add(idText);
+
+            // 题目陈述
+            var questionText = new TextBlock
+            {
+                Text = question.QuestionStatement,
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10),
+                LineHeight = 20
+            };
+
+            // 选项列表
+            var optionsPanel = new StackPanel();
+            char optionLabel = 'A';
+
+            foreach (var option in question.Options)
+            {
+                var optionPanel = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin = new Thickness(0, 3, 0, 3)
+                };
+
+                var optionLabelText = new TextBlock
+                {
+                    Text = $"{optionLabel}. ",
+                    FontSize = 13,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(35, 57, 93)),
+                    Width = 20
+                };
+
+                var optionContentText = new TextBlock
+                {
+                    Text = option.Text,
+                    FontSize = 13,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = question.CorrectAnswers.Contains(option.Text)
+                        ? new SolidColorBrush(Color.FromRgb(76, 175, 80))  // 正确答案用绿色
+                        : new SolidColorBrush(Colors.Black)
+                };
+
+                // 如果是正确答案，添加标记
+                if (question.CorrectAnswers.Contains(option.Text))
+                {
+                    optionContentText.FontWeight = FontWeights.Bold;
+
+                    var correctMark = new TextBlock
+                    {
+                        Text = " ✓",
+                        FontSize = 13,
+                        FontWeight = FontWeights.Bold,
+                        Foreground = new SolidColorBrush(Color.FromRgb(76, 175, 80)),
+                        Margin = new Thickness(5, 0, 0, 0)
+                    };
+
+                    optionPanel.Children.Add(optionLabelText);
+                    optionPanel.Children.Add(optionContentText);
+                    optionPanel.Children.Add(correctMark);
+                }
+                else
+                {
+                    optionPanel.Children.Add(optionLabelText);
+                    optionPanel.Children.Add(optionContentText);
+                }
+
+                optionsPanel.Children.Add(optionPanel);
+                optionLabel++;
+            }
+
+            // 题目信息底部
+            var infoPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+
+            var difficultyText = new TextBlock
+            {
+                Text = $"难度：{question.GetDifficultyDisplayName()}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var categoryText = new TextBlock
+            {
+                Text = $" | 分类：{question.GetCategoryDisplayName()}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var pointsText = new TextBlock
+            {
+                Text = $" | {question.Points}分",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            infoPanel.Children.Add(difficultyText);
+            infoPanel.Children.Add(categoryText);
+            infoPanel.Children.Add(pointsText);
+
+            // 组装面板
+            mainPanel.Children.Add(headerPanel);
+            mainPanel.Children.Add(questionText);
+            mainPanel.Children.Add(optionsPanel);
+            mainPanel.Children.Add(infoPanel);
+
+            border.Child = mainPanel;
+            return border;
+        }
+
+        #endregion
+
+        #region 理论题库事件处理
+
+        /// <summary>
+        /// 理论题库全选事件
+        /// </summary>
+        private void TheorySelectAllRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                selectedTheoryQuestions = new List<TheoryQuestion>(theoryQuestions);
+                DisplayTheoryQuestions(selectedTheoryQuestions);
+
+                MessageBox.Show($"已选择全部 {selectedTheoryQuestions.Count} 道理论题目", "全选完成",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        /// <summary>
+        /// 理论题库清空事件
+        /// </summary>
+        private void TheoryClearAllRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                selectedTheoryQuestions.Clear();
+                TheoryQuestionsPanel.Children.Clear();
+
+                var emptyText = new TextBlock
+                {
+                    Text = "已清空所有理论题目选择",
+                    FontSize = 16,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 50, 0, 0),
+                    Foreground = new SolidColorBrush(Colors.Gray)
+                };
+
+                TheoryQuestionsPanel.Children.Add(emptyText);
+
+                MessageBox.Show("已清空所有理论题目选择", "清空完成",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        /// <summary>
+        /// 理论题库随机选择事件
+        /// </summary>
+        private void TheoryRandomRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                ExecuteTheoryRandomSelection(showResult: true);
+            }
+        }
+
+        /// <summary>
+        /// 理论题库随机数量选择变化事件
+        /// </summary>
+        private void TheoryRandomCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (TheoryRandomRadio?.IsChecked == true)
+            {
+                ExecuteTheoryRandomSelection(showResult: false);
+            }
+        }
+
+        /// <summary>
+        /// 执行理论题库随机选择
+        /// </summary>
+        private void ExecuteTheoryRandomSelection(bool showResult = false)
+        {
+            try
+            {
+                int randomCount = GetTheoryRandomCount();
+
+                if (randomCount <= 0)
+                {
+                    MessageBox.Show("请选择有效的题目数量！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!theoryQuestions.Any())
+                {
+                    MessageBox.Show("理论题库为空，无法进行随机选择！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 智能平衡选题
+                selectedTheoryQuestions = TheoryQuestionBankManager.SelectBalancedQuestions(randomCount);
+
+                if (!selectedTheoryQuestions.Any())
+                {
+                    // 如果智能选题失败，使用简单随机选择
+                    selectedTheoryQuestions = TheoryQuestionBankManager.SelectRandomQuestions(randomCount);
+                }
+
+                // 显示选中的题目
+                DisplayTheoryQuestions(selectedTheoryQuestions);
+
+                if (showResult)
+                {
+                    ShowTheoryRandomSelectionResult(selectedTheoryQuestions.Count, randomCount, theoryQuestions.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"理论题库随机选择失败：{ex.Message}");
+                MessageBox.Show($"随机选择理论题目失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 获取理论题库随机选择数量
+        /// </summary>
+        private int GetTheoryRandomCount()
+        {
+            try
+            {
+                if (TheoryRandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    if (int.TryParse(selectedItem.Content?.ToString(), out int count))
+                    {
+                        return count;
+                    }
+                }
+                return 5; // 默认值
+            }
+            catch
+            {
+                return 5;
+            }
+        }
+
+        /// <summary>
+        /// 显示理论题库随机选择结果
+        /// </summary>
+        private void ShowTheoryRandomSelectionResult(int actualCount, int requestedCount, int totalCount)
+        {
+            string message = $"理论题目随机选择完成！\n\n" +
+                            $"请求选择：{requestedCount} 题\n" +
+                            $"实际选择：{actualCount} 题\n" +
+                            $"题库总数：{totalCount} 题\n\n" +
+                            $"已按分类智能平衡选题";
+
+            if (actualCount < requestedCount)
+            {
+                message += $"\n\n注意：由于题库总数限制，实际选择数量少于请求数量。";
+            }
+
+            MessageBox.Show(message, "随机选择结果",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 打开题库管理窗口
+        /// </summary>
+        // 修改 ManageTheoryBank_Click 方法，添加更详细的错误诊断
+        private void ManageTheoryBank_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 开始打开理论题库管理窗口 ===");
+
+                // 先检查理论题库管理器是否正常
+                System.Diagnostics.Debug.WriteLine("检查理论题库管理器...");
+                var testQuestions = TheoryQuestionBankManager.GetAllQuestions();
+                System.Diagnostics.Debug.WriteLine($"理论题库管理器正常，获取到 {testQuestions.Count} 道题目");
+
+                // 再检查窗口类是否可以实例化
+                System.Diagnostics.Debug.WriteLine("尝试创建理论题库管理窗口...");
+
+                var theoryBankWindow = new TheoryQuestionBankWindow(currentTeacher.Name);
+                System.Diagnostics.Debug.WriteLine("窗口创建成功，准备显示...");
+
+                theoryBankWindow.ShowDialog();
+                System.Diagnostics.Debug.WriteLine("窗口已关闭");
+
+                // 关闭题库管理窗口后重新加载题目
+                LoadTheoryQuestions();
+                System.Diagnostics.Debug.WriteLine("=== 理论题库管理窗口操作完成 ===");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"=== 理论题库管理窗口出错 ===");
+                System.Diagnostics.Debug.WriteLine($"错误类型：{ex.GetType().Name}");
+                System.Diagnostics.Debug.WriteLine($"错误消息：{ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+
+                MessageBox.Show($"打开题库管理窗口失败：\n\n" +
+                               $"错误类型：{ex.GetType().Name}\n" +
+                               $"错误消息：{ex.Message}\n\n" +
+                               $"详细信息请查看调试输出", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        #endregion
 
         /// <summary>
         /// 试卷名称输入框文本改变事件
@@ -999,6 +1596,7 @@ namespace DroneSimulator
                 prefixes.Any(prefix => cb.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)));
         }
 
+        // 在 GenerateButton_Click 方法中添加理论题目支持
         private void GenerateButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(ExamNameBox.Text))
@@ -1007,95 +1605,97 @@ namespace DroneSimulator
                 return;
             }
 
-            // 获取所有CheckBox对应的Question对象
+            // 获取电路实测题目
             var allQuestions = GetAllQuestions();
-            // 只保存被选中的题目
             var selectedQuestions = allQuestions.FindAll(q => q.IsChecked);
 
-            if (selectedQuestions.Count == 0)
+            // 检查是否选择了理论题目
+            bool hasTheoryQuestions = selectedTheoryQuestions?.Any() == true;
+            bool hasCircuitQuestions = selectedQuestions.Any();
+
+            if (!hasTheoryQuestions && !hasCircuitQuestions)
             {
-                MessageBox.Show("请至少选择一道题目！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("请至少选择一道题目（电路实测或理论题目）！", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // 检查同名试卷是否已存在
-            string fileName = Path.Combine(EXAMS_DIRECTORY, $"{ExamNameBox.Text}.json");
-            if (File.Exists(fileName))
-            {
-                // 读取现有试卷数据，检查创建者
-                try
-                {
-                    string existingJson = File.ReadAllText(fileName);
-                    var existingExam = JsonSerializer.Deserialize<ExamData>(existingJson);
-
-                    if (existingExam != null)
-                    {
-                        // 检查是否为当前用户创建的试卷
-                        bool isOwnExam = CanModifyExam(existingExam);
-
-                        if (!isOwnExam)
-                        {
-                            // 不是自己创建的试卷，禁止覆盖
-                            MessageBox.Show($"试卷名称冲突！\n\n" +
-                                           $"试卷《{ExamNameBox.Text}》已由教师 { existingExam.TeacherName} 创建。\n" +
-                                           $"创建时间：{existingExam.CreationTime:yyyy-MM-dd HH:mm}\n\n" +
-                                           $"请更换试卷名称或联系原创建者。", 
-                                   "无法创建试卷", MessageBoxButton.OK, MessageBoxImage.Warning);
-                            return;
-                        }
-                        else
-                        {
-                            // 是自己创建的试卷，询问是否覆盖
-                            var result = MessageBox.Show($"试卷《{ExamNameBox.Text}》已存在！\n\n" +
-                                                       $"创建时间：{existingExam.CreationTime:yyyy-MM-dd HH:mm}\n" +
-                                                       $"题目数量：{existingExam.Questions?.Count(q => q.IsChecked) ?? 0}\n\n" +
-                                                       $"确定要覆盖现有试卷吗？",
-                                                       "确认覆盖", MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-                            if (result != MessageBoxResult.Yes)
-                            {
-                                return;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"读取现有试卷信息失败：{ex.Message}\n\n请更换试卷名称。",
-                                   "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
-            }
-
-            // 创建新试卷数据
-            var examData = new ExamData
+            // 创建混合试卷数据
+            var examData = new MixedExamData
             {
                 ExamName = ExamNameBox.Text,
                 TeacherName = currentTeacher.Name,
                 TeacherId = currentTeacher.IdNumber,
                 CreationTime = DateTime.Now,
-                Questions = allQuestions
+                CircuitQuestions = selectedQuestions,
+                TheoryQuestions = selectedTheoryQuestions ?? new List<TheoryQuestion>()
             };
 
             try
             {
-                SaveExam(examData);
-
-                // 重新加载试卷列表
+                SaveMixedExam(examData);
                 LoadExistingExams();
 
-                // 清空输入框和状态提示
                 ExamNameBox.Text = "";
                 if (ExamNameStatusText != null)
                 {
                     ExamNameStatusText.Text = "";
                 }
 
-                MessageBox.Show("试卷生成成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                string examInfo = $"试卷生成成功！\n\n" +
+                                 $"电路实测题目：{selectedQuestions.Count} 题\n" +
+                                 $"理论题目：{selectedTheoryQuestions?.Count ?? 0} 题\n" +
+                                 $"总计：{selectedQuestions.Count + (selectedTheoryQuestions?.Count ?? 0)} 题";
+
+                MessageBox.Show(examInfo, "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"保存试卷失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 保存混合试卷
+        /// </summary>
+        private void SaveMixedExam(MixedExamData examData)
+        {
+            try
+            {
+                // 为了兼容现有系统，将混合试卷转换为ExamData格式保存
+                var compatibleExamData = new ExamData
+                {
+                    ExamName = examData.ExamName,
+                    TeacherName = examData.TeacherName,
+                    TeacherId = examData.TeacherId,
+                    CreationTime = examData.CreationTime,
+                    Questions = examData.CircuitQuestions
+                };
+
+                // 保存电路题目（保持现有格式）
+                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}.json");
+                string jsonString = JsonSerializer.Serialize(compatibleExamData, new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+                File.WriteAllText(fileName, jsonString);
+
+                // 如果有理论题目，单独保存
+                if (examData.TheoryQuestions.Any())
+                {
+                    string theoryFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_theory.json");
+                    string theoryJsonString = JsonSerializer.Serialize(examData.TheoryQuestions, new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    });
+                    File.WriteAllText(theoryFileName, theoryJsonString);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"保存混合试卷失败：{ex.Message}");
             }
         }
 

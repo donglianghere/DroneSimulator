@@ -429,7 +429,7 @@ namespace DroneSimulator
             {
                 roleInfo = $" - {GetUserTypeDisplayName(currentUser.Type)}以学生身份登录";
             }
-            this.Title = $"康鹤多旋翼无人机检修平台-V1.0{roleInfo}";
+            this.Title = $"康鹤多旋翼无人机检修平台-V2.0{roleInfo}";
         }
 
         private string GetUserTypeDisplayName(UserType type)
