@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DroneSimulator
 {
@@ -127,6 +128,9 @@ namespace DroneSimulator
         private ObservableCollection<ExamListItem> examItems = new();
         private ExamListItem? selectedExamItem;
 
+        // 新增：用于缓存所有题目CheckBox的名称
+        private List<string>? _questionCheckBoxNames;
+
         public QuestionPanel(UserInfo teacher)
         {
             InitializeComponent();
@@ -145,8 +149,23 @@ namespace DroneSimulator
             ExamNameBox.TextChanged += ExamNameBox_TextChanged;
 
             // 初始化状态检查（在窗口加载完成后执行）
-            this.Loaded += (s, e) => CheckExamNameConflict();
+            this.Loaded += (s, e) => {
+                CheckExamNameConflict();
 
+                // ========== 修复：确保在窗口加载完成后执行全选 ==========
+                // 延迟执行，确保所有控件都已完全加载
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    // 由于SelectAllRadio默认选中，手动触发全选逻辑
+                    if (SelectAllRadio.IsChecked == true)
+                    {
+                        SelectAllRadio_Checked(SelectAllRadio, new RoutedEventArgs());
+                    }
+
+                    UpdateCategoryStats(); // 验证分类统计
+                    UpdateSelectionStats(); // 初始化选择统计
+                }), DispatcherPriority.Loaded);
+            };
         }
 
         private void UpdateWindowTitle()
@@ -570,17 +589,39 @@ namespace DroneSimulator
 
         private void SelectAllRadio_Checked(object sender, RoutedEventArgs e)
         {
-            foreach (var checkbox in FindAllCheckBoxes())
+            // 确保仅在 RadioButton 真正被选中时执行
+            if (sender is RadioButton rb && rb.IsChecked == true)
             {
-                checkbox.IsChecked = true;
+                System.Diagnostics.Debug.WriteLine("=== 执行全选操作 ===");
+                var checkboxes = FindAllCheckBoxes().ToList();
+                System.Diagnostics.Debug.WriteLine($"找到 {checkboxes.Count} 个题目控件");
+
+                foreach (var checkbox in checkboxes)
+                {
+                    checkbox.SetCurrentValue(CheckBox.IsCheckedProperty, true);
+                }
+
+                System.Diagnostics.Debug.WriteLine("全选操作完成");
+                UpdateSelectionStats();
             }
         }
 
         private void ClearAllRadio_Checked(object sender, RoutedEventArgs e)
         {
-            foreach (var checkbox in FindAllCheckBoxes())
+            // 确保仅在 RadioButton 真正被选中时执行
+            if (sender is RadioButton rb && rb.IsChecked == true)
             {
-                checkbox.IsChecked = false;
+                System.Diagnostics.Debug.WriteLine("=== 执行清空操作 ===");
+                var checkboxes = FindAllCheckBoxes().ToList();
+                System.Diagnostics.Debug.WriteLine($"找到 {checkboxes.Count} 个题目控件");
+
+                foreach (var checkbox in checkboxes)
+                {
+                    checkbox.SetCurrentValue(CheckBox.IsCheckedProperty, false);
+                }
+
+                System.Diagnostics.Debug.WriteLine("清空操作完成");
+                UpdateSelectionStats();
             }
         }
 
@@ -613,7 +654,12 @@ namespace DroneSimulator
         /// </summary>
         private void RandomRadio_Checked(object sender, RoutedEventArgs e)
         {
-            ExecuteRandomSelection(showResult: true);  // 显示结果
+            // 确保仅在 RadioButton 真正被选中时执行
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                System.Diagnostics.Debug.WriteLine("=== 执行随机选择操作 ===");
+                ExecuteRandomSelection(showResult: true);  // 显示结果
+            }
         }
 
         /// <summary>
@@ -624,8 +670,11 @@ namespace DroneSimulator
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("=== 开始执行随机选择 ===");
+
                 // 获取随机选择的题目数量
                 int randomCount = GetRandomCount();
+                System.Diagnostics.Debug.WriteLine($"随机选择数量: {randomCount}");
 
                 if (randomCount <= 0)
                 {
@@ -634,20 +683,22 @@ namespace DroneSimulator
                     return;
                 }
 
-                // 先清空所有选择
-                foreach (var checkbox in FindAllCheckBoxes())
-                {
-                    checkbox.IsChecked = false;
-                }
-
                 // 获取所有可用的题目
                 var allCheckboxes = FindAllCheckBoxes().ToList();
+                System.Diagnostics.Debug.WriteLine($"找到的题目数量: {allCheckboxes.Count}");
 
                 if (allCheckboxes.Count == 0)
                 {
-                    MessageBox.Show("未找到可选择的题目！", "提示",
+                    System.Diagnostics.Debug.WriteLine("❌ 未找到任何题目控件！");
+                    MessageBox.Show("未找到可选择的题目！\n\n调试信息：请检查控件是否正确加载。", "提示",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
+                }
+
+                // 先清空所有选择
+                foreach (var checkbox in allCheckboxes)
+                {
+                    checkbox.SetCurrentValue(CheckBox.IsCheckedProperty, false);
                 }
 
                 // 确保随机数量不超过总题目数
@@ -666,8 +717,10 @@ namespace DroneSimulator
                 // 设置选中的题目
                 foreach (int index in selectedIndexes)
                 {
-                    allCheckboxes[index].IsChecked = true;
+                    allCheckboxes[index].SetCurrentValue(CheckBox.IsCheckedProperty, true);
                 }
+
+                System.Diagnostics.Debug.WriteLine($"随机选择完成：选中了 {actualCount} 个题目");
 
                 // 根据参数决定是否显示结果统计
                 if (showResult)
@@ -680,6 +733,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"随机选择失败: {ex.Message}\n{ex.StackTrace}");
                 MessageBox.Show($"随机选择题目时发生错误：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -739,36 +793,135 @@ namespace DroneSimulator
         {
             try
             {
-                if (SelectionStatsText != null)
+                System.Diagnostics.Debug.WriteLine("=== 开始更新选择统计 ===");
+
+                if (SelectionStatsText == null)
                 {
-                    var selectedCheckboxes = FindAllCheckBoxes().Where(cb => cb.IsChecked == true).ToList();
-                    int selectedCount = selectedCheckboxes.Count;
-                    int totalCount = FindAllCheckBoxes().Count();
-
-                    // 按分类统计选择情况
-                    var motorSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("M"));
-                    var escSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
-                    var pwmSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("S"));
-                    var gpsSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
-                    var otherSelected = selectedCheckboxes.Count(cb =>
-                        cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
-
-                    string statsText = $"当前选择统计：\n\n" +
-                                      $"总体情况：已选择 {selectedCount} / {totalCount} 题\n\n" +
-                                      $"分类详情：\n" +
-                                      $"• 电机题目：{motorSelected} 题\n" +
-                                      $"• 电调题目：{escSelected} 题\n" +
-                                      $"• PWM输出：{pwmSelected} 题\n" +
-                                      $"• GPS题目：{gpsSelected} 题\n" +
-                                      $"• 其他组件：{otherSelected} 题\n\n" +
-                                      $"选择比例：{(double)selectedCount / totalCount * 100:F1}%";
-
-                    SelectionStatsText.Text = statsText;
+                    System.Diagnostics.Debug.WriteLine("SelectionStatsText 为 null");
+                    return;
                 }
+
+                // 获取所有 CheckBox
+                var allCheckboxes = FindAllCheckBoxes().ToList();
+                System.Diagnostics.Debug.WriteLine($"找到的所有 CheckBox 数量: {allCheckboxes.Count}");
+
+                // 获取有效题目（有 CommandString 的 CheckBox）
+                var allValidCheckboxes = allCheckboxes
+                    .Where(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
+                    .ToList();
+                System.Diagnostics.Debug.WriteLine($"有效题目数量: {allValidCheckboxes.Count}");
+
+                // 调试：输出前5个有效题目的信息
+                for (int i = 0; i < Math.Min(5, allValidCheckboxes.Count); i++)
+                {
+                    var cb = allValidCheckboxes[i];
+                    var commandString = CheckBoxCommandHelper.GetCommandString(cb);
+                    System.Diagnostics.Debug.WriteLine($"题目 {i + 1}: 名称={cb.Name}, CommandString={commandString}, 选中={cb.IsChecked}");
+                }
+
+                // 获取选中的题目
+                var selectedCheckboxes = allValidCheckboxes
+                    .Where(cb => cb.IsChecked == true)
+                    .ToList();
+                System.Diagnostics.Debug.WriteLine($"选中题目数量: {selectedCheckboxes.Count}");
+
+                int selectedCount = selectedCheckboxes.Count;
+                int totalCount = allValidCheckboxes.Count;
+
+                // 按分类统计选择情况
+                var motorSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("M"));
+                var escSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
+                var pwmSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("S"));
+                var gpsSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
+                var otherSelected = selectedCheckboxes.Count(cb =>
+                    cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
+
+                System.Diagnostics.Debug.WriteLine($"分类统计 - 电机:{motorSelected}, 电调:{escSelected}, PWM:{pwmSelected}, GPS:{gpsSelected}, 其他:{otherSelected}");
+
+                // 计算百分比，避免除零错误
+                double percentage = totalCount > 0 ? (double)selectedCount / totalCount * 100 : 0;
+
+                // 生成详细的统计信息
+                string statsText = $"📊 当前选择统计：\n\n" +
+                                  $"📈 总体情况：已选择 {selectedCount} / {totalCount} 题（{percentage:F1}%）\n\n" +
+                                  $"📋 分类详情：\n" +
+                                  $"🔧 电机题目：{motorSelected} 题\n" +
+                                  $"⚡ 电调题目：{escSelected} 题\n" +
+                                  $"📡 PWM输出：{pwmSelected} 题\n" +
+                                  $"📍 GPS题目：{gpsSelected} 题\n" +
+                                  $"🔗 其他组件：{otherSelected} 题\n\n";
+
+                // 添加选择状态提示
+                if (selectedCount == 0)
+                {
+                    statsText += "⚠️ 提示：当前未选择任何题目，生成试卷时将无法保存！";
+                }
+                else if (selectedCount == totalCount)
+                {
+                    statsText += "✅ 状态：已选择全部题目！";
+                }
+                else
+                {
+                    statsText += $"✅ 状态：已选择部分题目，可以生成包含 {selectedCount} 道题的试卷。";
+                }
+
+                SelectionStatsText.Text = statsText;
+                System.Diagnostics.Debug.WriteLine("=== 选择统计更新完成 ===");
+                System.Diagnostics.Debug.WriteLine($"显示的文本: {statsText}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"更新选择统计失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+
+                if (SelectionStatsText != null)
+                {
+                    SelectionStatsText.Text = $"统计信息更新失败：{ex.Message}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// 动态生成并验证题目分类统计
+        /// </summary>
+        private void UpdateCategoryStats()
+        {
+            try
+            {
+                // 获取所有有效题目
+                var allValidCheckboxes = FindAllCheckBoxes()
+                    .Where(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
+                    .ToList();
+
+                // 按分类统计题目数量
+                var motorCount = allValidCheckboxes.Count(cb => cb.Name.StartsWith("M"));
+                var escCount = allValidCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
+                var pwmCount = allValidCheckboxes.Count(cb => cb.Name.StartsWith("S"));
+                var gpsCount = allValidCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
+                var otherCount = allValidCheckboxes.Count(cb =>
+                    cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
+
+                int totalCount = allValidCheckboxes.Count;
+
+                // 输出调试信息以验证统计数据
+                System.Diagnostics.Debug.WriteLine($"=== 题目分类统计验证 ===");
+                System.Diagnostics.Debug.WriteLine($"电机题目：{motorCount} 题");
+                System.Diagnostics.Debug.WriteLine($"电调题目：{escCount} 题");
+                System.Diagnostics.Debug.WriteLine($"PWM输出题目：{pwmCount} 题");
+                System.Diagnostics.Debug.WriteLine($"GPS题目：{gpsCount} 题");
+                System.Diagnostics.Debug.WriteLine($"其他组件题目：{otherCount} 题");
+                System.Diagnostics.Debug.WriteLine($"动态统计总计：{totalCount} 题");
+                System.Diagnostics.Debug.WriteLine($"XAML固定显示：51 题");
+
+                // 如果总数不匹配，在调试输出中显示警告
+                if (totalCount != 51)
+                {
+                    System.Diagnostics.Debug.WriteLine($"⚠️ 警告：动态统计({totalCount})与XAML显示(51)不一致！");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新分类统计失败: {ex.Message}");
             }
         }
 
@@ -946,6 +1099,33 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// TabControl 选择变化事件处理
+        /// </summary>
+        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (sender is TabControl tabControl)
+                {
+                    // 检查是否切换到了"题库统计"页面
+                    if (tabControl.SelectedItem is TabItem selectedTab)
+                    {
+                        // 通过 Header 内容判断是否是题库统计页面
+                        if (selectedTab.Header?.ToString() == "题库统计")
+                        {
+                            // 当切换到题库统计页面时，自动更新选择统计
+                            UpdateSelectionStats();
+                            UpdateCategoryStats(); // 同时更新分类统计以确保数据一致性
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TabControl 选择变化处理失败: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// 检查当前用户是否可以修改指定试卷
@@ -1090,9 +1270,74 @@ namespace DroneSimulator
 
         private IEnumerable<CheckBox> FindAllCheckBoxes()
         {
-            var checkboxes = new List<CheckBox>();
-            FindVisualChildren<CheckBox>(this, checkboxes);
-            return checkboxes;
+            // 如果尚未缓存题目控件的名称
+            if (_questionCheckBoxNames == null)
+            {
+                System.Diagnostics.Debug.WriteLine("首次运行：动态发现并缓存题目控件名称...");
+                _questionCheckBoxNames = new List<string>();
+
+                // 方法1：首先尝试通过可视化树查找
+                var allCheckboxes = new List<CheckBox>();
+                FindVisualChildren<CheckBox>(this, allCheckboxes);
+
+                foreach (var cb in allCheckboxes)
+                {
+                    // 只将作为"题目"的CheckBox（即设置了CommandString）的名称加入缓存
+                    if (!string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)) && !string.IsNullOrEmpty(cb.Name))
+                    {
+                        _questionCheckBoxNames.Add(cb.Name);
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"通过可视化树发现了 {_questionCheckBoxNames.Count} 个题目控件。");
+
+                // 方法2：如果通过可视化树找不到足够的控件，使用已知名称列表作为备用
+                if (_questionCheckBoxNames.Count < 10) // 假设至少应该有10个题目
+                {
+                    System.Diagnostics.Debug.WriteLine("可视化树查找结果不足，使用已知控件名称列表...");
+
+                    var knownNames = new[] {
+                "M1_1", "M1_2", "M1_3", "M1_4", "M2_1", "M2_2", "M2_3", "M2_4",
+                "M3_1", "M3_2", "M3_3", "M3_4", "M4_1", "M4_2", "M4_3", "M4_4",
+                "ESC1_1", "ESC1_2", "ESC1_3", "ESC2_1", "ESC2_2", "ESC2_3",
+                "ESC3_1", "ESC3_2", "ESC3_3", "ESC4_1", "ESC4_2", "ESC4_3",
+                "S5_1", "S5_2", "S5_3", "S6_1", "S6_2", "S6_3",
+                "S7_1", "S7_2", "S7_3", "S8_1", "S8_2", "S8_3",
+                "UART_1", "UART_2", "GPS5V_1", "GPS5V_2",
+                "Receiver_1", "Receiver_2", "Receiver_3",
+                "SERVO_1", "SERVO_2", "Battery_1", "Battery_2"
+            };
+
+                    _questionCheckBoxNames.Clear();
+                    foreach (var name in knownNames)
+                    {
+                        var cb = FindName(name) as CheckBox;
+                        if (cb != null && !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
+                        {
+                            _questionCheckBoxNames.Add(name);
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"通过已知名称列表发现了 {_questionCheckBoxNames.Count} 个题目控件。");
+                }
+            }
+
+            // 使用缓存的名称列表，通过 FindName 安全地获取控件
+            var result = new List<CheckBox>();
+            foreach (var name in _questionCheckBoxNames)
+            {
+                if (FindName(name) is CheckBox cb)
+                {
+                    result.Add(cb);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"⚠️ 警告：无法通过名称 '{name}' 找到CheckBox控件");
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"最终返回 {result.Count} 个CheckBox控件");
+            return result;
         }
 
         private void FindVisualChildren<T>(DependencyObject obj, List<T> results) where T : DependencyObject
