@@ -297,7 +297,7 @@
             <TabItem Header="题库选择" Background="#B3AAC6">
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
-                        <TextBlock Text="线路检测" FontSize="16" FontWeight="Bold" 
+                        <TextBlock Text="电路题库" FontSize="16" FontWeight="Bold" 
                                    Foreground="#23395d" Padding="10,5"/>
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
