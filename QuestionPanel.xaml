@@ -6,6 +6,7 @@
         WindowStyle="SingleBorderWindow" WindowState="Maximized" ShowInTaskbar="True"
         Background="#FFFFFF">
     <Window.Resources>
+        <!-- 保持所有现有的样式定义不变 -->
         <!-- GroupBox 样式 -->
         <Style TargetType="GroupBox" x:Key="ClosedGroupBox">
             <Setter Property="Foreground" Value="#23395d"/>
@@ -93,6 +94,8 @@
             <Setter Property="Padding" Value="4"/>
             <Setter Property="Height" Value="32"/>
         </Style>
+
+        <!-- 保持所有其他现有的样式定义... -->
         <!-- 电机 -->
         <Style TargetType="GroupBox" x:Key="MotorGroupBox">
             <Setter Property="Foreground" Value="#23395d"/>
@@ -121,6 +124,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- 电调 -->
         <Style TargetType="GroupBox" x:Key="EscGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#7B341E"/>
@@ -146,6 +150,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- PWM -->
         <Style TargetType="GroupBox" x:Key="PwmGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#226644"/>
@@ -171,6 +176,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- GPS -->
         <Style TargetType="GroupBox" x:Key="GpsGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#1B4965"/>
@@ -196,6 +202,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- 接收机 -->
         <Style TargetType="GroupBox" x:Key="ReceiverGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#7C4700"/>
@@ -221,6 +228,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- 舵机 -->
         <Style TargetType="GroupBox" x:Key="ServoGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#4B3869"/>
@@ -246,6 +254,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
         <!-- 电池 -->
         <Style TargetType="GroupBox" x:Key="BatteryGroupBox" BasedOn="{StaticResource MotorGroupBox}">
             <Setter Property="Foreground" Value="#B22222"/>
@@ -272,235 +281,372 @@
             </Setter>
         </Style>
     </Window.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="400"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧题库面板 -->
-        <Grid Grid.Column="0" Margin="10" Background="#B3AAC6">
-            <!-- 固定标题和RadioButton -->
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <!-- 标题跨两列，整行居中 -->
-                <TextBlock Grid.Column="0" Grid.ColumnSpan="2"
-                           Text="题库面板"
-                           FontSize="24"
-                           FontWeight="Bold"
-                           Foreground="#23395d"
-                           Margin="0,20,0,0"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Top"/>
-                <!-- 右侧RadioButton组 -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="20,20,0,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                    <RadioButton x:Name="SelectAllRadio" Content="全选  " Margin="0,0,10,0"
-                                 GroupName="SelectGroup" Checked="SelectAllRadio_Checked" FontSize="20"/>
-                    <RadioButton x:Name="ClearAllRadio" Content="清空       "
-                                 GroupName="SelectGroup" Checked="ClearAllRadio_Checked" FontSize="20"/>
-                </StackPanel>
-            </Grid>
-            <!-- 可滚动内容，顶部留出空间避免被标题遮挡 -->
-            <ScrollViewer Margin="0,70,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent">
-                <StackPanel>
-                    <!-- 电机部分 -->
-                    <GroupBox Header="电机" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                        <UniformGrid Columns="2">
-                            <GroupBox Header="M1" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="M1_1" Content="电机M1-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal" 
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00010100EEEE"/>
-                                    <CheckBox x:Name="M1_2" Content="电机M1-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00020100EEEE"/>
-                                    <CheckBox x:Name="M1_3" Content="电机M1-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00030100EEEE"/>
-                                    <CheckBox x:Name="M1_4" Content="电机M1-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00040100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="M2" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="M2_1" Content="电机M2-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00050100EEEE"/>
-                                    <CheckBox x:Name="M2_2" Content="电机M2-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal" 
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00060100EEEE"/>
-                                    <CheckBox x:Name="M2_3" Content="电机M2-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00070100EEEE"/>
-                                    <CheckBox x:Name="M2_4" Content="电机M2-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00080100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="M3" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="M3_1" Content="电机M3-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00090100EEEE"/>
-                                    <CheckBox x:Name="M3_2" Content="电机M3-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00100100EEEE"/>
-                                    <CheckBox x:Name="M3_3" Content="电机M3-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00110100EEEE"/>
-                                    <CheckBox x:Name="M3_4" Content="电机M3-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00120100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="M4" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="M4_1" Content="电机M4-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00130100EEEE"/>
-                                    <CheckBox x:Name="M4_2" Content="电机M4-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00140100EEEE"/>
-                                    <CheckBox x:Name="M4_3" Content="电机M4-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00150100EEEE"/>
-                                    <CheckBox x:Name="M4_4" Content="电机M4-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00160100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                        </UniformGrid>
-                    </GroupBox>
+        <!-- 左侧 TabControl - 包含题库面板 -->
+        <TabControl Grid.Column="0" Margin="10" Background="#E8E8E8" 
+                    BorderBrush="#23395d" BorderThickness="2">
 
-                    <!-- 电调部分 -->
-                    <GroupBox Header="电调" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                        <UniformGrid Columns="2">
-                            <GroupBox Header="ESC1" Margin="5" Style="{StaticResource SeriousGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="ESC1_1" Content="电调1+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00170100EEEE"/>
-                                    <CheckBox x:Name="ESC1_2" Content="电调S1信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00180100EEEE"/>
-                                    <CheckBox x:Name="ESC1_3" Content="电调1-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00190100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="ESC2" Margin="5" Style="{StaticResource SeriousGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="ESC2_1" Content="电调2+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00210100EEEE"/>
-                                    <CheckBox x:Name="ESC2_2" Content="电调S2信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00220100EEEE"/>
-                                    <CheckBox x:Name="ESC2_3" Content="电调2-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00230100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="ESC3" Margin="5" Style="{StaticResource SeriousGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="ESC3_1" Content="电调3+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00250100EEEE"/>
-                                    <CheckBox x:Name="ESC3_2" Content="电调S3信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00260100EEEE"/>
-                                    <CheckBox x:Name="ESC3_3" Content="电调3-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00270100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="ESC4" Margin="5" Style="{StaticResource SeriousGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="ESC4_1" Content="电调4+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00290100EEEE"/>
-                                    <CheckBox x:Name="ESC4_2" Content="电调S4信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00300100EEEE"/>
-                                    <CheckBox x:Name="ESC4_3" Content="电调4-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00310100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                        </UniformGrid>
-                    </GroupBox>
+            <!-- 题库选择选项卡 -->
+            <TabItem Header="题库选择" Background="#B3AAC6">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="线路检测" FontSize="16" FontWeight="Bold" 
+                                   Foreground="#23395d" Padding="10,5"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
 
-                    <!-- PWM输出部分 -->
-                    <GroupBox Header="PWM输出" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                        <UniformGrid Columns="2">
-                            <GroupBox Header="S5" Margin="5" Style="{StaticResource PwmGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="S5_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00440100EEEE"/>
-                                    <CheckBox x:Name="S5_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00450100EEEE"/>
-                                    <CheckBox x:Name="S5_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00460100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="S6" Margin="5" Style="{StaticResource PwmGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="S6_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00470100EEEE"/>
-                                    <CheckBox x:Name="S6_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00480100EEEE"/>
-                                    <CheckBox x:Name="S6_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00490100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="S7" Margin="5" Style="{StaticResource PwmGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="S7_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00500100EEEE"/>
-                                    <CheckBox x:Name="S7_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00510100EEEE"/>
-                                    <CheckBox x:Name="S7_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00520100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                            <GroupBox Header="S8" Margin="5" Style="{StaticResource PwmGroupBox}">
-                                <StackPanel>
-                                    <CheckBox x:Name="S8_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00530100EEEE"/>
-                                    <CheckBox x:Name="S8_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00540100EEEE"/>
-                                    <CheckBox x:Name="S8_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                                local:CheckBoxCommandHelper.CommandString="FFFF00550100EEEE"/>
-                                </StackPanel>
-                            </GroupBox>
-                        </UniformGrid>
-                    </GroupBox>
+                <Grid Background="#B3AAC6">
+                    <!-- 题库面板内容 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                    <!-- 其他组件部分 -->
-                    <UniformGrid Columns="2" Margin="0,0,0,10">
-                        <GroupBox Header="GPS" Margin="5" Style="{StaticResource GpsGroupBox}">
+                        <!-- 标题跨两列，整行居中 -->
+
+                        <!-- 右侧RadioButton组 -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" 
+                                    Margin="10,10,0,0" HorizontalAlignment="Center" 
+                                    VerticalAlignment="Top">
+                            <RadioButton x:Name="SelectAllRadio" Content="全选  " Margin="0,0,10,0"
+                                         GroupName="SelectGroup" Checked="SelectAllRadio_Checked" FontSize="16"/>
+                            <RadioButton x:Name="ClearAllRadio" Content="清空       "
+                                         GroupName="SelectGroup" Checked="ClearAllRadio_Checked" FontSize="16"/>
+                            <!-- 新增：随机选择功能 -->
+                            <RadioButton x:Name="RandomRadio" Content="随机  " Margin="0,0,10,0"
+                                        GroupName="SelectGroup" Checked="RandomRadio_Checked" FontSize="16"/>
+
+                            <!-- 新增：随机题目数量下拉列表 -->
+                            <ComboBox x:Name="RandomCountComboBox" Width="60" Height="25" 
+                                      FontSize="16" VerticalAlignment="Center"
+                                      ToolTip="选择随机生成的题目数量"
+                                      SelectionChanged="RandomCountComboBox_SelectionChanged">
+                                <!-- 1到50的选项 -->
+                                <ComboBoxItem Content="1"/>
+                                <ComboBoxItem Content="2"/>
+                                <ComboBoxItem Content="3"/>
+                                <ComboBoxItem Content="4" IsSelected="True"/>
+                                <ComboBoxItem Content="5"/>
+                                <ComboBoxItem Content="6"/>
+                                <ComboBoxItem Content="7"/>
+                                <ComboBoxItem Content="8"/>
+                                <ComboBoxItem Content="9"/>
+                                <ComboBoxItem Content="10"/>
+                                <ComboBoxItem Content="11"/>
+                                <ComboBoxItem Content="12"/>
+                                <ComboBoxItem Content="13"/>
+                                <ComboBoxItem Content="14"/>
+                                <ComboBoxItem Content="15"/>
+                                <ComboBoxItem Content="16"/>
+                                <ComboBoxItem Content="17"/>
+                                <ComboBoxItem Content="18"/>
+                                <ComboBoxItem Content="19"/>
+                                <ComboBoxItem Content="20"/>
+                                <ComboBoxItem Content="21"/>
+                                <ComboBoxItem Content="22"/>
+                                <ComboBoxItem Content="23"/>
+                                <ComboBoxItem Content="24"/>
+                                <ComboBoxItem Content="25"/>
+                                <ComboBoxItem Content="26"/>
+                                <ComboBoxItem Content="27"/>
+                                <ComboBoxItem Content="28"/>
+                                <ComboBoxItem Content="29"/>
+                                <ComboBoxItem Content="30"/>
+                                <ComboBoxItem Content="31"/>
+                                <ComboBoxItem Content="32"/>
+                                <ComboBoxItem Content="33"/>
+                                <ComboBoxItem Content="34"/>
+                                <ComboBoxItem Content="35"/>
+                                <ComboBoxItem Content="36"/>
+                                <ComboBoxItem Content="37"/>
+                                <ComboBoxItem Content="38"/>
+                                <ComboBoxItem Content="39"/>
+                                <ComboBoxItem Content="40"/>
+                                <ComboBoxItem Content="41"/>
+                                <ComboBoxItem Content="42"/>
+                                <ComboBoxItem Content="43"/>
+                                <ComboBoxItem Content="44"/>
+                                <ComboBoxItem Content="45"/>
+                                <ComboBoxItem Content="46"/>
+                                <ComboBoxItem Content="47"/>
+                                <ComboBoxItem Content="48"/>
+                                <ComboBoxItem Content="49"/>
+                                <ComboBoxItem Content="50"/>
+                            </ComboBox>
+
+                            <TextBlock Text="题" FontSize="16" VerticalAlignment="Top" 
+                                       Margin="10,0,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 可滚动内容，顶部留出空间避免被标题遮挡 -->
+                    <ScrollViewer Margin="0,40,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent">
+                        <StackPanel>
+                            <!-- 电机部分 -->
+                            <GroupBox Header="电机" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}" Height="426">
+                                <UniformGrid Columns="2">
+                                    <GroupBox Header="M1" Margin="5" Style="{StaticResource MotorGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="M1_1" Content="电机M1-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal" 
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00010100EEEE"/>
+                                            <CheckBox x:Name="M1_2" Content="电机M1-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00020100EEEE"/>
+                                            <CheckBox x:Name="M1_3" Content="电机M1-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00030100EEEE"/>
+                                            <CheckBox x:Name="M1_4" Content="电机M1-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00040100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="M2" Margin="5" Style="{StaticResource MotorGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="M2_1" Content="电机M2-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00050100EEEE"/>
+                                            <CheckBox x:Name="M2_2" Content="电机M2-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal" 
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00060100EEEE"/>
+                                            <CheckBox x:Name="M2_3" Content="电机M2-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00070100EEEE"/>
+                                            <CheckBox x:Name="M2_4" Content="电机M2-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00080100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="M3" Margin="5" Style="{StaticResource MotorGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="M3_1" Content="电机M3-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00090100EEEE"/>
+                                            <CheckBox x:Name="M3_2" Content="电机M3-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00100100EEEE"/>
+                                            <CheckBox x:Name="M3_3" Content="电机M3-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00110100EEEE"/>
+                                            <CheckBox x:Name="M3_4" Content="电机M3-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00120100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="M4" Margin="5" Style="{StaticResource MotorGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="M4_1" Content="电机M4-A线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00130100EEEE"/>
+                                            <CheckBox x:Name="M4_2" Content="电机M4-B线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00140100EEEE"/>
+                                            <CheckBox x:Name="M4_3" Content="电机M4-C线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00150100EEEE"/>
+                                            <CheckBox x:Name="M4_4" Content="电机M4-CG线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00160100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </UniformGrid>
+                            </GroupBox>
+
+                            <!-- 电调部分 -->
+                            <GroupBox Header="电调" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
+                                <UniformGrid Columns="2">
+                                    <GroupBox Header="ESC1" Margin="5" Style="{StaticResource SeriousGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="ESC1_1" Content="电调1+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00170100EEEE"/>
+                                            <CheckBox x:Name="ESC1_2" Content="电调S1信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00180100EEEE"/>
+                                            <CheckBox x:Name="ESC1_3" Content="电调1-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00190100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="ESC2" Margin="5" Style="{StaticResource SeriousGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="ESC2_1" Content="电调2+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00210100EEEE"/>
+                                            <CheckBox x:Name="ESC2_2" Content="电调S2信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00220100EEEE"/>
+                                            <CheckBox x:Name="ESC2_3" Content="电调2-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00230100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="ESC3" Margin="5" Style="{StaticResource SeriousGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="ESC3_1" Content="电调3+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00250100EEEE"/>
+                                            <CheckBox x:Name="ESC3_2" Content="电调S3信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00260100EEEE"/>
+                                            <CheckBox x:Name="ESC3_3" Content="电调3-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00270100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="ESC4" Margin="5" Style="{StaticResource SeriousGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="ESC4_1" Content="电调4+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00290100EEEE"/>
+                                            <CheckBox x:Name="ESC4_2" Content="电调S4信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00300100EEEE"/>
+                                            <CheckBox x:Name="ESC4_3" Content="电调4-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00310100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </UniformGrid>
+                            </GroupBox>
+
+                            <!-- PWM输出部分 -->
+                            <GroupBox Header="PWM输出" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
+                                <UniformGrid Columns="2">
+                                    <GroupBox Header="S5" Margin="5" Style="{StaticResource PwmGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="S5_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00440100EEEE"/>
+                                            <CheckBox x:Name="S5_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00450100EEEE"/>
+                                            <CheckBox x:Name="S5_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00460100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="S6" Margin="5" Style="{StaticResource PwmGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="S6_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00470100EEEE"/>
+                                            <CheckBox x:Name="S6_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00480100EEEE"/>
+                                            <CheckBox x:Name="S6_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00490100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="S7" Margin="5" Style="{StaticResource PwmGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="S7_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00500100EEEE"/>
+                                            <CheckBox x:Name="S7_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00510100EEEE"/>
+                                            <CheckBox x:Name="S7_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00520100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                    <GroupBox Header="S8" Margin="5" Style="{StaticResource PwmGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="S8_1" Content="PWM线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00530100EEEE"/>
+                                            <CheckBox x:Name="S8_2" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00540100EEEE"/>
+                                            <CheckBox x:Name="S8_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                        local:CheckBoxCommandHelper.CommandString="FFFF00550100EEEE"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </UniformGrid>
+                            </GroupBox>
+
+                            <!-- 其他组件部分 -->
+                            <UniformGrid Columns="2" Margin="0,0,0,10">
+                                <GroupBox Header="GPS" Margin="5" Style="{StaticResource GpsGroupBox}">
+                                    <StackPanel>
+                                        <CheckBox x:Name="UART_1" Content="GPS串口RX线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00420100EEEE"/>
+                                        <CheckBox x:Name="UART_2" Content="GPS串口TX线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00430100EEEE"/>
+                                        <CheckBox x:Name="GPS5V_1" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00400100EEEE"/>
+                                        <CheckBox x:Name="GPS5V_2" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00410100EEEE"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="接收机" Margin="5" Style="{StaticResource ReceiverGroupBox}">
+                                    <StackPanel>
+                                        <CheckBox x:Name="Receiver_1" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00330100EEEE"/>
+                                        <CheckBox x:Name="Receiver_2" Content="SBUS信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00340100EEEE"/>
+                                        <CheckBox x:Name="Receiver_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00350100EEEE"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="舵机" Margin="5" Style="{StaticResource ServoGroupBox}">
+                                    <StackPanel>
+                                        <CheckBox x:Name="SERVO_1" Content="舵机供电5V+线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00360100EEEE"/>
+                                        <CheckBox x:Name="SERVO_2" Content="舵机供电GND线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00370100EEEE"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="电池" Margin="5" Style="{StaticResource BatteryGroupBox}">
+                                    <StackPanel>
+                                        <CheckBox x:Name="Battery_1" Content="电池+线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00380100EEEE"/>
+                                        <CheckBox x:Name="Battery_2" Content="电池-线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
+                                                    local:CheckBoxCommandHelper.CommandString="FFFF00390100EEEE"/>
+                                    </StackPanel>
+                                </GroupBox>
+                            </UniformGrid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- 可以添加更多选项卡，例如题库统计、导入导出等 -->
+            <TabItem Header="题库统计">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="题库统计" FontSize="16" FontWeight="Bold" 
+                                   Foreground="#23395d" Padding="10,5"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+
+                <Grid Background="#E8E8E8" Margin="10">
+                    <StackPanel>
+                        <TextBlock Text="题库统计信息" FontSize="20" FontWeight="Bold" 
+                                   HorizontalAlignment="Center" Margin="0,20,0,20"/>
+
+                        <GroupBox Header="题目分类统计" Style="{StaticResource ClosedGroupBox}">
                             <StackPanel>
-                                <CheckBox x:Name="UART_1" Content="GPS串口RX线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00420100EEEE"/>
-                                <CheckBox x:Name="UART_2" Content="GPS串口TX线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00430100EEEE"/>
-                                <CheckBox x:Name="GPS5V_1" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00400100EEEE"/>
-                                <CheckBox x:Name="GPS5V_2" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00410100EEEE"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="电机题目：" FontWeight="Bold"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="16 题" />
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="电调题目：" FontWeight="Bold"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="12 题" />
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="PWM输出题目：" FontWeight="Bold"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="12 题" />
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="GPS题目：" FontWeight="Bold"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="4 题" />
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="其他组件题目：" FontWeight="Bold"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="8 题" />
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="总计：" FontWeight="Bold" FontSize="16"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="51题" FontWeight="Bold" FontSize="16"/>
+                                </Grid>
                             </StackPanel>
                         </GroupBox>
-                        <GroupBox Header="接收机" Margin="5" Style="{StaticResource ReceiverGroupBox}">
+
+                        <GroupBox Header="选择统计" Style="{StaticResource ClosedGroupBox}" Margin="0,20,0,0">
                             <StackPanel>
-                                <CheckBox x:Name="Receiver_1" Content="5V+供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00330100EEEE"/>
-                                <CheckBox x:Name="Receiver_2" Content="SBUS信号线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00340100EEEE"/>
-                                <CheckBox x:Name="Receiver_3" Content="5V-供电线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00350100EEEE"/>
+                                <TextBlock x:Name="SelectionStatsText" Text="当前选择情况将在此显示..." 
+                                           FontSize="14" TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
-                        <GroupBox Header="舵机" Margin="5" Style="{StaticResource ServoGroupBox}">
-                            <StackPanel>
-                                <CheckBox x:Name="SERVO_1" Content="舵机供电5V+线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00360100EEEE"/>
-                                <CheckBox x:Name="SERVO_2" Content="舵机供电GND线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00370100EEEE"/>
-                            </StackPanel>
-                        </GroupBox>
-                        <GroupBox Header="电池" Margin="5" Style="{StaticResource BatteryGroupBox}">
-                            <StackPanel>
-                                <CheckBox x:Name="Battery_1" Content="电池+线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00380100EEEE"/>
-                                <CheckBox x:Name="Battery_2" Content="电池-线路通断" IsChecked="True" Margin="5" FontWeight="Normal"
-                                            local:CheckBoxCommandHelper.CommandString="FFFF00390100EEEE"/>
-                            </StackPanel>
-                        </GroupBox>
-                    </UniformGrid>
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
-        <!-- 右侧控制面板 -->
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- 右侧控制面板 - 保持不变 -->
         <Border Grid.Column="1" Background="#90C0A0" Margin="10">
             <DockPanel>
                 <!-- 标题固定在顶部，不随滚动 -->
-                <TextBlock Text="试卷面板" FontSize="24" FontWeight="Bold"
+                <TextBlock Text="试卷管理" FontSize="24" FontWeight="Bold"
                    HorizontalAlignment="Center" Margin="0,10,0,15"
                    DockPanel.Dock="Top"/>
 
@@ -512,11 +658,9 @@
                                 FontSize="20" Style="{StaticResource SeriousButton}" Click="GenerateButton_Click" Width="150"/>
                         <Button x:Name="DeleteButton" Content="删 除 试 卷" Height="40" Background="#FF4081" Foreground="White"
                                 Margin="0,10,10,0"  FontSize="20" Style="{StaticResource SeriousButton}" Click="DeleteButton_Click" Width="150"/>
-                        
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-
                         <Button x:Name="ViewExamRecordsButton" Content="考 试 记 录" Width="150" Height="40" Background="#1F4081" Foreground="White"
                                 FontSize="20" Style="{StaticResource SeriousButton}" Click="ViewExamRecords_Click" />
                         <Button x:Name="ExitButton" Content="退    出" Height="40" Width="150"
@@ -627,7 +771,7 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                     </ScrollViewer>
-                                </Border>                        
+                                </Border>
 
                                 <Border BorderBrush="#23395d" BorderThickness="2" CornerRadius="4" Padding="4" Margin="0,5,0,0" Background="#F8F9FA">
                                     <TextBlock x:Name="ExamSummaryText"

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows;
@@ -581,6 +582,268 @@ namespace DroneSimulator
             {
                 checkbox.IsChecked = false;
             }
+        }
+
+        /// <summary>
+        /// 随机题目数量下拉列表选择变化事件处理
+        /// </summary>
+        private void RandomCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                // 检查 RandomRadio 是否处于选中状态
+                if (RandomRadio?.IsChecked == true)
+                {
+                    // 如果随机选项被选中，则执行随机选题（不显示结果对话框）
+                    ExecuteRandomSelection(showResult: false);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"RandomCountComboBox 选择变化处理失败: {ex.Message}");
+
+                // 可选：显示错误提示给用户
+                MessageBox.Show($"更新随机选择时发生错误：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// 随机选择事件处理方法
+        /// </summary>
+        private void RandomRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            ExecuteRandomSelection(showResult: true);  // 显示结果
+        }
+
+        /// <summary>
+        /// 执行随机选择逻辑（提取公共方法）
+        /// </summary>
+        /// <param name="showResult">是否显示结果对话框</param>
+        private void ExecuteRandomSelection(bool showResult = false)
+        {
+            try
+            {
+                // 获取随机选择的题目数量
+                int randomCount = GetRandomCount();
+
+                if (randomCount <= 0)
+                {
+                    MessageBox.Show("请选择有效的题目数量！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 先清空所有选择
+                foreach (var checkbox in FindAllCheckBoxes())
+                {
+                    checkbox.IsChecked = false;
+                }
+
+                // 获取所有可用的题目
+                var allCheckboxes = FindAllCheckBoxes().ToList();
+
+                if (allCheckboxes.Count == 0)
+                {
+                    MessageBox.Show("未找到可选择的题目！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 确保随机数量不超过总题目数
+                int actualCount = Math.Min(randomCount, allCheckboxes.Count);
+
+                // 使用随机算法选择题目
+                var random = new Random();
+                var selectedIndexes = new HashSet<int>();
+
+                while (selectedIndexes.Count < actualCount)
+                {
+                    int randomIndex = random.Next(allCheckboxes.Count);
+                    selectedIndexes.Add(randomIndex);
+                }
+
+                // 设置选中的题目
+                foreach (int index in selectedIndexes)
+                {
+                    allCheckboxes[index].IsChecked = true;
+                }
+
+                // 根据参数决定是否显示结果统计
+                if (showResult)
+                {
+                    ShowRandomSelectionResult(actualCount, randomCount, allCheckboxes.Count);
+                }
+
+                // 更新题库统计页面的选择统计（如果存在）
+                UpdateSelectionStats();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"随机选择题目时发生错误：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 获取随机选择的题目数量
+        /// </summary>
+        /// <returns>选择的题目数量</returns>
+        private int GetRandomCount()
+        {
+            try
+            {
+                if (RandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    if (int.TryParse(selectedItem.Content?.ToString(), out int count))
+                    {
+                        return count;
+                    }
+                }
+
+                // 如果没有选择或解析失败，返回默认值4
+                return 4;
+            }
+            catch
+            {
+                return 4;
+            }
+        }
+
+        /// <summary>
+        /// 显示随机选择结果统计
+        /// </summary>
+        /// <param name="actualCount">实际选择的题目数</param>
+        /// <param name="requestedCount">请求的题目数</param>
+        /// <param name="totalCount">总题目数</param>
+        private void ShowRandomSelectionResult(int actualCount, int requestedCount, int totalCount)
+        {
+            string message = $"随机选择完成！\n\n" +
+                            $"请求选择：{requestedCount} 题\n" +
+                            $"实际选择：{actualCount} 题\n" +
+                            $"题库总数：{totalCount} 题";
+
+            if (actualCount < requestedCount)
+            {
+                message += $"\n\n注意：由于题库总数限制，实际选择数量少于请求数量。";
+            }
+
+            MessageBox.Show(message, "随机选择结果",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 更新选择统计信息（在题库统计页面显示）
+        /// </summary>
+        private void UpdateSelectionStats()
+        {
+            try
+            {
+                if (SelectionStatsText != null)
+                {
+                    var selectedCheckboxes = FindAllCheckBoxes().Where(cb => cb.IsChecked == true).ToList();
+                    int selectedCount = selectedCheckboxes.Count;
+                    int totalCount = FindAllCheckBoxes().Count();
+
+                    // 按分类统计选择情况
+                    var motorSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("M"));
+                    var escSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
+                    var pwmSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("S"));
+                    var gpsSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
+                    var otherSelected = selectedCheckboxes.Count(cb =>
+                        cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
+
+                    string statsText = $"当前选择统计：\n\n" +
+                                      $"总体情况：已选择 {selectedCount} / {totalCount} 题\n\n" +
+                                      $"分类详情：\n" +
+                                      $"• 电机题目：{motorSelected} 题\n" +
+                                      $"• 电调题目：{escSelected} 题\n" +
+                                      $"• PWM输出：{pwmSelected} 题\n" +
+                                      $"• GPS题目：{gpsSelected} 题\n" +
+                                      $"• 其他组件：{otherSelected} 题\n\n" +
+                                      $"选择比例：{(double)selectedCount / totalCount * 100:F1}%";
+
+                    SelectionStatsText.Text = statsText;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新选择统计失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 按分类随机选择题目（高级功能）
+        /// </summary>
+        /// <param name="randomCount">总的随机题目数</param>
+        private void RandomSelectByCategory(int randomCount)
+        {
+            try
+            {
+                var categories = new Dictionary<string, List<CheckBox>>
+                {
+                    ["电机"] = FindCheckBoxesByPrefix("M").ToList(),
+                    ["电调"] = FindCheckBoxesByPrefix("ESC").ToList(),
+                    ["PWM输出"] = FindCheckBoxesByPrefix("S").ToList(),
+                    ["GPS"] = FindCheckBoxesByPrefix("UART", "GPS5V").ToList(),
+                    ["其他"] = FindCheckBoxesByPrefix("Receiver", "SERVO", "Battery").ToList()
+                };
+
+                // 先清空所有选择
+                foreach (var checkbox in FindAllCheckBoxes())
+                {
+                    checkbox.IsChecked = false;
+                }
+
+                var random = new Random();
+                var selectedCheckboxes = new List<CheckBox>();
+
+                // 从每个分类中平均选择题目
+                int perCategory = randomCount / categories.Count;
+                int remainder = randomCount % categories.Count;
+
+                foreach (var category in categories)
+                {
+                    var categoryCheckboxes = category.Value;
+                    if (categoryCheckboxes.Count == 0) continue;
+
+                    int countForThisCategory = perCategory;
+                    if (remainder > 0)
+                    {
+                        countForThisCategory++;
+                        remainder--;
+                    }
+
+                    // 从当前分类随机选择题目
+                    var shuffled = categoryCheckboxes.OrderBy(x => random.Next()).ToList();
+                    var selected = shuffled.Take(Math.Min(countForThisCategory, categoryCheckboxes.Count));
+
+                    foreach (var checkbox in selected)
+                    {
+                        checkbox.IsChecked = true;
+                        selectedCheckboxes.Add(checkbox);
+                    }
+                }
+
+                MessageBox.Show($"按分类随机选择完成！\n共选择了 {selectedCheckboxes.Count} 道题目。",
+                    "分类随机选择", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"分类随机选择失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 根据前缀查找CheckBox
+        /// </summary>
+        /// <param name="prefixes">前缀数组</param>
+        /// <returns>匹配的CheckBox集合</returns>
+        private IEnumerable<CheckBox> FindCheckBoxesByPrefix(params string[] prefixes)
+        {
+            return FindAllCheckBoxes().Where(cb =>
+                prefixes.Any(prefix => cb.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)));
         }
 
         private void GenerateButton_Click(object sender, RoutedEventArgs e)
