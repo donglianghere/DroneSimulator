@@ -1100,6 +1100,29 @@ namespace DroneSimulator
         }
 
         /// <summary>
+        /// 窗口加载完成事件
+        /// </summary>
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            CheckExamNameConflict();
+
+            // 延迟执行，确保所有控件都已完全加载
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // 由于SelectAllRadio默认选中，手动触发全选逻辑
+                if (SelectAllRadio.IsChecked == true)
+                {
+                    SelectAllRadio_Checked(SelectAllRadio, new RoutedEventArgs());
+                }
+
+                UpdateCategoryStats(); // 验证分类统计
+                UpdateSelectionStats(); // 初始化选择统计
+                UpdateExamRecordsStats(); // 初始化考试记录统计
+            }), DispatcherPriority.Loaded);
+        }
+
+        // 修改 TabControl_SelectionChanged 方法，添加考试记录统计的更新
+        /// <summary>
         /// TabControl 选择变化事件处理
         /// </summary>
         private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1108,15 +1131,16 @@ namespace DroneSimulator
             {
                 if (sender is TabControl tabControl)
                 {
-                    // 检查是否切换到了"题库统计"页面
+                    // 检查是否切换到了"统计信息"页面
                     if (tabControl.SelectedItem is TabItem selectedTab)
                     {
-                        // 通过 Header 内容判断是否是题库统计页面
-                        if (selectedTab.Header?.ToString() == "题库统计")
+                        // 通过 Header 内容判断是否是统计信息页面
+                        if (selectedTab.Header?.ToString() == "统计信息")
                         {
-                            // 当切换到题库统计页面时，自动更新选择统计
+                            // 当切换到统计信息页面时，自动更新所有统计
                             UpdateSelectionStats();
-                            UpdateCategoryStats(); // 同时更新分类统计以确保数据一致性
+                            UpdateCategoryStats();
+                            UpdateExamRecordsStats(); // 新增：更新考试记录统计
                         }
                     }
                 }
@@ -1348,6 +1372,285 @@ namespace DroneSimulator
                 if (child is T t)
                     results.Add(t);
                 FindVisualChildren<T>(child, results);
+            }
+        }
+
+        // 在 QuestionPanel 类中添加考试记录统计相关字段和方法
+
+        /// <summary>
+        /// 刷新考试记录统计
+        /// </summary>
+        private void RefreshRecordsStats_Click(object sender, RoutedEventArgs e)
+        {
+            UpdateExamRecordsStats();
+        }
+
+        /// <summary>
+        /// 查看详细考试记录
+        /// </summary>
+        private void ViewDetailedRecords_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var recordsWindow = new ExamRecordsWindow(currentTeacher);
+                recordsWindow.ShowDialog();
+
+                // 关闭详细记录窗口后刷新统计
+                UpdateExamRecordsStats();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"打开考试记录窗口失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 导出考试记录统计
+        /// </summary>
+        private void ExportRecordsStats_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var saveDialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+                    DefaultExt = "csv",
+                    FileName = $"考试记录统计_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+                };
+
+                if (saveDialog.ShowDialog() == true)
+                {
+                    ExportExamRecordsStatsToCsv(saveDialog.FileName);
+                    MessageBox.Show("统计数据导出成功！", "导出完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导出失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 更新考试记录统计信息
+        /// </summary>
+        private void UpdateExamRecordsStats()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 开始更新考试记录统计 ===");
+
+                // 获取所有考试记录
+                var allRecords = ExamRecordManager.GetAllExamRecords();
+
+                if (allRecords.Count == 0)
+                {
+                    // 没有考试记录时显示默认信息
+                    ShowEmptyRecordsStats();
+                    return;
+                }
+
+                // 基础统计
+                int totalRecords = allRecords.Count;
+                int totalStudents = allRecords.Select(r => r.StudentId).Distinct().Count();
+                DateTime latestExamDate = allRecords.Max(r => r.SubmitTime);
+                DateTime oldestExamDate = allRecords.Min(r => r.SubmitTime);
+
+                // 分数统计
+                var scores = allRecords.Select(r => r.Score).ToList();
+                double averageScore = scores.Average();
+                int highestScore = scores.Max();
+                int lowestScore = scores.Min();
+                int passCount = scores.Count(s => s >= 60); // 假设60分及格
+                double passRate = (double)passCount / totalRecords * 100;
+
+                // 试卷统计
+                var examGroups = allRecords
+                    .Where(r => r.ExamInfo != null)
+                    .GroupBy(r => r.ExamInfo.ExamName)
+                    .ToList();
+                int totalExams = examGroups.Count;
+                string mostUsedExam = totalExams > 0
+                    ? examGroups.OrderByDescending(g => g.Count()).First().Key
+                    : "无";
+
+                // 教师统计
+                var teacherGroups = allRecords
+                    .Where(r => r.ExamInfo != null)
+                    .GroupBy(r => r.ExamInfo.TeacherName)
+                    .ToList();
+                int totalTeachers = teacherGroups.Count;
+                string mostActiveTeacher = totalTeachers > 0
+                    ? teacherGroups.OrderByDescending(g => g.Count()).First().Key
+                    : "无";
+
+                // 时间统计
+                var times = allRecords.Select(r => r.ElapsedTime).ToList();
+                TimeSpan averageTime = TimeSpan.FromMilliseconds(times.Average(t => t.TotalMilliseconds));
+                TimeSpan fastestTime = times.Min();
+                TimeSpan slowestTime = times.Max();
+
+                // 更新UI显示
+                Dispatcher.Invoke(() =>
+                {
+                    // 基础统计
+                    TotalRecordsText.Text = $"总考试记录：{totalRecords} 份";
+                    TotalStudentsText.Text = $"参考学生人数：{totalStudents} 人";
+                    LatestExamDateText.Text = $"最新考试时间：{latestExamDate:yyyy-MM-dd HH:mm}";
+                    OldestExamDateText.Text = $"最早考试时间：{oldestExamDate:yyyy-MM-dd HH:mm}";
+
+                    // 分数统计
+                    AverageScoreText.Text = $"平均分：{averageScore:F1} 分";
+                    HighestScoreText.Text = $"最高分：{highestScore} 分";
+                    LowestScoreText.Text = $"最低分：{lowestScore} 分";
+                    PassRateText.Text = $"及格率：{passRate:F1} %";
+
+                    // 试卷统计
+                    TotalExamsText.Text = $"使用的试卷数：{totalExams} 份";
+                    MostUsedExamText.Text = $"使用最多的试卷：{mostUsedExam}";
+
+                    // 教师统计
+                    TotalTeachersText.Text = $"出题教师数：{totalTeachers} 人";
+                    MostActiveTeacherText.Text = $"最活跃教师：{mostActiveTeacher}";
+
+                    // 时间统计
+                    AverageTimeText.Text = $"平均答题时间：{FormatTimeSpan(averageTime)}";
+                    FastestTimeText.Text = $"最快完成时间：{FormatTimeSpan(fastestTime)}";
+                    SlowestTimeText.Text = $"最慢完成时间：{FormatTimeSpan(slowestTime)}";
+
+                    // 更新最近记录预览（显示最近10条）
+                    var recentRecords = allRecords
+                        .OrderByDescending(r => r.SubmitTime)
+                        .Take(10)
+                        .Select(r => new DetailedExamRecordViewModel(r))
+                        .ToList();
+
+                    RecentRecordsDataGrid.ItemsSource = recentRecords;
+                });
+
+                System.Diagnostics.Debug.WriteLine("=== 考试记录统计更新完成 ===");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新考试记录统计失败: {ex.Message}");
+
+                Dispatcher.Invoke(() =>
+                {
+                    TotalRecordsText.Text = "统计数据加载失败";
+                    MessageBox.Show($"加载考试记录统计失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                });
+            }
+        }
+
+        /// <summary>
+        /// 显示空记录统计信息
+        /// </summary>
+        private void ShowEmptyRecordsStats()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // 基础统计
+                TotalRecordsText.Text = "总考试记录：0 份";
+                TotalStudentsText.Text = "参考学生人数：0 人";
+                LatestExamDateText.Text = "最新考试时间：无";
+                OldestExamDateText.Text = "最早考试时间：无";
+
+                // 分数统计
+                AverageScoreText.Text = "平均分：-- 分";
+                HighestScoreText.Text = "最高分：-- 分";
+                LowestScoreText.Text = "最低分：-- 分";
+                PassRateText.Text = "及格率：-- %";
+
+                // 试卷统计
+                TotalExamsText.Text = "使用的试卷数：0 份";
+                MostUsedExamText.Text = "使用最多的试卷：无";
+
+                // 教师统计
+                TotalTeachersText.Text = "出题教师数：0 人";
+                MostActiveTeacherText.Text = "最活跃教师：无";
+
+                // 时间统计
+                AverageTimeText.Text = "平均答题时间：--";
+                FastestTimeText.Text = "最快完成时间：--";
+                SlowestTimeText.Text = "最慢完成时间：--";
+
+                // 清空最近记录
+                RecentRecordsDataGrid.ItemsSource = null;
+            });
+        }
+
+        /// <summary>
+        /// 格式化时间跨度显示
+        /// </summary>
+        private string FormatTimeSpan(TimeSpan timeSpan)
+        {
+            if (timeSpan.TotalHours >= 1)
+            {
+                return $"{(int)timeSpan.TotalHours:D2}:{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+            }
+            else
+            {
+                return $"{timeSpan.Minutes:D2}:{timeSpan.Seconds:D2}";
+            }
+        }
+
+        /// <summary>
+        /// 导出考试记录统计到CSV文件
+        /// </summary>
+        private void ExportExamRecordsStatsToCsv(string fileName)
+        {
+            try
+            {
+                var allRecords = ExamRecordManager.GetAllExamRecords();
+
+                using var writer = new StreamWriter(fileName, false, System.Text.Encoding.UTF8);
+
+                // 写入统计摘要
+                writer.WriteLine("=== 考试记录统计摘要 ===");
+                writer.WriteLine($"导出时间,{DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                writer.WriteLine($"总考试记录数,{allRecords.Count}");
+
+                if (allRecords.Count > 0)
+                {
+                    var scores = allRecords.Select(r => r.Score).ToList();
+                    var times = allRecords.Select(r => r.ElapsedTime).ToList();
+
+                    writer.WriteLine($"参考学生人数,{allRecords.Select(r => r.StudentId).Distinct().Count()}");
+                    writer.WriteLine($"平均分,{scores.Average():F1}");
+                    writer.WriteLine($"最高分,{scores.Max()}");
+                    writer.WriteLine($"最低分,{scores.Min()}");
+                    writer.WriteLine($"及格率,{(double)scores.Count(s => s >= 60) / allRecords.Count * 100:F1}%");
+                    writer.WriteLine($"平均答题时间,{FormatTimeSpan(TimeSpan.FromMilliseconds(times.Average(t => t.TotalMilliseconds)))}");
+                }
+
+                writer.WriteLine(); // 空行分隔
+
+                // 写入详细记录表头
+                writer.WriteLine("=== 详细考试记录 ===");
+                writer.WriteLine("序号,学生姓名,身份证号,试卷名称,出题教师,得分,正确答题,错误答题,答题耗时,开始时间,提交时间");
+
+                // 写入详细记录数据
+                foreach (var record in allRecords.OrderBy(r => r.ExamSequence))
+                {
+                    writer.WriteLine($"{record.ExamSequence}," +
+                        $"{record.StudentName}," +
+                        $"{record.StudentId}," +
+                        $"{record.ExamInfo?.ExamName ?? ""}," +
+                        $"{record.ExamInfo?.TeacherName ?? ""}," +
+                        $"{record.Score}," +
+                        $"{record.CorrectAnswers}," +
+                        $"{record.WrongAnswers}," +
+                        $"{FormatTimeSpan(record.ElapsedTime)}," +
+                        $"{record.StartTime:yyyy-MM-dd HH:mm:ss}," +
+                        $"{record.SubmitTime:yyyy-MM-dd HH:mm:ss}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"导出CSV文件失败：{ex.Message}");
             }
         }
 
