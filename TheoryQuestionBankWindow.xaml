@@ -13,7 +13,9 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">      
+            <Separator Margin="5,0"/>
+            <!-- 基本操作 -->
             <Button x:Name="AddQuestionButton" Content="新增题目" Width="100" Height="35"
                     Background="#4CAF50" Foreground="White" Margin="0,0,10,0"
                     Click="AddQuestion_Click"/>
@@ -23,14 +25,26 @@
             <Button x:Name="DeleteQuestionButton" Content="删除题目" Width="100" Height="35"
                     Background="#F44336" Foreground="White" Margin="0,0,10,0"
                     Click="DeleteQuestion_Click"/>
+
             <Separator Margin="10,0"/>
+
+            <!-- 导入导出 -->
             <Button x:Name="ImportButton" Content="导入题库" Width="100" Height="35"
                     Background="#FF9800" Foreground="White" Margin="0,0,10,0"
                     Click="Import_Click"/>
             <Button x:Name="ExportButton" Content="导出题库" Width="100" Height="35"
                     Background="#9C27B0" Foreground="White" Margin="0,0,10,0"
                     Click="Export_Click"/>
+            <!-- 选择操作 -->
+            <CheckBox x:Name="SelectAllCheckBox" Content="全选" Margin="0,0,10,0" 
+          VerticalAlignment="Center" Checked="SelectAll_Checked" 
+          Unchecked="SelectAll_Unchecked" Indeterminate="SelectAll_Indeterminate"/>
+            <TextBlock x:Name="SelectedCountText" Text="已选择: 0 题" VerticalAlignment="Center" 
+           Margin="0,0,15,0" Foreground="#666"/>
+
             <Separator Margin="10,0"/>
+
+            <!-- 搜索和其他 -->
             <TextBox x:Name="SearchTextBox" Width="200" Height="35" 
                      Margin="0,0,10,0" VerticalContentAlignment="Center"
                      TextChanged="SearchTextBox_TextChanged"
@@ -38,10 +52,18 @@
             <Button x:Name="RefreshButton" Content="刷新" Width="80" Height="35"
                     Background="#607D8B" Foreground="White"
                     Click="Refresh_Click"/>
+
             <Separator Margin="10,0"/>
+
             <Button x:Name="CloseButton" Content="关闭" Width="80" Height="35"
                     Background="#F57575" Foreground="White" HorizontalAlignment="Right"
                     Click="Close_Click"/>
+
+            <Separator Margin="10,0"/>
+
+            <Button x:Name="TestButton" Content="测试导入导出" Width="120" Height="35"
+                    Background="#9E9E9E" Foreground="White" Margin="0,0,10,0"
+                    Click="TestImportExport_Click" ToolTip="生成示例文件并测试导入导出功能"/>
         </StackPanel>
 
         <!-- 主要内容区域 -->
@@ -81,6 +103,18 @@
                       AlternatingRowBackground="#F5F5F5"
                       MouseDoubleClick="QuestionsDataGrid_MouseDoubleClick">
                 <DataGrid.Columns>
+                    <!-- 复选框列 -->
+                    <DataGridTemplateColumn Header="选择" Width="50">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                          Checked="QuestionCheckBox_Changed" 
+                                          Unchecked="QuestionCheckBox_Changed"
+                                          HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
                     <DataGridTextColumn Header="题目陈述" Binding="{Binding QuestionStatement}" Width="300"/>
                     <DataGridTextColumn Header="类型" Binding="{Binding TypeDisplayName}" Width="80"/>
                     <DataGridTextColumn Header="分类" Binding="{Binding CategoryDisplayName}" Width="100"/>
@@ -99,7 +133,6 @@
             <Separator Margin="10,0"/>
             <TextBlock x:Name="CountTextBlock" Text="总计: 0 题" VerticalAlignment="Center"/>
             <Border Background="Transparent" Width="1" HorizontalAlignment="Right"/>
-            
         </StackPanel>
     </Grid>
 </Window>

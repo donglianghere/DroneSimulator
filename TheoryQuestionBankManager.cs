@@ -198,6 +198,93 @@ namespace DroneSimulator
         }
 
         /// <summary>
+        /// 批量删除题目
+        /// </summary>
+        /// <param name="questionIds">要删除的题目ID列表</param>
+        /// <returns>删除结果，包含成功和失败的数量</returns>
+        public static BatchDeleteResult BatchDeleteQuestions(List<string> questionIds)
+        {
+            lock (_lockObject)
+            {
+                try
+                {
+                    if (!_cacheLoaded) LoadQuestions();
+
+                    var result = new BatchDeleteResult();
+                    var deletedQuestions = new List<TheoryQuestion>();
+
+                    foreach (var questionId in questionIds)
+                    {
+                        var question = _questionCache.FirstOrDefault(q => q.Id == questionId);
+                        if (question != null)
+                        {
+                            deletedQuestions.Add(question);
+                            result.SuccessCount++;
+                        }
+                        else
+                        {
+                            result.FailCount++;
+                            result.Errors.Add($"未找到ID为 {questionId} 的题目");
+                        }
+                    }
+
+                    if (deletedQuestions.Any())
+                    {
+                        // 创建备份
+                        CreateBackup($"before_batch_delete_{deletedQuestions.Count}_questions");
+
+                        // 从缓存中移除
+                        foreach (var question in deletedQuestions)
+                        {
+                            _questionCache.Remove(question);
+                        }
+
+                        // 保存到文件
+                        if (SaveQuestions())
+                        {
+                            result.Success = true;
+                            result.Message = $"成功删除 {result.SuccessCount} 道题目";
+                        }
+                        else
+                        {
+                            result.Success = false;
+                            result.Message = "保存删除结果时失败";
+                        }
+                    }
+                    else
+                    {
+                        result.Success = false;
+                        result.Message = "没有找到要删除的题目";
+                    }
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"批量删除题目失败: {ex.Message}");
+                    return new BatchDeleteResult
+                    {
+                        Success = false,
+                        Message = $"批量删除失败：{ex.Message}",
+                        FailCount = questionIds.Count
+                    };
+                }
+            }
+        }
+
+        /// <summary>
+        /// 批量删除结果
+        /// </summary>
+        public class BatchDeleteResult
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = "";
+            public int SuccessCount { get; set; }
+            public int FailCount { get; set; }
+            public List<string> Errors { get; set; } = new();
+        }
+
+        /// <summary>
         /// 根据ID获取题目
         /// </summary>
         public static TheoryQuestion? GetQuestionById(string questionId)
