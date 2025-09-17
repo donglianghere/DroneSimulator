@@ -1,11 +1,11 @@
-using System.Text.Json;
+ï»¿using System.Text.Json;
 using System.Text;
 using System.IO;
 
 namespace DroneSimulator
 {
     /// <summary>
-    /// ÀíÂÛÌâ¿â¹ÜÀíÆ÷
+    /// ç†è®ºé¢˜åº“ç®¡ç†å™¨
     /// </summary>
     public static class TheoryQuestionBankManager
     {
@@ -17,11 +17,11 @@ namespace DroneSimulator
         private static List<TheoryQuestion> _questionCache = new();
         private static bool _cacheLoaded = false;
         private static readonly object _lockObject = new object();
-        // Ìí¼ÓÒ»¸ö¾²Ì¬¼¯ºÏÀ´¸ú×ÙÕıÔÚ·ÖÅäµÄID
+        // æ·»åŠ ä¸€ä¸ªé™æ€é›†åˆæ¥è·Ÿè¸ªæ­£åœ¨åˆ†é…çš„ID
         private static readonly HashSet<int> _assignedIds = new HashSet<int>();
 
         /// <summary>
-        /// »ñÈ¡ÏÂÒ»¸ö¿ÉÓÃµÄÌâÄ¿ID£¨5Î»Êı£¬´Ó00001¿ªÊ¼£©
+        /// è·å–ä¸‹ä¸€ä¸ªå¯ç”¨çš„é¢˜ç›®IDï¼ˆ5ä½æ•°ï¼Œä»00001å¼€å§‹ï¼‰
         /// </summary>
         public static string GetNextQuestionId()
         {
@@ -29,52 +29,52 @@ namespace DroneSimulator
             {
                 if (!_cacheLoaded) LoadQuestions();
 
-                // »ñÈ¡ËùÓĞÏÖ´æµÄÊı×ÖID
+                // è·å–æ‰€æœ‰ç°å­˜çš„æ•°å­—ID
                 var existingIds = new HashSet<int>();
 
                 foreach (var question in _questionCache)
                 {
-                    // ³¢ÊÔ½âÎöÏÖÓĞIDÎªÊı×Ö
+                    // å°è¯•è§£æç°æœ‰IDä¸ºæ•°å­—
                     if (int.TryParse(question.Id, out int numericId))
                     {
                         existingIds.Add(numericId);
                     }
                 }
 
-                // ºÏ²¢ÒÑ·ÖÅäµ«ÉĞÎ´±£´æµÄID
+                // åˆå¹¶å·²åˆ†é…ä½†å°šæœªä¿å­˜çš„ID
                 existingIds.UnionWith(_assignedIds);
 
-                // ÕÒµ½ÏÂÒ»¸öÎ´Ê¹ÓÃµÄID£¬´Ó1¿ªÊ¼
+                // æ‰¾åˆ°ä¸‹ä¸€ä¸ªæœªä½¿ç”¨çš„IDï¼Œä»1å¼€å§‹
                 int nextId = 1;
                 while (existingIds.Contains(nextId) && nextId <= 99999)
                 {
                     nextId++;
                 }
 
-                // Èç¹û³¬¹ı99999£¬Å×³öÒì³£
+                // å¦‚æœè¶…è¿‡99999ï¼ŒæŠ›å‡ºå¼‚å¸¸
                 if (nextId > 99999)
                 {
-                    throw new InvalidOperationException("ÌâÄ¿ÊıÁ¿ÒÑ´ïµ½ÉÏÏŞ£¨99999£©£¬ÎŞ·¨Ìí¼Ó¸ü¶àÌâÄ¿");
+                    throw new InvalidOperationException("é¢˜ç›®æ•°é‡å·²è¾¾åˆ°ä¸Šé™ï¼ˆ99999ï¼‰ï¼Œæ— æ³•æ·»åŠ æ›´å¤šé¢˜ç›®");
                 }
 
-                // ½«ĞÂ·ÖÅäµÄIDÌí¼Óµ½¸ú×Ù¼¯ºÏÖĞ
+                // å°†æ–°åˆ†é…çš„IDæ·»åŠ åˆ°è·Ÿè¸ªé›†åˆä¸­
                 _assignedIds.Add(nextId);
 
-                // ·µ»Ø5Î»Êı×Ö¸ñÊ½µÄID
+                // è¿”å›5ä½æ•°å­—æ ¼å¼çš„ID
                 return nextId.ToString("D5");
             }
         }
 
         /// <summary>
-        /// ÎªÌâÄ¿·ÖÅäĞÂµÄÏµÍ³ID£¨Èç¹ûĞèÒªµÄ»°£©
+        /// ä¸ºé¢˜ç›®åˆ†é…æ–°çš„ç³»ç»ŸIDï¼ˆå¦‚æœéœ€è¦çš„è¯ï¼‰
         /// </summary>
-        /// <param name="question">Òª´¦ÀíµÄÌâÄ¿</param>
-        /// <param name="forceNewId">ÊÇ·ñÇ¿ÖÆ·ÖÅäĞÂID£¬ºöÂÔÔ­ÓĞID</param>
+        /// <param name="question">è¦å¤„ç†çš„é¢˜ç›®</param>
+        /// <param name="forceNewId">æ˜¯å¦å¼ºåˆ¶åˆ†é…æ–°IDï¼Œå¿½ç•¥åŸæœ‰ID</param>
         public static void AssignSystemId(TheoryQuestion question, bool forceNewId = false)
         {
             if (question == null) return;
 
-            // Èç¹ûÇ¿ÖÆ·ÖÅäĞÂID£¬»òÕßÔ­ID²»ÊÇ5Î»Êı×Ö¸ñÊ½£¬Ôò·ÖÅäĞÂID
+            // å¦‚æœå¼ºåˆ¶åˆ†é…æ–°IDï¼Œæˆ–è€…åŸIDä¸æ˜¯5ä½æ•°å­—æ ¼å¼ï¼Œåˆ™åˆ†é…æ–°ID
             if (forceNewId || !IsValidSystemId(question.Id))
             {
                 question.Id = GetNextQuestionId();
@@ -82,23 +82,23 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ¼ì²éIDÊÇ·ñÎªÓĞĞ§µÄÏµÍ³5Î»ÊıID¸ñÊ½
+        /// æ£€æŸ¥IDæ˜¯å¦ä¸ºæœ‰æ•ˆçš„ç³»ç»Ÿ5ä½æ•°IDæ ¼å¼
         /// </summary>
-        /// <param name="id">Òª¼ì²éµÄID</param>
-        /// <returns>ÊÇ·ñÎªÓĞĞ§¸ñÊ½</returns>
+        /// <param name="id">è¦æ£€æŸ¥çš„ID</param>
+        /// <returns>æ˜¯å¦ä¸ºæœ‰æ•ˆæ ¼å¼</returns>
         public static bool IsValidSystemId(string id)
         {
             if (string.IsNullOrEmpty(id)) return false;
 
-            // ¼ì²éÊÇ·ñÎª5Î»Êı×Ö
+            // æ£€æŸ¥æ˜¯å¦ä¸º5ä½æ•°å­—
             return id.Length == 5 && int.TryParse(id, out int numericId) && numericId >= 1 && numericId <= 99999;
         }
 
         /// <summary>
-        /// ÅúÁ¿ÎªÌâÄ¿·ÖÅäÏµÍ³ID£¨ÓÃÓÚµ¼ÈëÊ±£©
+        /// æ‰¹é‡ä¸ºé¢˜ç›®åˆ†é…ç³»ç»ŸIDï¼ˆç”¨äºå¯¼å…¥æ—¶ï¼‰
         /// </summary>
-        /// <param name="questions">ÌâÄ¿ÁĞ±í</param>
-        /// <param name="forceNewIds">ÊÇ·ñÇ¿ÖÆÎªËùÓĞÌâÄ¿·ÖÅäĞÂID</param>
+        /// <param name="questions">é¢˜ç›®åˆ—è¡¨</param>
+        /// <param name="forceNewIds">æ˜¯å¦å¼ºåˆ¶ä¸ºæ‰€æœ‰é¢˜ç›®åˆ†é…æ–°ID</param>
         public static void AssignSystemIds(List<TheoryQuestion> questions, bool forceNewIds = false)
         {
             if (questions == null || !questions.Any()) return;
@@ -110,22 +110,23 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// »ñÈ¡ËùÓĞÀíÂÛÌâÄ¿
+        /// è·å–æ‰€æœ‰ç†è®ºé¢˜ç›®
         /// </summary>
+        /// <exception cref="TheoryBankException">å½“é¢˜åº“åŠ è½½å¤±è´¥æ—¶æŠ›å‡º</exception>
         public static List<TheoryQuestion> GetAllQuestions()
         {
             lock (_lockObject)
             {
                 if (!_cacheLoaded)
                 {
-                    LoadQuestions();
+                    LoadQuestions(); // è¿™é‡Œå¯èƒ½ä¼šæŠ›å‡ºå¼‚å¸¸
                 }
                 return new List<TheoryQuestion>(_questionCache);
             }
         }
 
         /// <summary>
-        /// °´Ìõ¼ş»ñÈ¡ÌâÄ¿
+        /// æŒ‰æ¡ä»¶è·å–é¢˜ç›®
         /// </summary>
         public static List<TheoryQuestion> GetQuestions(
             TheoryQuestionType? type = null,
@@ -161,7 +162,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// Ëæ»úÑ¡ÔñÌâÄ¿
+        /// éšæœºé€‰æ‹©é¢˜ç›®
         /// </summary>
         public static List<TheoryQuestion> SelectRandomQuestions(int count,
             TheoryQuestionType? type = null,
@@ -177,22 +178,22 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ÖÇÄÜÆ½ºâÑ¡Ìâ
+        /// æ™ºèƒ½å¹³è¡¡é€‰é¢˜
         /// </summary>
         public static List<TheoryQuestion> SelectBalancedQuestions(int totalCount)
         {
             var result = new List<TheoryQuestion>();
             var random = new Random();
 
-            // ¶¨Òå¸÷·ÖÀàÌâÄ¿µÄ±ÈÀı
+            // å®šä¹‰å„åˆ†ç±»é¢˜ç›®çš„æ¯”ä¾‹
             var categoryDistribution = new Dictionary<TheoryQuestionCategory, double>
             {
-                { TheoryQuestionCategory.FlightPrinciples, 0.25 },   // 25% ·ÉĞĞÔ­Àí
-                { TheoryQuestionCategory.Structure, 0.20 },          // 20% ½á¹¹×é³É
-                { TheoryQuestionCategory.ControlAlgorithm, 0.20 },   // 20% ¿ØÖÆËã·¨
-                { TheoryQuestionCategory.SensorFusion, 0.15 },       // 15% ´«¸ĞÆ÷ÈÚºÏ
-                { TheoryQuestionCategory.FlightSafety, 0.15 },       // 15% ·ÉĞĞ°²È«
-                { TheoryQuestionCategory.LawsRegulations, 0.05 }     // 5% ·¨ÂÉ·¨¹æ
+                { TheoryQuestionCategory.FlightPrinciples, 0.25 },   // 25% é£è¡ŒåŸç†
+                { TheoryQuestionCategory.Structure, 0.20 },          // 20% ç»“æ„ç»„æˆ
+                { TheoryQuestionCategory.ControlAlgorithm, 0.20 },   // 20% æ§åˆ¶ç®—æ³•
+                { TheoryQuestionCategory.SensorFusion, 0.15 },       // 15% ä¼ æ„Ÿå™¨èåˆ
+                { TheoryQuestionCategory.FlightSafety, 0.15 },       // 15% é£è¡Œå®‰å…¨
+                { TheoryQuestionCategory.LawsRegulations, 0.05 }     // 5% æ³•å¾‹æ³•è§„
             };
 
             foreach (var (category, ratio) in categoryDistribution)
@@ -202,7 +203,7 @@ namespace DroneSimulator
                 result.AddRange(questionsOfCategory);
             }
 
-            // Èç¹û×ÜÊı²»×ã£¬²¹³äËæ»úÌâÄ¿
+            // å¦‚æœæ€»æ•°ä¸è¶³ï¼Œè¡¥å……éšæœºé¢˜ç›®
             while (result.Count < totalCount)
             {
                 var allQuestions = GetAllQuestions().Where(q => q.IsActive && !result.Contains(q)).ToList();
@@ -221,7 +222,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ±£´æÌâÄ¿
+        /// ä¿å­˜é¢˜ç›®
         /// </summary>
         public static bool SaveQuestion(TheoryQuestion question)
         {
@@ -233,10 +234,10 @@ namespace DroneSimulator
 
                     if (!question.IsValid())
                     {
-                        throw new ArgumentException("ÌâÄ¿Êı¾İ²»ÍêÕû»ò²»ÕıÈ·");
+                        throw new ArgumentException("é¢˜ç›®æ•°æ®ä¸å®Œæ•´æˆ–ä¸æ­£ç¡®");
                     }
 
-                    // È·±£ÌâÄ¿ÓĞÓĞĞ§µÄÏµÍ³ID
+                    // ç¡®ä¿é¢˜ç›®æœ‰æœ‰æ•ˆçš„ç³»ç»ŸID
                     if (string.IsNullOrEmpty(question.Id) || !IsValidSystemId(question.Id))
                     {
                         AssignSystemId(question);
@@ -254,7 +255,7 @@ namespace DroneSimulator
                         _questionCache.Add(question);
                     }
 
-                    // ±£´æ³É¹¦ºó£¬´ÓÁÙÊ±¸ú×Ù¼¯ºÏÖĞÒÆ³ı¸ÃID£¨Èç¹û´æÔÚ£©
+                    // ä¿å­˜æˆåŠŸåï¼Œä»ä¸´æ—¶è·Ÿè¸ªé›†åˆä¸­ç§»é™¤è¯¥IDï¼ˆå¦‚æœå­˜åœ¨ï¼‰
                     if (int.TryParse(question.Id, out int numericId))
                     {
                         _assignedIds.Remove(numericId);
@@ -264,9 +265,9 @@ namespace DroneSimulator
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"±£´æÀíÂÛÌâÄ¿Ê§°Ü: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"ä¿å­˜ç†è®ºé¢˜ç›®å¤±è´¥: {ex.Message}");
 
-                    // ±£´æÊ§°ÜÊ±£¬Ò²Òª´ÓÁÙÊ±¸ú×Ù¼¯ºÏÖĞÒÆ³ı¸ÃID
+                    // ä¿å­˜å¤±è´¥æ—¶ï¼Œä¹Ÿè¦ä»ä¸´æ—¶è·Ÿè¸ªé›†åˆä¸­ç§»é™¤è¯¥ID
                     if (int.TryParse(question.Id, out int numericId))
                     {
                         _assignedIds.Remove(numericId);
@@ -278,7 +279,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ÇåÀíÁÙÊ±·ÖÅäµÄID£¨¿ÉÑ¡·½·¨£¬ÓÃÓÚÖØÖÃ×´Ì¬£©
+        /// æ¸…ç†ä¸´æ—¶åˆ†é…çš„IDï¼ˆå¯é€‰æ–¹æ³•ï¼Œç”¨äºé‡ç½®çŠ¶æ€ï¼‰
         /// </summary>
         public static void ClearAssignedIds()
         {
@@ -289,7 +290,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// É¾³ıÌâÄ¿
+        /// åˆ é™¤é¢˜ç›®
         /// </summary>
         public static bool DeleteQuestion(string questionId)
         {
@@ -310,17 +311,17 @@ namespace DroneSimulator
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"É¾³ıÀíÂÛÌâÄ¿Ê§°Ü: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"åˆ é™¤ç†è®ºé¢˜ç›®å¤±è´¥: {ex.Message}");
                     return false;
                 }
             }
         }
 
         /// <summary>
-        /// ÅúÁ¿É¾³ıÌâÄ¿
+        /// æ‰¹é‡åˆ é™¤é¢˜ç›®
         /// </summary>
-        /// <param name="questionIds">ÒªÉ¾³ıµÄÌâÄ¿IDÁĞ±í</param>
-        /// <returns>É¾³ı½á¹û£¬°üº¬³É¹¦ºÍÊ§°ÜµÄÊıÁ¿</returns>
+        /// <param name="questionIds">è¦åˆ é™¤çš„é¢˜ç›®IDåˆ—è¡¨</param>
+        /// <returns>åˆ é™¤ç»“æœï¼ŒåŒ…å«æˆåŠŸå’Œå¤±è´¥çš„æ•°é‡</returns>
         public static BatchDeleteResult BatchDeleteQuestions(List<string> questionIds)
         {
             lock (_lockObject)
@@ -343,48 +344,48 @@ namespace DroneSimulator
                         else
                         {
                             result.FailCount++;
-                            result.Errors.Add($"Î´ÕÒµ½IDÎª {questionId} µÄÌâÄ¿");
+                            result.Errors.Add($"æœªæ‰¾åˆ°IDä¸º {questionId} çš„é¢˜ç›®");
                         }
                     }
 
                     if (deletedQuestions.Any())
                     {
-                        // ´´½¨±¸·İ
+                        // åˆ›å»ºå¤‡ä»½
                         CreateBackup($"before_batch_delete_{deletedQuestions.Count}_questions");
 
-                        // ´Ó»º´æÖĞÒÆ³ı
+                        // ä»ç¼“å­˜ä¸­ç§»é™¤
                         foreach (var question in deletedQuestions)
                         {
                             _questionCache.Remove(question);
                         }
 
-                        // ±£´æµ½ÎÄ¼ş
+                        // ä¿å­˜åˆ°æ–‡ä»¶
                         if (SaveQuestions())
                         {
                             result.Success = true;
-                            result.Message = $"³É¹¦É¾³ı {result.SuccessCount} µÀÌâÄ¿";
+                            result.Message = $"æˆåŠŸåˆ é™¤ {result.SuccessCount} é“é¢˜ç›®";
                         }
                         else
                         {
                             result.Success = false;
-                            result.Message = "±£´æÉ¾³ı½á¹ûÊ±Ê§°Ü";
+                            result.Message = "ä¿å­˜åˆ é™¤ç»“æœæ—¶å¤±è´¥";
                         }
                     }
                     else
                     {
                         result.Success = false;
-                        result.Message = "Ã»ÓĞÕÒµ½ÒªÉ¾³ıµÄÌâÄ¿";
+                        result.Message = "æ²¡æœ‰æ‰¾åˆ°è¦åˆ é™¤çš„é¢˜ç›®";
                     }
 
                     return result;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"ÅúÁ¿É¾³ıÌâÄ¿Ê§°Ü: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"æ‰¹é‡åˆ é™¤é¢˜ç›®å¤±è´¥: {ex.Message}");
                     return new BatchDeleteResult
                     {
                         Success = false,
-                        Message = $"ÅúÁ¿É¾³ıÊ§°Ü£º{ex.Message}",
+                        Message = $"æ‰¹é‡åˆ é™¤å¤±è´¥ï¼š{ex.Message}",
                         FailCount = questionIds.Count
                     };
                 }
@@ -392,7 +393,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ÅúÁ¿É¾³ı½á¹û
+        /// æ‰¹é‡åˆ é™¤ç»“æœ
         /// </summary>
         public class BatchDeleteResult
         {
@@ -404,7 +405,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ¸ù¾İID»ñÈ¡ÌâÄ¿
+        /// æ ¹æ®IDè·å–é¢˜ç›®
         /// </summary>
         public static TheoryQuestion? GetQuestionById(string questionId)
         {
@@ -412,36 +413,144 @@ namespace DroneSimulator
             return questions.FirstOrDefault(q => q.Id == questionId);
         }
 
+        /// <summary>
+        /// åŠ è½½é¢˜ç›® - ä¿®å¤ç‰ˆï¼šè®©å¼‚å¸¸å‘ä¸Šä¼ æ’­
+        /// </summary>
+        /// <exception cref="TheoryBankException">å½“åŠ è½½å¤±è´¥æ—¶æŠ›å‡ºè¯¦ç»†å¼‚å¸¸</exception>
         private static void LoadQuestions()
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("=== å¼€å§‹åŠ è½½ç†è®ºé¢˜åº“ ===");
+
+                // 1. æ£€æŸ¥å¹¶åˆ›å»ºç›®å½•
                 if (!Directory.Exists(THEORY_BANK_DIRECTORY))
                 {
+                    System.Diagnostics.Debug.WriteLine($"åˆ›å»ºç†è®ºé¢˜åº“ç›®å½•: {THEORY_BANK_DIRECTORY}");
                     Directory.CreateDirectory(THEORY_BANK_DIRECTORY);
                 }
 
                 string filePath = Path.Combine(THEORY_BANK_DIRECTORY, THEORY_BANK_FILE);
+                System.Diagnostics.Debug.WriteLine($"é¢˜åº“æ–‡ä»¶è·¯å¾„: {filePath}");
+
                 if (File.Exists(filePath))
                 {
-                    string json = File.ReadAllText(filePath, Encoding.UTF8);
-                    var questions = JsonSerializer.Deserialize<List<TheoryQuestion>>(json) ?? new List<TheoryQuestion>();
-                    _questionCache = questions;
+                    System.Diagnostics.Debug.WriteLine("é¢˜åº“æ–‡ä»¶å­˜åœ¨ï¼Œå¼€å§‹è¯»å–...");
+
+                    // 2. æ£€æŸ¥æ–‡ä»¶æƒé™å’Œå¯è¯»æ€§
+                    try
+                    {
+                        var fileInfo = new FileInfo(filePath);
+                        System.Diagnostics.Debug.WriteLine($"æ–‡ä»¶å¤§å°: {fileInfo.Length} å­—èŠ‚");
+                        System.Diagnostics.Debug.WriteLine($"æ–‡ä»¶åˆ›å»ºæ—¶é—´: {fileInfo.CreationTime}");
+                        System.Diagnostics.Debug.WriteLine($"æ–‡ä»¶ä¿®æ”¹æ—¶é—´: {fileInfo.LastWriteTime}");
+                    }
+                    catch (Exception fileInfoEx)
+                    {
+                        throw new TheoryBankException($"æ— æ³•è·å–é¢˜åº“æ–‡ä»¶ä¿¡æ¯ï¼š{fileInfoEx.Message}", fileInfoEx);
+                    }
+
+                    // 3. è¯»å–æ–‡ä»¶å†…å®¹
+                    string json;
+                    try
+                    {
+                        json = File.ReadAllText(filePath, Encoding.UTF8);
+                        System.Diagnostics.Debug.WriteLine($"æˆåŠŸè¯»å–æ–‡ä»¶ï¼Œå†…å®¹é•¿åº¦: {json.Length} å­—ç¬¦");
+
+                        if (string.IsNullOrWhiteSpace(json))
+                        {
+                            throw new TheoryBankException("é¢˜åº“æ–‡ä»¶ä¸ºç©ºæˆ–åªåŒ…å«ç©ºç™½å­—ç¬¦");
+                        }
+
+                        // æ˜¾ç¤ºæ–‡ä»¶å†…å®¹çš„å‰100ä¸ªå­—ç¬¦ç”¨äºè°ƒè¯•
+                        string preview = json.Length > 100 ? json.Substring(0, 100) + "..." : json;
+                        System.Diagnostics.Debug.WriteLine($"æ–‡ä»¶å†…å®¹é¢„è§ˆ: {preview}");
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        throw new TheoryBankException($"æ²¡æœ‰æƒé™è¯»å–é¢˜åº“æ–‡ä»¶ï¼š{filePath}", ex);
+                    }
+                    catch (IOException ex)
+                    {
+                        throw new TheoryBankException($"è¯»å–é¢˜åº“æ–‡ä»¶æ—¶å‘ç”ŸIOé”™è¯¯ï¼š{ex.Message}", ex);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new TheoryBankException($"è¯»å–é¢˜åº“æ–‡ä»¶å¤±è´¥ï¼š{ex.Message}", ex);
+                    }
+
+                    // 4. JSON ååºåˆ—åŒ–
+                    try
+                    {
+                        System.Diagnostics.Debug.WriteLine("å¼€å§‹JSONååºåˆ—åŒ–...");
+
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true,
+                            AllowTrailingCommas = true
+                        };
+
+                        var questions = JsonSerializer.Deserialize<List<TheoryQuestion>>(json, options);
+
+                        if (questions == null)
+                        {
+                            System.Diagnostics.Debug.WriteLine("âš ï¸ JSONååºåˆ—åŒ–è¿”å›nullï¼Œåˆ›å»ºç©ºåˆ—è¡¨");
+                            questions = new List<TheoryQuestion>();
+                        }
+
+                        _questionCache = questions;
+                        System.Diagnostics.Debug.WriteLine($"âœ… æˆåŠŸåŠ è½½ {_questionCache.Count} é“ç†è®ºé¢˜ç›®");
+                    }
+                    catch (JsonException ex)
+                    {
+                        throw new TheoryBankException($"é¢˜åº“æ–‡ä»¶JSONæ ¼å¼é”™è¯¯ï¼š{ex.Message}\n" +
+                                                     $"å¯èƒ½çš„åŸå› ï¼šæ–‡ä»¶æŸåã€æ ¼å¼ä¸æ­£ç¡®æˆ–ç¼–ç é—®é¢˜", ex);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new TheoryBankException($"JSONååºåˆ—åŒ–å¤±è´¥ï¼š{ex.Message}", ex);
+                    }
                 }
                 else
                 {
-                    // Ê×´ÎÔËĞĞ£¬´´½¨Ê¾ÀıÌâÄ¿
-                    _questionCache = CreateSampleTheoryQuestions();
-                    SaveQuestions();
+                    // 5. é¦–æ¬¡è¿è¡Œï¼Œåˆ›å»ºç¤ºä¾‹é¢˜ç›®
+                    System.Diagnostics.Debug.WriteLine("é¢˜åº“æ–‡ä»¶ä¸å­˜åœ¨ï¼Œåˆ›å»ºç¤ºä¾‹é¢˜ç›®...");
+
+                    try
+                    {
+                        _questionCache = CreateSampleTheoryQuestions();
+                        System.Diagnostics.Debug.WriteLine($"åˆ›å»ºäº† {_questionCache.Count} é“ç¤ºä¾‹é¢˜ç›®");
+
+                        // ä¿å­˜ç¤ºä¾‹é¢˜ç›®
+                        if (!SaveQuestions())
+                        {
+                            throw new TheoryBankException("åˆ›å»ºç¤ºä¾‹é¢˜ç›®åä¿å­˜å¤±è´¥");
+                        }
+
+                        System.Diagnostics.Debug.WriteLine("âœ… ç¤ºä¾‹é¢˜ç›®ä¿å­˜æˆåŠŸ");
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new TheoryBankException($"åˆ›å»ºç¤ºä¾‹é¢˜ç›®å¤±è´¥ï¼š{ex.Message}", ex);
+                    }
                 }
 
                 _cacheLoaded = true;
+                System.Diagnostics.Debug.WriteLine("=== ç†è®ºé¢˜åº“åŠ è½½å®Œæˆ ===");
+            }
+            catch (TheoryBankException)
+            {
+                // é‡æ–°æŠ›å‡ºè‡ªå®šä¹‰å¼‚å¸¸
+                _cacheLoaded = false;
+                throw;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"¼ÓÔØÀíÂÛÌâ¿âÊ§°Ü: {ex.Message}");
-                _questionCache = new List<TheoryQuestion>();
-                _cacheLoaded = true;
+                _cacheLoaded = false;
+                System.Diagnostics.Debug.WriteLine($"âŒ åŠ è½½ç†è®ºé¢˜åº“æ—¶å‘ç”ŸæœªçŸ¥é”™è¯¯ï¼š{ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"å †æ ˆè·Ÿè¸ªï¼š{ex.StackTrace}");
+
+                throw new TheoryBankException($"åŠ è½½ç†è®ºé¢˜åº“æ—¶å‘ç”ŸæœªçŸ¥é”™è¯¯ï¼š{ex.Message}", ex);
             }
         }
 
@@ -467,7 +576,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"±£´æÀíÂÛÌâ¿âÊ§°Ü: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"ä¿å­˜ç†è®ºé¢˜åº“å¤±è´¥: {ex.Message}");
                 return false;
             }
         }
@@ -497,7 +606,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"´´½¨ÀíÂÛÌâ¿â±¸·İÊ§°Ü: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"åˆ›å»ºç†è®ºé¢˜åº“å¤‡ä»½å¤±è´¥: {ex.Message}");
             }
             return false;
         }
@@ -506,49 +615,49 @@ namespace DroneSimulator
         {
             var questions = new List<TheoryQuestion>();
 
-            // Ê¾Àı·ÉĞĞÔ­ÀíÌâÄ¿
+            // ç¤ºä¾‹é£è¡ŒåŸç†é¢˜ç›®
             questions.Add(new TheoryQuestion
             {
-                Id = "00001", // Ê¹ÓÃ5Î»ÊıID
-                QuestionStatement = "¶àĞıÒíÎŞÈË»úµÄÉıÁ¦Ö÷ÒªÀ´Ô´ÓÚÊ²Ã´£¿",
+                Id = "00001", // ä½¿ç”¨5ä½æ•°ID
+                QuestionStatement = "å¤šæ—‹ç¿¼æ— äººæœºçš„å‡åŠ›ä¸»è¦æ¥æºäºä»€ä¹ˆï¼Ÿ",
                 Type = TheoryQuestionType.SingleChoice,
                 Category = TheoryQuestionCategory.FlightPrinciples,
                 Difficulty = QuestionDifficulty.Easy,
                 Points = 2,
                 Options = new List<TheoryOption>
                 {
-                    new TheoryOption { Text = "»úÒí²úÉúµÄÉıÁ¦", IsCorrect = false },
-                    new TheoryOption { Text = "ÂİĞı½°ÏòÏÂÍÆ¶¯¿ÕÆø²úÉúµÄ·´×÷ÓÃÁ¦", IsCorrect = true },
-                    new TheoryOption { Text = "ÈÈÆøÇòÔ­Àí", IsCorrect = false },
-                    new TheoryOption { Text = "´ÅĞü¸¡Á¦", IsCorrect = false }
+                    new TheoryOption { Text = "æœºç¿¼äº§ç”Ÿçš„å‡åŠ›", IsCorrect = false },
+                    new TheoryOption { Text = "èºæ—‹æ¡¨å‘ä¸‹æ¨åŠ¨ç©ºæ°”äº§ç”Ÿçš„åä½œç”¨åŠ›", IsCorrect = true },
+                    new TheoryOption { Text = "çƒ­æ°”çƒåŸç†", IsCorrect = false },
+                    new TheoryOption { Text = "ç£æ‚¬æµ®åŠ›", IsCorrect = false }
                 },
-                CorrectAnswers = new List<string> { "ÂİĞı½°ÏòÏÂÍÆ¶¯¿ÕÆø²úÉúµÄ·´×÷ÓÃÁ¦" },
-                Explanation = "¶àĞıÒíÎŞÈË»úÍ¨¹ıÂİĞı½°Ğı×ªÍÆ¶¯¿ÕÆøÏòÏÂ£¬¸ù¾İÅ£¶ÙµÚÈı¶¨ÂÉ²úÉúÏòÉÏµÄ·´×÷ÓÃÁ¦£¬Õâ¾ÍÊÇÉıÁ¦µÄÀ´Ô´¡£",
-                CreatedBy = "ÏµÍ³",
+                CorrectAnswers = new List<string> { "èºæ—‹æ¡¨å‘ä¸‹æ¨åŠ¨ç©ºæ°”äº§ç”Ÿçš„åä½œç”¨åŠ›" },
+                Explanation = "å¤šæ—‹ç¿¼æ— äººæœºé€šè¿‡èºæ—‹æ¡¨æ—‹è½¬æ¨åŠ¨ç©ºæ°”å‘ä¸‹ï¼Œæ ¹æ®ç‰›é¡¿ç¬¬ä¸‰å®šå¾‹äº§ç”Ÿå‘ä¸Šçš„åä½œç”¨åŠ›ï¼Œè¿™å°±æ˜¯å‡åŠ›çš„æ¥æºã€‚",
+                CreatedBy = "ç³»ç»Ÿ",
                 CreatedTime = DateTime.Now
             });
 
-            // Ê¾Àı¶àÑ¡Ìâ
+            // ç¤ºä¾‹å¤šé€‰é¢˜
             questions.Add(new TheoryQuestion
             {
-                Id = "00002", // Ê¹ÓÃ5Î»ÊıID
-                QuestionStatement = "Ó°Ïì¶àĞıÒíÎŞÈË»ú·ÉĞĞÎÈ¶¨ĞÔµÄÖ÷ÒªÒòËØ°üÀ¨ÄÄĞ©£¿",
+                Id = "00002", // ä½¿ç”¨5ä½æ•°ID
+                QuestionStatement = "å½±å“å¤šæ—‹ç¿¼æ— äººæœºé£è¡Œç¨³å®šæ€§çš„ä¸»è¦å› ç´ åŒ…æ‹¬å“ªäº›ï¼Ÿ",
                 Type = TheoryQuestionType.MultipleChoice,
                 Category = TheoryQuestionCategory.ControlAlgorithm,
                 Difficulty = QuestionDifficulty.Medium,
                 Points = 3,
                 Options = new List<TheoryOption>
                 {
-                    new TheoryOption { Text = "ÖØĞÄÎ»ÖÃ", IsCorrect = true },
-                    new TheoryOption { Text = "·çÁ¦´óĞ¡", IsCorrect = true },
-                    new TheoryOption { Text = "µç³ØµçÁ¿", IsCorrect = false },
-                    new TheoryOption { Text = "·É¿ØËã·¨", IsCorrect = true },
-                    new TheoryOption { Text = "ÂİĞı½°Æ½ºâ", IsCorrect = true },
-                    new TheoryOption { Text = "Íâ¿ÇÑÕÉ«", IsCorrect = false }
+                    new TheoryOption { Text = "é‡å¿ƒä½ç½®", IsCorrect = true },
+                    new TheoryOption { Text = "é£åŠ›å¤§å°", IsCorrect = true },
+                    new TheoryOption { Text = "ç”µæ± ç”µé‡", IsCorrect = false },
+                    new TheoryOption { Text = "é£æ§ç®—æ³•", IsCorrect = true },
+                    new TheoryOption { Text = "èºæ—‹æ¡¨å¹³è¡¡", IsCorrect = true },
+                    new TheoryOption { Text = "å¤–å£³é¢œè‰²", IsCorrect = false }
                 },
-                CorrectAnswers = new List<string> { "ÖØĞÄÎ»ÖÃ", "·çÁ¦´óĞ¡", "·É¿ØËã·¨", "ÂİĞı½°Æ½ºâ" },
-                Explanation = "ÎŞÈË»úµÄ·ÉĞĞÎÈ¶¨ĞÔÖ÷ÒªÊÜÖØĞÄÎ»ÖÃ¡¢Íâ²¿·çÁ¦¡¢·É¿ØËã·¨ºÍÂİĞı½°Æ½ºâµÈÒòËØÓ°Ïì¡£",
-                CreatedBy = "ÏµÍ³",
+                CorrectAnswers = new List<string> { "é‡å¿ƒä½ç½®", "é£åŠ›å¤§å°", "é£æ§ç®—æ³•", "èºæ—‹æ¡¨å¹³è¡¡" },
+                Explanation = "æ— äººæœºçš„é£è¡Œç¨³å®šæ€§ä¸»è¦å—é‡å¿ƒä½ç½®ã€å¤–éƒ¨é£åŠ›ã€é£æ§ç®—æ³•å’Œèºæ—‹æ¡¨å¹³è¡¡ç­‰å› ç´ å½±å“ã€‚",
+                CreatedBy = "ç³»ç»Ÿ",
                 CreatedTime = DateTime.Now
             });
 
@@ -556,7 +665,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// Ç¿ÖÆÖØĞÂ¼ÓÔØÌâ¿â
+        /// å¼ºåˆ¶é‡æ–°åŠ è½½é¢˜åº“
         /// </summary>
         public static void ReloadQuestions()
         {
@@ -566,5 +675,14 @@ namespace DroneSimulator
                 LoadQuestions();
             }
         }
+    }
+
+    /// <summary>
+    /// ç†è®ºé¢˜åº“è‡ªå®šä¹‰å¼‚å¸¸ç±»
+    /// </summary>
+    public class TheoryBankException : Exception
+    {
+        public TheoryBankException(string message) : base(message) { }
+        public TheoryBankException(string message, Exception innerException) : base(message, innerException) { }
     }
 }

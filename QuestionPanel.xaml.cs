@@ -211,18 +211,22 @@ namespace DroneSimulator
             }
         }
 
+        // 在 LoadTheoryQuestions() 方法中添加更详细的异常处理
+
         /// <summary>
-        /// 加载理论题目
+        /// 加载理论题目 - 修复版
         /// </summary>
         private void LoadTheoryQuestions()
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("=== QuestionPanel: 开始加载理论题目 ===");
+
                 theoryQuestions = TheoryQuestionBankManager.GetAllQuestions()
                     .Where(q => q.IsActive)
                     .ToList();
 
-                System.Diagnostics.Debug.WriteLine($"加载了 {theoryQuestions.Count} 道理论题目");
+                System.Diagnostics.Debug.WriteLine($"✅ QuestionPanel: 成功加载了 {theoryQuestions.Count} 道理论题目");
 
                 // 默认显示前5道题目
                 if (theoryQuestions.Any())
@@ -230,16 +234,24 @@ namespace DroneSimulator
                     var defaultQuestions = theoryQuestions.Take(5).ToList();
                     DisplayTheoryQuestions(defaultQuestions);
                     selectedTheoryQuestions = new List<TheoryQuestion>(defaultQuestions);
+                    System.Diagnostics.Debug.WriteLine($"显示了前 {defaultQuestions.Count} 道题目");
                 }
                 else
                 {
+                    System.Diagnostics.Debug.WriteLine("⚠️ 理论题库为空");
                     ShowEmptyTheoryBank();
                 }
             }
+            catch (TheoryBankException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 理论题库异常：{ex.Message}");
+                ShowTheoryBankError($"理论题库加载失败：\n\n{ex.Message}\n\n可能的解决方案：\n1. 检查程序权限\n2. 检查磁盘空间\n3. 重启应用程序");
+            }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"加载理论题目失败：{ex.Message}");
-                ShowTheoryBankError(ex.Message);
+                System.Diagnostics.Debug.WriteLine($"❌ 未知异常：{ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+                ShowTheoryBankError($"加载理论题目时发生未知错误：\n\n{ex.Message}\n\n请联系技术支持或重启应用程序");
             }
         }
 
@@ -317,15 +329,63 @@ namespace DroneSimulator
 
             var errorText = new TextBlock
             {
-                Text = $"加载理论题库失败\n\n错误信息：{errorMessage}",
-                FontSize = 16,
+                Text = errorMessage,
+                FontSize = 14,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextAlignment = TextAlignment.Center,
-                Foreground = new SolidColorBrush(Colors.Red)
+                Foreground = new SolidColorBrush(Colors.Red),
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 600
             };
+
+            // 添加重试按钮
+            var retryButton = new Button
+            {
+                Content = "重新加载题库",
+                Width = 120,
+                Height = 35,
+                Background = new SolidColorBrush(Color.FromRgb(33, 150, 243)),
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 14,
+                Margin = new Thickness(0, 20, 10, 0)
+            };
+            retryButton.Click += (s, e) => {
+                try
+                {
+                    TheoryQuestionBankManager.ReloadQuestions();
+                    LoadTheoryQuestions();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"重新加载失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            };
+
+            // 添加题库管理按钮
+            var manageButton = new Button
+            {
+                Content = "打开题库管理",
+                Width = 120,
+                Height = 35,
+                Background = new SolidColorBrush(Color.FromRgb(76, 175, 80)),
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 14,
+                Margin = new Thickness(10, 20, 0, 0)
+            };
+            manageButton.Click += ManageTheoryBank_Click;
+
+            var buttonPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            buttonPanel.Children.Add(retryButton);
+            buttonPanel.Children.Add(manageButton);
 
             errorPanel.Children.Add(errorIcon);
             errorPanel.Children.Add(errorText);
+            errorPanel.Children.Add(buttonPanel);
 
             TheoryQuestionsPanel.Children.Add(errorPanel);
         }
@@ -338,9 +398,9 @@ namespace DroneSimulator
             try
             {
                 TheoryQuestionsPanel.Children.Clear();
-                currentDisplayedQuestions = new List<TheoryQuestion>(questions);
+                currentDisplayedQuestions = new List<TheoryQuestion>(questions ?? new List<TheoryQuestion>());
 
-                if (!questions.Any())
+                if (questions == null || !questions.Any())
                 {
                     ShowEmptyTheoryBank();
                     return;
@@ -376,15 +436,25 @@ namespace DroneSimulator
 
                     // 左列题目
                     var leftQuestion = questions[i];
-                    var leftQuestionPanel = CreateQuestionPanel(leftQuestion, i + 1);
-                    rowPanel.Children.Add(leftQuestionPanel);
+                    if (leftQuestion != null)
+                    {
+                        var leftQuestionPanel = CreateQuestionPanel(leftQuestion, i + 1);
+                        rowPanel.Children.Add(leftQuestionPanel);
+                    }
 
                     // 右列题目（如果存在）
                     if (i + 1 < questions.Count)
                     {
                         var rightQuestion = questions[i + 1];
-                        var rightQuestionPanel = CreateQuestionPanel(rightQuestion, i + 2);
-                        rowPanel.Children.Add(rightQuestionPanel);
+                        if (rightQuestion != null)
+                        {
+                            var rightQuestionPanel = CreateQuestionPanel(rightQuestion, i + 2);
+                            rowPanel.Children.Add(rightQuestionPanel);
+                        }
+                        else
+                        {
+                            rowPanel.Children.Add(new Border());
+                        }
                     }
                     else
                     {
@@ -400,7 +470,8 @@ namespace DroneSimulator
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"显示理论题目失败：{ex.Message}");
-                ShowTheoryBankError(ex.Message);
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+                ShowTheoryBankError($"显示理论题目时发生错误：\n\n{ex.Message}");
             }
         }
 
@@ -449,10 +520,26 @@ namespace DroneSimulator
                 Margin = new Thickness(5, 0, 10, 0)
             };
 
-            // 题目ID（小字体显示）
+            // 🔧 修复：安全处理题目ID显示
+            string displayId;
+            if (string.IsNullOrEmpty(question.Id))
+            {
+                displayId = "ID: 未知";
+            }
+            else if (question.Id.Length <= 8)
+            {
+                // 如果ID长度不超过8个字符，直接显示完整ID
+                displayId = $"ID: {question.Id}";
+            }
+            else
+            {
+                // 如果ID长度超过8个字符，截取前8个字符并添加省略号
+                displayId = $"ID: {question.Id.Substring(0, 8)}...";
+            }
+
             var idText = new TextBlock
             {
-                Text = $"ID: {question.Id.Substring(0, 8)}...",
+                Text = displayId,
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Colors.Gray),
                 Margin = new Thickness(0, 2, 0, 0)
@@ -465,7 +552,7 @@ namespace DroneSimulator
             // 题目陈述
             var questionText = new TextBlock
             {
-                Text = question.QuestionStatement,
+                Text = question.QuestionStatement ?? "",
                 FontSize = 14,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 10),
@@ -476,7 +563,7 @@ namespace DroneSimulator
             var optionsPanel = new StackPanel();
             char optionLabel = 'A';
 
-            foreach (var option in question.Options)
+            foreach (var option in question.Options ?? new List<TheoryOption>())
             {
                 var optionPanel = new StackPanel
                 {
@@ -495,16 +582,16 @@ namespace DroneSimulator
 
                 var optionContentText = new TextBlock
                 {
-                    Text = option.Text,
+                    Text = option.Text ?? "",
                     FontSize = 13,
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = question.CorrectAnswers.Contains(option.Text)
+                    Foreground = (question.CorrectAnswers?.Contains(option.Text) == true)
                         ? new SolidColorBrush(Color.FromRgb(76, 175, 80))  // 正确答案用绿色
                         : new SolidColorBrush(Colors.Black)
                 };
 
                 // 如果是正确答案，添加标记
-                if (question.CorrectAnswers.Contains(option.Text))
+                if (question.CorrectAnswers?.Contains(option.Text) == true)
                 {
                     optionContentText.FontWeight = FontWeights.Bold;
 
@@ -584,11 +671,42 @@ namespace DroneSimulator
         {
             if (sender is RadioButton rb && rb.IsChecked == true)
             {
-                selectedTheoryQuestions = new List<TheoryQuestion>(theoryQuestions);
-                DisplayTheoryQuestions(selectedTheoryQuestions);
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine("=== 执行理论题库全选操作 ===");
 
-                MessageBox.Show($"已选择全部 {selectedTheoryQuestions.Count} 道理论题目", "全选完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (!theoryQuestions.Any())
+                    {
+                        // 尝试重新加载题库
+                        LoadTheoryQuestions();
+                    }
+
+                    if (theoryQuestions.Any())
+                    {
+                        selectedTheoryQuestions = new List<TheoryQuestion>(theoryQuestions);
+                        DisplayTheoryQuestions(selectedTheoryQuestions);
+
+                        MessageBox.Show($"已选择全部 {selectedTheoryQuestions.Count} 道理论题目", "全选完成",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("理论题库为空，无法执行全选操作！\n\n请点击'题库管理'添加理论题目。", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+                catch (TheoryBankException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题库全选失败：{ex.Message}");
+                    MessageBox.Show($"理论题库全选失败：\n\n{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题库全选时发生未知错误：{ex.Message}");
+                    MessageBox.Show($"执行全选操作时发生错误：\n\n{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -625,7 +743,38 @@ namespace DroneSimulator
         {
             if (sender is RadioButton rb && rb.IsChecked == true)
             {
-                ExecuteTheoryRandomSelection(showResult: true);
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine("=== 执行理论题库随机选择操作 ===");
+
+                    if (!theoryQuestions.Any())
+                    {
+                        // 尝试重新加载题库
+                        LoadTheoryQuestions();
+                    }
+
+                    if (theoryQuestions.Any())
+                    {
+                        ExecuteTheoryRandomSelection(showResult: true);
+                    }
+                    else
+                    {
+                        MessageBox.Show("理论题库为空，无法执行随机选择！\n\n请点击'题库管理'添加理论题目。", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+                catch (TheoryBankException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题库随机选择失败：{ex.Message}");
+                    MessageBox.Show($"理论题库随机选择失败：\n\n{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题库随机选择时发生未知错误：{ex.Message}");
+                    MessageBox.Show($"执行随机选择时发生错误：\n\n{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
