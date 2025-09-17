@@ -83,17 +83,17 @@ namespace DroneSimulator
         private bool _isSelected = false;
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        
-        public string QuestionStatement 
-        { 
-            get => _questionStatement; 
-            set 
-            { 
-                _questionStatement = value; 
-                OnPropertyChanged(nameof(QuestionStatement)); 
-            } 
+
+        public string QuestionStatement
+        {
+            get => _questionStatement;
+            set
+            {
+                _questionStatement = value;
+                OnPropertyChanged(nameof(QuestionStatement));
+            }
         }
-        
+
         public TheoryQuestionType Type { get; set; } = TheoryQuestionType.SingleChoice;
         public TheoryQuestionCategory Category { get; set; } = TheoryQuestionCategory.FlightPrinciples;
         public QuestionDifficulty Difficulty { get; set; } = QuestionDifficulty.Medium;
@@ -104,62 +104,90 @@ namespace DroneSimulator
         public string CategoryDisplayName => GetCategoryDisplayName();
         public string DifficultyDisplayName => GetDifficultyDisplayName();
 
-        public bool IsSelected 
-        { 
-            get => _isSelected; 
-            set 
-            { 
-                _isSelected = value; 
-                OnPropertyChanged(nameof(IsSelected)); 
-            } 
+        // 修改正确答案显示属性，支持选项代号显示
+        public string CorrectAnswersDisplay
+        {
+            get
+            {
+                if (!CorrectAnswers.Any())
+                    return "未设置";
+
+                // 如果正确答案是选项代号（A、B、C等），直接显示
+                if (CorrectAnswers.All(answer => answer.Length == 1 && answer[0] >= 'A' && answer[0] <= 'F'))
+                {
+                    return string.Join(", ", CorrectAnswers);
+                }
+
+                // 如果正确答案是选项文本，尝试转换为代号显示
+                var codes = new List<string>();
+                for (int i = 0; i < Options.Count; i++)
+                {
+                    if (CorrectAnswers.Contains(Options[i].Text))
+                    {
+                        codes.Add(((char)('A' + i)).ToString());
+                    }
+                }
+
+                return codes.Any() ? string.Join(", ", codes) : string.Join("; ", CorrectAnswers);
+            }
         }
-        
-        // 选择题选项（最多6个）
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                _isSelected = value;
+                OnPropertyChanged(nameof(IsSelected));
+            }
+        }
+
+        // 选项（最多6个）
         public List<TheoryOption> Options { get; set; } = new();
-        
-        // 正确答案（单选时只有一个，多选时可能多个）
+
+        // 正确答案，单选时只有一个，多选时可能多个
         public List<string> CorrectAnswers { get; set; } = new();
-        
+
         // 题目解析
         public string Explanation { get; set; } = "";
-        
-        // 出题信息
+
+        // 创建信息
         public string CreatedBy { get; set; } = "";
         public DateTime CreatedTime { get; set; } = DateTime.Now;
         public DateTime LastModified { get; set; } = DateTime.Now;
         public string LastModifiedBy { get; set; } = "";
-        
+
         // 使用统计
         public int UsageCount { get; set; } = 0;
         public double AverageScore { get; set; } = 0.0; // 平均得分率
-        
+
         // 验证题目完整性
         public bool IsValid()
         {
             if (string.IsNullOrWhiteSpace(QuestionStatement)) return false;
             if (Options.Count < 2 || Options.Count > 6) return false;
             if (!CorrectAnswers.Any()) return false;
-            
-            // 检查正确答案是否在选项中
+
+            // 验证正确答案是否在选项中
             var optionTexts = Options.Select(o => o.Text).ToList();
             foreach (var answer in CorrectAnswers)
             {
                 if (!optionTexts.Contains(answer)) return false;
             }
-            
+
             // 单选题只能有一个正确答案
             if (Type == TheoryQuestionType.SingleChoice && CorrectAnswers.Count != 1)
                 return false;
-                
+
             return true;
         }
-        
+
         // 获取正确选项
         public List<TheoryOption> GetCorrectOptions()
         {
             return Options.Where(o => CorrectAnswers.Contains(o.Text)).ToList();
         }
-        
+
         // 获取显示用的分类名称
         public string GetCategoryDisplayName()
         {
@@ -170,7 +198,7 @@ namespace DroneSimulator
                 TheoryQuestionCategory.ControlAlgorithm => "控制算法",
                 TheoryQuestionCategory.SensorFusion => "传感器融合",
                 TheoryQuestionCategory.FlightSafety => "飞行安全",
-                TheoryQuestionCategory.LawsRegulations => "法律法规",
+                TheoryQuestionCategory.LawsRegulations => "法规法律",
                 _ => "未知分类"
             };
         }
@@ -180,7 +208,7 @@ namespace DroneSimulator
         {
             return Difficulty switch
             {
-                QuestionDifficulty.Easy => "简单",
+                QuestionDifficulty.Easy => "简",
                 QuestionDifficulty.Medium => "中等",
                 QuestionDifficulty.Hard => "困难",
                 _ => "中等"

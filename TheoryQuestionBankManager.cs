@@ -13,10 +13,101 @@ namespace DroneSimulator
         private const string THEORY_BANK_FILE = "theory_questions.json";
         private const string THEORY_EXAMS_DIRECTORY = "TheoryExams";
         private const string BACKUP_DIRECTORY = "TheoryQuestionBank/Backups";
-        
+
         private static List<TheoryQuestion> _questionCache = new();
         private static bool _cacheLoaded = false;
         private static readonly object _lockObject = new object();
+        // 添加一个静态集合来跟踪正在分配的ID
+        private static readonly HashSet<int> _assignedIds = new HashSet<int>();
+
+        /// <summary>
+        /// 获取下一个可用的题目ID（5位数，从00001开始）
+        /// </summary>
+        public static string GetNextQuestionId()
+        {
+            lock (_lockObject)
+            {
+                if (!_cacheLoaded) LoadQuestions();
+
+                // 获取所有现存的数字ID
+                var existingIds = new HashSet<int>();
+
+                foreach (var question in _questionCache)
+                {
+                    // 尝试解析现有ID为数字
+                    if (int.TryParse(question.Id, out int numericId))
+                    {
+                        existingIds.Add(numericId);
+                    }
+                }
+
+                // 合并已分配但尚未保存的ID
+                existingIds.UnionWith(_assignedIds);
+
+                // 找到下一个未使用的ID，从1开始
+                int nextId = 1;
+                while (existingIds.Contains(nextId) && nextId <= 99999)
+                {
+                    nextId++;
+                }
+
+                // 如果超过99999，抛出异常
+                if (nextId > 99999)
+                {
+                    throw new InvalidOperationException("题目数量已达到上限（99999），无法添加更多题目");
+                }
+
+                // 将新分配的ID添加到跟踪集合中
+                _assignedIds.Add(nextId);
+
+                // 返回5位数字格式的ID
+                return nextId.ToString("D5");
+            }
+        }
+
+        /// <summary>
+        /// 为题目分配新的系统ID（如果需要的话）
+        /// </summary>
+        /// <param name="question">要处理的题目</param>
+        /// <param name="forceNewId">是否强制分配新ID，忽略原有ID</param>
+        public static void AssignSystemId(TheoryQuestion question, bool forceNewId = false)
+        {
+            if (question == null) return;
+
+            // 如果强制分配新ID，或者原ID不是5位数字格式，则分配新ID
+            if (forceNewId || !IsValidSystemId(question.Id))
+            {
+                question.Id = GetNextQuestionId();
+            }
+        }
+
+        /// <summary>
+        /// 检查ID是否为有效的系统5位数ID格式
+        /// </summary>
+        /// <param name="id">要检查的ID</param>
+        /// <returns>是否为有效格式</returns>
+        public static bool IsValidSystemId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+
+            // 检查是否为5位数字
+            return id.Length == 5 && int.TryParse(id, out int numericId) && numericId >= 1 && numericId <= 99999;
+        }
+
+        /// <summary>
+        /// 批量为题目分配系统ID（用于导入时）
+        /// </summary>
+        /// <param name="questions">题目列表</param>
+        /// <param name="forceNewIds">是否强制为所有题目分配新ID</param>
+        public static void AssignSystemIds(List<TheoryQuestion> questions, bool forceNewIds = false)
+        {
+            if (questions == null || !questions.Any()) return;
+
+            foreach (var question in questions)
+            {
+                AssignSystemId(question, forceNewIds);
+            }
+        }
 
         /// <summary>
         /// 获取所有理论题目
@@ -72,20 +163,18 @@ namespace DroneSimulator
         /// <summary>
         /// 随机选择题目
         /// </summary>
-        public static List<TheoryQuestion> SelectRandomQuestions(int count, 
-            TheoryQuestionType? type = null, 
-            TheoryQuestionCategory? category = null, 
+        public static List<TheoryQuestion> SelectRandomQuestions(int count,
+            TheoryQuestionType? type = null,
+            TheoryQuestionCategory? category = null,
             QuestionDifficulty? difficulty = null)
         {
             var questions = GetQuestions(type, category, difficulty, true);
-            
+
             if (!questions.Any()) return new List<TheoryQuestion>();
-            
+
             var random = new Random();
             return questions.OrderBy(x => random.Next()).Take(count).ToList();
         }
-
-        // 在 TheoryQuestionBankManager 类中添加以下方法
 
         /// <summary>
         /// 智能平衡选题
@@ -97,14 +186,14 @@ namespace DroneSimulator
 
             // 定义各分类题目的比例
             var categoryDistribution = new Dictionary<TheoryQuestionCategory, double>
-    {
-        { TheoryQuestionCategory.FlightPrinciples, 0.25 },   // 25% 飞行原理
-        { TheoryQuestionCategory.Structure, 0.20 },          // 20% 结构组成
-        { TheoryQuestionCategory.ControlAlgorithm, 0.20 },   // 20% 控制算法
-        { TheoryQuestionCategory.SensorFusion, 0.15 },       // 15% 传感器融合
-        { TheoryQuestionCategory.FlightSafety, 0.15 },       // 15% 飞行安全
-        { TheoryQuestionCategory.LawsRegulations, 0.05 }     // 5% 法律法规
-    };
+            {
+                { TheoryQuestionCategory.FlightPrinciples, 0.25 },   // 25% 飞行原理
+                { TheoryQuestionCategory.Structure, 0.20 },          // 20% 结构组成
+                { TheoryQuestionCategory.ControlAlgorithm, 0.20 },   // 20% 控制算法
+                { TheoryQuestionCategory.SensorFusion, 0.15 },       // 15% 传感器融合
+                { TheoryQuestionCategory.FlightSafety, 0.15 },       // 15% 飞行安全
+                { TheoryQuestionCategory.LawsRegulations, 0.05 }     // 5% 法律法规
+            };
 
             foreach (var (category, ratio) in categoryDistribution)
             {
@@ -147,6 +236,12 @@ namespace DroneSimulator
                         throw new ArgumentException("题目数据不完整或不正确");
                     }
 
+                    // 确保题目有有效的系统ID
+                    if (string.IsNullOrEmpty(question.Id) || !IsValidSystemId(question.Id))
+                    {
+                        AssignSystemId(question);
+                    }
+
                     question.LastModified = DateTime.Now;
 
                     var existingIndex = _questionCache.FindIndex(q => q.Id == question.Id);
@@ -159,13 +254,37 @@ namespace DroneSimulator
                         _questionCache.Add(question);
                     }
 
+                    // 保存成功后，从临时跟踪集合中移除该ID（如果存在）
+                    if (int.TryParse(question.Id, out int numericId))
+                    {
+                        _assignedIds.Remove(numericId);
+                    }
+
                     return SaveQuestions();
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"保存理论题目失败: {ex.Message}");
+
+                    // 保存失败时，也要从临时跟踪集合中移除该ID
+                    if (int.TryParse(question.Id, out int numericId))
+                    {
+                        _assignedIds.Remove(numericId);
+                    }
+
                     return false;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 清理临时分配的ID（可选方法，用于重置状态）
+        /// </summary>
+        public static void ClearAssignedIds()
+        {
+            lock (_lockObject)
+            {
+                _assignedIds.Clear();
             }
         }
 
@@ -363,10 +482,10 @@ namespace DroneSimulator
                 }
 
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = string.IsNullOrEmpty(backupName) 
-                    ? $"backup_{timestamp}.json" 
+                string fileName = string.IsNullOrEmpty(backupName)
+                    ? $"backup_{timestamp}.json"
                     : $"backup_{backupName}_{timestamp}.json";
-                
+
                 string backupPath = Path.Combine(BACKUP_DIRECTORY, fileName);
                 string sourcePath = Path.Combine(THEORY_BANK_DIRECTORY, THEORY_BANK_FILE);
 
@@ -390,6 +509,7 @@ namespace DroneSimulator
             // 示例飞行原理题目
             questions.Add(new TheoryQuestion
             {
+                Id = "00001", // 使用5位数ID
                 QuestionStatement = "多旋翼无人机的升力主要来源于什么？",
                 Type = TheoryQuestionType.SingleChoice,
                 Category = TheoryQuestionCategory.FlightPrinciples,
@@ -411,6 +531,7 @@ namespace DroneSimulator
             // 示例多选题
             questions.Add(new TheoryQuestion
             {
+                Id = "00002", // 使用5位数ID
                 QuestionStatement = "影响多旋翼无人机飞行稳定性的主要因素包括哪些？",
                 Type = TheoryQuestionType.MultipleChoice,
                 Category = TheoryQuestionCategory.ControlAlgorithm,

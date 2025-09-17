@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Text.Json;
 
 namespace DroneSimulator
 {
@@ -14,6 +15,7 @@ namespace DroneSimulator
         private List<TheoryQuestion> allQuestions = new();
         private List<TheoryQuestion> filteredQuestions = new();
         private string? currentTeacher;
+        private CancellationTokenSource _importCancellationTokenSource;
 
         public TheoryQuestionBankWindow(string? teacherName = null)
         {
@@ -574,9 +576,12 @@ namespace DroneSimulator
                 MessageBox.Show($"编辑题目时发生错误：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }        
+        }
 
-        private void Import_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 导入题库按钮点击事件（添加进度条支持）
+        /// </summary>
+        private async void Import_Click(object sender, RoutedEventArgs e)
         {
             try
             {
@@ -629,38 +634,8 @@ namespace DroneSimulator
 
                     bool overwriteExisting = overwriteResult == MessageBoxResult.Yes;
 
-                    // 显示进度
-                    if (StatusTextBlock != null)
-                    {
-                        StatusTextBlock.Text = "正在导入题库...";
-                    }
-
-                    ImportExportResult result;
-
-                    // 根据文件格式选择导入方法
-                    switch (extension)
-                    {
-                        case ".json":
-                            result = TheoryQuestionImportExportService.ImportFromJson(filePath, overwriteExisting);
-                            break;
-                        case ".csv" when isTQ4Format:
-                            result = TheoryQuestionImportExportService.ImportFromTQ4Csv(filePath, overwriteExisting);
-                            break;
-                        case ".csv":
-                            result = TheoryQuestionImportExportService.ImportFromCsv(filePath, overwriteExisting);
-                            break;
-                        case ".xlsx":
-                        case ".xls":
-                            result = TheoryQuestionImportExportService.ImportFromExcel(filePath, overwriteExisting);
-                            break;
-                        default:
-                            MessageBox.Show("不支持的文件格式！", "格式错误",
-                                MessageBoxButton.OK, MessageBoxImage.Warning);
-                            return;
-                    }
-
-                    // 显示结果
-                    DisplayImportResult(result, filePath);
+                    // 开始异步导入
+                    await StartImportAsync(filePath, extension, isTQ4Format, overwriteExisting);
                 }
             }
             catch (Exception ex)
@@ -672,7 +647,401 @@ namespace DroneSimulator
                 {
                     StatusTextBlock.Text = "导入失败";
                 }
+
+                HideProgressBar();
             }
+        }
+
+        /// <summary>
+        /// 异步开始导入过程
+        /// </summary>
+        private async Task StartImportAsync(string filePath, string extension, bool isTQ4Format, bool overwriteExisting)
+        {
+            // 创建取消令牌
+            _importCancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = _importCancellationTokenSource.Token;
+
+            // 显示进度条
+            ShowProgressBar("正在准备导入...");
+
+            try
+            {
+                // 禁用导入按钮
+                ImportButton.IsEnabled = false;
+
+                ImportExportResult result;
+
+                // 根据文件格式选择导入方法
+                switch (extension)
+                {
+                    case ".json":
+                        result = await ImportJsonWithProgressAsync(filePath, overwriteExisting, cancellationToken);
+                        break;
+                    case ".csv" when isTQ4Format:
+                        result = await ImportTQ4CsvWithProgressAsync(filePath, overwriteExisting, cancellationToken);
+                        break;
+                    case ".csv":
+                        result = await ImportCsvWithProgressAsync(filePath, overwriteExisting, cancellationToken);
+                        break;
+                    case ".xlsx":
+                    case ".xls":
+                        result = await ImportExcelWithProgressAsync(filePath, overwriteExisting, cancellationToken);
+                        break;
+                    default:
+                        MessageBox.Show("不支持的文件格式！", "格式错误",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                        HideProgressBar();
+                        return;
+                }
+
+                // 检查是否被取消
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    UpdateProgress(0, "导入已取消", "操作已被用户取消");
+                    StatusTextBlock.Text = "导入已取消";
+                    await Task.Delay(2000); // 显示2秒取消信息
+                    HideProgressBar();
+                    return;
+                }
+
+                // 显示结果
+                DisplayImportResult(result, filePath);
+            }
+            catch (OperationCanceledException)
+            {
+                UpdateProgress(0, "导入已取消", "操作已被用户取消");
+                StatusTextBlock.Text = "导入已取消";
+                await Task.Delay(2000);
+                HideProgressBar();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导入过程中发生错误：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusTextBlock.Text = "导入失败";
+                HideProgressBar();
+            }
+            finally
+            {
+                // 重新启用导入按钮
+                ImportButton.IsEnabled = true;
+                _importCancellationTokenSource?.Dispose();
+                _importCancellationTokenSource = null;
+            }
+        }
+
+        /// <summary>
+        /// 带进度的JSON导入（增强版，支持用户名记录）
+        /// </summary>
+        private async Task<ImportExportResult> ImportJsonWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
+        {
+            return await Task.Run(() =>
+            {
+                // 使用服务类的导入方法，并传递当前用户名
+                return TheoryQuestionImportExportService.ImportFromJson(filePath, overwriteExisting, currentTeacher);
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// 带进度的TQ4 CSV导入（增强版，支持用户名记录）
+        /// </summary>
+        private async Task<ImportExportResult> ImportTQ4CsvWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
+        {
+            return await Task.Run(() =>
+            {
+                // 使用服务类的导入方法，并传递当前用户名
+                return TheoryQuestionImportExportService.ImportFromTQ4Csv(filePath, overwriteExisting, currentTeacher);
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// 带进度的CSV导入（增强版，支持用户名记录）
+        /// </summary>
+        private async Task<ImportExportResult> ImportCsvWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
+        {
+            return await Task.Run(() =>
+            {
+                // 使用服务类的导入方法，并传递当前用户名
+                return TheoryQuestionImportExportService.ImportFromCsv(filePath, overwriteExisting, currentTeacher);
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// 带进度的Excel导入
+        /// </summary>
+        private async Task<ImportExportResult> ImportExcelWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
+        {
+            return await Task.Run(() =>
+            {
+                UpdateProgress(50, "正在处理Excel文件...", "");
+
+                // 调用原有的Excel导入服务
+                var result = TheoryQuestionImportExportService.ImportFromExcel(filePath, overwriteExisting);
+
+                UpdateProgress(100, "Excel导入完成", result.Success ? "导入成功" : "导入失败");
+
+                return result;
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// 解析TQ4题目数据（修正版，简化正确答案解析）
+        /// </summary>
+        private TheoryQuestion ParseTQ4Question(List<string> fields)
+        {
+            try
+            {
+                var question = new TheoryQuestion();
+
+                // 不再使用文件中的ID，让系统自动分配
+                // question.Id 将由 TheoryQuestionBankManager.AssignSystemId 设置
+
+                // 解析题目陈述 (字段5，索引4)
+                question.QuestionStatement = fields[4].Trim();
+
+                // 解析题目类型 (字段3，索引2)
+                var typeCode = fields.Count > 2 ? fields[2].Trim() : "B";
+                question.Type = typeCode.ToUpper() switch
+                {
+                    "B" => TheoryQuestionType.SingleChoice,
+                    "C" => TheoryQuestionType.MultipleChoice, // 判断题作为特殊的选择题
+                    _ => TheoryQuestionType.SingleChoice
+                };
+
+                // 根据原始ID推断分类（仅用于分类，不用作题目ID）
+                var originalId = fields.Count > 1 ? fields[1].Trim() : "";
+                question.Category = originalId.StartsWith("A-A-") ? TheoryQuestionCategory.FlightSafety :
+                                  originalId.StartsWith("A-B-A") ? TheoryQuestionCategory.FlightPrinciples :
+                                  originalId.StartsWith("A-B-B") ? TheoryQuestionCategory.Structure :
+                                  originalId.StartsWith("A-B-C") ? TheoryQuestionCategory.ControlAlgorithm :
+                                  originalId.StartsWith("A-B-D") ? TheoryQuestionCategory.SensorFusion :
+                                  originalId.StartsWith("A-B-E") ? TheoryQuestionCategory.FlightSafety :
+                                  originalId.StartsWith("A-B-F") ? TheoryQuestionCategory.LawsRegulations :
+                                  originalId.StartsWith("B-A") ? TheoryQuestionCategory.Structure :
+                                  TheoryQuestionCategory.FlightPrinciples;
+
+                // 设置难度 (字段13，索引12)
+                var difficultyCode = fields.Count > 12 ? fields[12].Trim() : "3（中等）";
+                question.Difficulty = difficultyCode switch
+                {
+                    "1（容易）" => QuestionDifficulty.Easy,
+                    "2（较难）" => QuestionDifficulty.Medium,
+                    "3（中等）" => QuestionDifficulty.Medium,
+                    "4（较难）" => QuestionDifficulty.Hard,
+                    "5（很难）" => QuestionDifficulty.Hard,
+                    _ when difficultyCode.Contains("容易") => QuestionDifficulty.Easy,
+                    _ when difficultyCode.Contains("较难") || difficultyCode.Contains("很难") => QuestionDifficulty.Hard,
+                    _ => QuestionDifficulty.Medium
+                };
+
+                // 设置分值
+                question.Points = question.Type == TheoryQuestionType.MultipleChoice ? 3 : 2;
+
+                // 解析选项 (字段6-10，索引5-9，A-E选项)
+                question.Options = new List<TheoryOption>();
+                for (int optionIndex = 5; optionIndex <= 9; optionIndex++)
+                {
+                    if (optionIndex < fields.Count && !string.IsNullOrWhiteSpace(fields[optionIndex]))
+                    {
+                        question.Options.Add(new TheoryOption
+                        {
+                            Text = fields[optionIndex].Trim()
+                        });
+                    }
+                }
+
+                // 如果没有选项，为判断题创建默认选项
+                if (!question.Options.Any())
+                {
+                    if (question.Type == TheoryQuestionType.MultipleChoice) // 判断题
+                    {
+                        question.Options.Add(new TheoryOption { Text = "正确" });
+                        question.Options.Add(new TheoryOption { Text = "错误" });
+                    }
+                    else // 单选题至少需要两个选项
+                    {
+                        question.Options.Add(new TheoryOption { Text = "选项A" });
+                        question.Options.Add(new TheoryOption { Text = "选项B" });
+                    }
+                }
+
+                // ★★★ 关键修复：简化正确答案解析逻辑 ★★★
+                var correctAnswer = fields.Count > 11 ? fields[11].Trim() : "F";
+                System.Diagnostics.Debug.WriteLine($"原始正确答案: '{correctAnswer}'");
+
+                question.CorrectAnswers = new List<string>();
+
+                // 简化的答案解析逻辑：直接提取A-F字母
+                var answerChars = correctAnswer.ToCharArray()
+                    .Where(c => c >= 'A' && c <= 'F')
+                    .Select(c => c.ToString())
+                    .Distinct()
+                    .ToList();
+
+                if (answerChars.Any())
+                {
+                    // 将答案代号转换为对应的选项文本
+                    foreach (var code in answerChars)
+                    {
+                        int optionIndex = code[0] - 'A'; // A=0, B=1, C=2...
+                        if (optionIndex >= 0 && optionIndex < question.Options.Count)
+                        {
+                            question.CorrectAnswers.Add(question.Options[optionIndex].Text);
+                        }
+                        else
+                        {
+                            // 如果选项代号超出范围，添加默认选项文本
+                            question.CorrectAnswers.Add($"选项{code}");
+                        }
+                    }
+                }
+                else
+                {
+                    // 如果无法解析任何有效字母，使用F代替
+                    if (question.Options.Any())
+                    {
+                        // 如果有选项，使用最后一个选项，如果没有F选项则创建一个
+                        if (question.Options.Count >= 6)
+                        {
+                            question.CorrectAnswers.Add(question.Options[5].Text); // F选项
+                        }
+                        else
+                        {
+                            question.CorrectAnswers.Add("选项F");
+                        }
+                    }
+                    else
+                    {
+                        question.CorrectAnswers.Add("选项F");
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"解析后的正确答案: [{string.Join(", ", question.CorrectAnswers)}]");
+
+                // 设置其他属性
+                question.Explanation = fields.Count > 14 ? fields[14] : "";
+                question.CreatedBy = !string.IsNullOrWhiteSpace(currentTeacher) ? currentTeacher : "TQ4.csv导入";
+                question.CreatedTime = DateTime.Now;
+                question.LastModified = DateTime.Now;
+                question.LastModifiedBy = !string.IsNullOrWhiteSpace(currentTeacher) ? currentTeacher : "系统导入";
+                question.IsActive = true;
+
+                return question;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"解析TQ4题目失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        #region 进度条相关方法
+
+        /// <summary>
+        /// 显示进度条
+        /// </summary>
+        private void ShowProgressBar(string statusText)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ProgressPanel.Visibility = Visibility.Visible;
+                ImportProgressBar.Value = 0;
+                ProgressText.Text = statusText;
+                ProgressDetailText.Text = "";
+                CancelImportButton.IsEnabled = true;
+            });
+        }
+
+        /// <summary>
+        /// 更新进度条
+        /// </summary>
+        private void UpdateProgress(double progress, string statusText, string detailText = "")
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ImportProgressBar.Value = Math.Max(0, Math.Min(100, progress));
+                ProgressText.Text = statusText;
+                ProgressDetailText.Text = detailText;
+            });
+        }
+
+        /// <summary>
+        /// 隐藏进度条
+        /// </summary>
+        private void HideProgressBar()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ProgressPanel.Visibility = Visibility.Collapsed;
+                ImportProgressBar.Value = 0;
+                CancelImportButton.IsEnabled = true;
+            });
+        }
+
+        /// <summary>
+        /// 取消导入按钮点击事件
+        /// </summary>
+        private void CancelImport_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _importCancellationTokenSource?.Cancel();
+                UpdateProgress(0, "正在取消导入...", "请稍候...");
+                CancelImportButton.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"取消导入失败：{ex.Message}");
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 显示导入结果并隐藏进度条
+        /// </summary>
+        private void DisplayImportResult(ImportExportResult result, string filePath)
+        {
+            // 延迟一点时间让用户看到100%进度
+            Task.Delay(1000).ContinueWith(_ =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    HideProgressBar();
+
+                    if (result.Success)
+                    {
+                        var successMessage = $"导入成功！\n\n" +
+                                           $"文件：{Path.GetFileName(filePath)}\n" +
+                                           $"结果：{result.Message}";
+
+                        MessageBox.Show(successMessage, "导入成功",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+
+                        // 刷新题库显示
+                        LoadQuestions();
+
+                        if (StatusTextBlock != null)
+                        {
+                            StatusTextBlock.Text = "导入完成";
+                        }
+                    }
+                    else
+                    {
+                        var errorMessage = $"导入失败！\n\n" +
+                                          $"文件：{Path.GetFileName(filePath)}\n" +
+                                          $"错误：{result.Message}";
+
+                        MessageBox.Show(errorMessage, "导入失败",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+
+                        if (StatusTextBlock != null)
+                        {
+                            StatusTextBlock.Text = "导入失败";
+                        }
+                    }
+                });
+            });
         }
 
         /// <summary>
@@ -717,25 +1086,119 @@ namespace DroneSimulator
         {
             try
             {
-                var lines = File.ReadLines(filePath, Encoding.UTF8).Take(50).ToList();
-                var result = new TQ4PreviewResult { Success = true };
+                // 使用与实际导入相同的编码检测方法
+                string[] lines;
+                try
+                {
+                    lines = TheoryQuestionImportExportService.ReadFileWithCorrectEncoding != null
+                        ? TheoryQuestionImportExportService.ReadFileWithCorrectEncoding(filePath)
+                        : File.ReadAllLines(filePath, Encoding.UTF8);
+                }
+                catch
+                {
+                    // 如果智能编码检测失败，回退到UTF-8
+                    lines = File.ReadAllLines(filePath, Encoding.UTF8);
+                }
 
+                var result = new TQ4PreviewResult { Success = true };
                 var detectedTypes = new HashSet<string>();
                 int questionCount = 0;
+                int validQuestionCount = 0;
+                int skippedCount = 0;
 
-                for (int i = 1; i < lines.Count; i++)
+                // 与实际导入逻辑保持一致：从第2行开始处理数据（第1行是标题）
+                for (int i = 1; i < lines.Length; i++)
                 {
-                    var fields = TheoryQuestionImportExportService.ParseCsvLine(lines[i]);
-                    if (fields.Count >= 15 && !string.IsNullOrWhiteSpace(fields[4]))
+                    try
                     {
+                        var line = lines[i].Trim();
+
+                        // 跳过空行（与实际导入逻辑一致）
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        var fields = TheoryQuestionImportExportService.ParseCsvLine(line);
+
+                        // 补全字段（与实际导入逻辑一致）
+                        if (fields.Count < 15)
+                        {
+                            while (fields.Count < 25)
+                            {
+                                fields.Add("");
+                            }
+                        }
+
+                        // 检查题目陈述是否为空（与实际导入逻辑一致）
+                        if (fields.Count <= 4 || string.IsNullOrWhiteSpace(fields[4]))
+                        {
+                            skippedCount++;
+                            continue;
+                        }
+
                         questionCount++;
-                        if (fields[2] == "B") detectedTypes.Add("单选题");
-                        if (fields[2] == "C") detectedTypes.Add("判断题");
+
+                        // 检测题目类型
+                        var typeCode = fields.Count > 2 ? fields[2].Trim() : "B";
+                        if (typeCode == "B" || typeCode.Contains("单选题"))
+                        {
+                            detectedTypes.Add("单选题");
+                        }
+                        else if (typeCode == "C" || typeCode.Contains("判断题"))
+                        {
+                            detectedTypes.Add("判断题");
+                        }
+
+                        // 进行更详细的验证（模拟实际导入的验证逻辑）
+                        try
+                        {
+                            // 检查是否有足够的选项
+                            bool hasOptions = false;
+                            for (int optionIndex = 5; optionIndex <= 10; optionIndex++)
+                            {
+                                if (optionIndex < fields.Count && !string.IsNullOrWhiteSpace(fields[optionIndex]))
+                                {
+                                    hasOptions = true;
+                                    break;
+                                }
+                            }
+
+                            // 检查是否有正确答案
+                            bool hasCorrectAnswer = fields.Count > 12 && !string.IsNullOrWhiteSpace(fields[12]);
+
+                            if (hasOptions || hasCorrectAnswer)
+                            {
+                                validQuestionCount++;
+                            }
+                        }
+                        catch
+                        {
+                            // 验证失败，不计入有效题目
+                        }
+                    }
+                    catch
+                    {
+                        skippedCount++;
+                        continue;
                     }
                 }
 
-                result.EstimatedQuestionCount = Math.Max(questionCount, lines.Count - 1);
+                // 使用验证后的有效题目数量作为预计导入数量
+                result.EstimatedQuestionCount = validQuestionCount;
                 result.DetectedTypes = detectedTypes.ToList();
+
+                // 如果没有检测到类型，添加默认信息
+                if (!detectedTypes.Any())
+                {
+                    result.DetectedTypes.Add("未知类型");
+                }
+
+                // 添加详细信息到消息中
+                result.Message = $"文件总行数: {lines.Length - 1}, " +
+                                $"有内容行数: {questionCount}, " +
+                                $"预计有效题目: {validQuestionCount}, " +
+                                $"跳过行数: {skippedCount}";
 
                 return result;
             }
@@ -744,7 +1207,9 @@ namespace DroneSimulator
                 return new TQ4PreviewResult
                 {
                     Success = false,
-                    Message = $"预览TQ4.csv文件失败：{ex.Message}"
+                    Message = $"预览TQ4.csv文件失败：{ex.Message}",
+                    EstimatedQuestionCount = 0,
+                    DetectedTypes = new List<string>()
                 };
             }
         }
@@ -759,41 +1224,7 @@ namespace DroneSimulator
             public int EstimatedQuestionCount { get; set; }
             public List<string> DetectedTypes { get; set; } = new();
         }
-
-        private void DisplayImportResult(ImportExportResult result, string filePath)
-        {
-            if (result.Success)
-            {
-                var successMessage = $"导入成功！\n\n" +
-                                   $"文件：{Path.GetFileName(filePath)}\n" +
-                                   $"结果：{result.Message}";
-
-                MessageBox.Show(successMessage, "导入成功",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-
-                // 刷新题库显示
-                LoadQuestions();
-
-                if (StatusTextBlock != null)
-                {
-                    StatusTextBlock.Text = "导入完成";
-                }
-            }
-            else
-            {
-                var errorMessage = $"导入失败！\n\n" +
-                                  $"文件：{Path.GetFileName(filePath)}\n" +
-                                  $"错误：{result.Message}";
-
-                MessageBox.Show(errorMessage, "导入失败",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-
-                if (StatusTextBlock != null)
-                {
-                    StatusTextBlock.Text = "导入失败";
-                }
-            }
-        }
+                
 
         private void Export_Click(object sender, RoutedEventArgs e)
         {
@@ -908,35 +1339,7 @@ namespace DroneSimulator
                 }
             }
         }
-
-        // 添加一个测试导入导出的方法
-        private void TestImportExport_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // 创建示例题目
-                var sampleQuestions = TheoryQuestionImportExportService.CreateSampleQuestions();
-
-                // 测试JSON导出
-                var jsonPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "test_questions.json");
-                var jsonResult = TheoryQuestionImportExportService.ExportToJson(jsonPath, sampleQuestions);
-
-                // 测试CSV导出
-                var csvPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "test_questions.csv");
-                var csvResult = TheoryQuestionImportExportService.ExportToCsv(csvPath, sampleQuestions);
-
-                var message = $"测试结果：\n" +
-                             $"JSON导出：{(jsonResult.Success ? "成功" : "失败")} - {jsonResult.Message}\n" +
-                             $"CSV导出：{(csvResult.Success ? "成功" : "失败")} - {csvResult.Message}\n\n" +
-                             $"测试文件已保存到桌面";
-
-                MessageBox.Show(message, "测试完成", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"测试失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
+                
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {

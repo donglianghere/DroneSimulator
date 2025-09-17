@@ -10,10 +10,11 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">      
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,10,10">
             <Separator Margin="5,0"/>
             <!-- 基本操作 -->
             <Button x:Name="AddQuestionButton" Content="新增题目" Width="100" Height="35"
@@ -60,10 +61,6 @@
                     Click="Close_Click"/>
 
             <Separator Margin="10,0"/>
-
-            <Button x:Name="TestButton" Content="测试导入导出" Width="120" Height="35"
-                    Background="#9E9E9E" Foreground="White" Margin="0,0,10,0"
-                    Click="TestImportExport_Click" ToolTip="生成示例文件并测试导入导出功能"/>
         </StackPanel>
 
         <!-- 主要内容区域 -->
@@ -114,13 +111,25 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-
+                    <DataGridTextColumn Header="题目ID" Binding="{Binding Id}" Width="60"/>
                     <DataGridTextColumn Header="题目陈述" Binding="{Binding QuestionStatement}" Width="300"/>
                     <DataGridTextColumn Header="类型" Binding="{Binding TypeDisplayName}" Width="80"/>
                     <DataGridTextColumn Header="分类" Binding="{Binding CategoryDisplayName}" Width="100"/>
                     <DataGridTextColumn Header="难度" Binding="{Binding DifficultyDisplayName}" Width="80"/>
                     <DataGridTextColumn Header="分值" Binding="{Binding Points}" Width="60"/>
                     <DataGridCheckBoxColumn Header="启用" Binding="{Binding IsActive}" Width="60"/>
+                    
+                    <!-- 添加正确答案列 -->
+                    <DataGridTemplateColumn Header="正确答案" Width="120">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding CorrectAnswersDisplay}" 
+                       TextWrapping="Wrap" 
+                       ToolTip="{Binding CorrectAnswersDisplay}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    
                     <DataGridTextColumn Header="出题人" Binding="{Binding CreatedBy}" Width="100"/>
                     <DataGridTextColumn Header="创建时间" Binding="{Binding CreatedTime, StringFormat=yyyy-MM-dd}" Width="100"/>
                 </DataGrid.Columns>
@@ -134,5 +143,28 @@
             <TextBlock x:Name="CountTextBlock" Text="总计: 0 题" VerticalAlignment="Center"/>
             <Border Background="Transparent" Width="1" HorizontalAlignment="Right"/>
         </StackPanel>
+
+        <!-- 进度条面板 -->
+        <Grid x:Name="ProgressPanel" Grid.Row="3" Visibility="Collapsed" Margin="0,10,0,0">
+            <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" 
+                    CornerRadius="3" Padding="15">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,5">
+                        <TextBlock x:Name="ProgressText" Text="正在导入题库..." 
+                                   VerticalAlignment="Center" FontWeight="Bold"
+                                   DockPanel.Dock="Left"/>
+                        <Button x:Name="CancelImportButton" Content="取消" Width="60" Height="25"
+                                Background="#F44336" Foreground="White" 
+                                DockPanel.Dock="Right" Margin="10,0,0,0"
+                                Click="CancelImport_Click"/>
+                    </DockPanel>
+                    <ProgressBar x:Name="ImportProgressBar" Height="20" 
+                                 Minimum="0" Maximum="100" Value="0"
+                                 Background="#F0F0F0" Foreground="#2196F3"/>
+                    <TextBlock x:Name="ProgressDetailText" Text="" Margin="0,5,0,0" 
+                               FontSize="12" Foreground="#666"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

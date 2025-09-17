@@ -66,9 +66,10 @@ namespace DroneSimulator
         /// 从JSON文件导入理论题库
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="currentUser">当前导入操作的用户名</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromJson(string filePath, bool overwriteExisting = false)
+        public static ImportExportResult ImportFromJson(string filePath, bool overwriteExisting = false, string? currentUser = null)
         {
             try
             {
@@ -126,23 +127,17 @@ namespace DroneSimulator
                             continue;
                         }
 
-                        // 检查是否已存在
-                        var existingQuestion = TheoryQuestionBankManager.GetQuestionById(question.Id);
-                        if (existingQuestion != null && !overwriteExisting)
-                        {
-                            errors.Add($"题目 '{question.QuestionStatement}' 已存在，已跳过");
-                            skipCount++;
-                            continue;
-                        }
+                        // 系统自动分配新ID，忽略文件中的原始ID
+                        TheoryQuestionBankManager.AssignSystemId(question, forceNewId: true);
 
                         // 设置导入时间
                         question.LastModified = DateTime.Now;
                         if (string.IsNullOrEmpty(question.CreatedBy))
                         {
-                            question.CreatedBy = "导入";
+                            question.CreatedBy = !string.IsNullOrWhiteSpace(currentUser) ? currentUser : "JSON导入";
                         }
 
-                        // 保存题目
+                        // 保存题目（使用新ID，不会有重复问题）
                         if (TheoryQuestionBankManager.SaveQuestion(question))
                         {
                             successCount++;
@@ -160,10 +155,12 @@ namespace DroneSimulator
                     }
                 }
 
-                var message = $"导入完成：成功 {successCount} 题，跳过 {skipCount} 题";
+                var message = $"JSON导入完成：成功 {successCount} 题，跳过 {skipCount} 题\n";
+                message += $"💡 说明：所有题目已分配新的系统ID（5位数字），从 00001 开始递增。";
+
                 if (errors.Any())
                 {
-                    message += $"\n详细错误：\n{string.Join("\n", errors.Take(10))}";
+                    message += $"\n\n详细错误：\n{string.Join("\n", errors.Take(10))}";
                     if (errors.Count > 10)
                     {
                         message += $"\n... 还有 {errors.Count - 10} 个错误";
@@ -226,7 +223,7 @@ namespace DroneSimulator
         /// 从Excel文件导入理论题库
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
         /// <returns>导入结果</returns>
         public static ImportExportResult ImportFromExcel(string filePath, bool overwriteExisting = false)
         {
@@ -333,9 +330,10 @@ namespace DroneSimulator
         /// 从CSV文件导入理论题库
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="currentUser">当前导入操作的用户名</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromCsv(string filePath, bool overwriteExisting = false)
+        public static ImportExportResult ImportFromCsv(string filePath, bool overwriteExisting = false, string? currentUser = null)
         {
             try
             {
@@ -379,8 +377,9 @@ namespace DroneSimulator
 
                         var question = new TheoryQuestion();
 
-                        // 解析基本字段
-                        question.Id = string.IsNullOrWhiteSpace(fields[0]) ? Guid.NewGuid().ToString() : fields[0];
+                        // 系统自动分配ID，忽略文件中的原始ID（字段0）
+                        TheoryQuestionBankManager.AssignSystemId(question, forceNewId: true);
+
                         question.QuestionStatement = fields[1];
 
                         // 解析题目类型
@@ -447,11 +446,12 @@ namespace DroneSimulator
                         // 解析出题人
                         if (fields.Count > 15)
                         {
-                            question.CreatedBy = string.IsNullOrWhiteSpace(fields[15]) ? "CSV导入" : fields[15];
+                            question.CreatedBy = string.IsNullOrWhiteSpace(fields[15]) ?
+                                (!string.IsNullOrWhiteSpace(currentUser) ? currentUser : "CSV导入") : fields[15];
                         }
                         else
                         {
-                            question.CreatedBy = "CSV导入";
+                            question.CreatedBy = !string.IsNullOrWhiteSpace(currentUser) ? currentUser : "CSV导入";
                         }
 
                         // 解析时间
@@ -474,16 +474,7 @@ namespace DroneSimulator
                             continue;
                         }
 
-                        // 检查是否已存在
-                        var existingQuestion = TheoryQuestionBankManager.GetQuestionById(question.Id);
-                        if (existingQuestion != null && !overwriteExisting)
-                        {
-                            errors.Add($"第 {i + 1} 行：题目已存在，已跳过");
-                            skipCount++;
-                            continue;
-                        }
-
-                        // 保存题目
+                        // 保存题目（使用新ID，不会重复）
                         if (TheoryQuestionBankManager.SaveQuestion(question))
                         {
                             successCount++;
@@ -501,10 +492,12 @@ namespace DroneSimulator
                     }
                 }
 
-                var message = $"CSV导入完成：成功 {successCount} 题，跳过 {skipCount} 题";
+                var message = $"CSV导入完成：成功 {successCount} 题，跳过 {skipCount} 题\n";
+                message += $"💡 说明：所有题目已分配新的系统ID（5位数字），从 00001 开始递增。";
+
                 if (errors.Any())
                 {
-                    message += $"\n详细错误：\n{string.Join("\n", errors.Take(10))}";
+                    message += $"\n\n详细错误：\n{string.Join("\n", errors.Take(10))}";
                     if (errors.Count > 10)
                     {
                         message += $"\n... 还有 {errors.Count - 10} 个错误";
@@ -530,12 +523,13 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 从 TQ4.csv 格式导入理论题库（改进版）
+        /// 从 TQ4.csv 格式导入理论题库（修复正确答案解析问题）
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="currentUser">当前导入操作的用户名</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromTQ4Csv(string filePath, bool overwriteExisting = false)
+        public static ImportExportResult ImportFromTQ4Csv(string filePath, bool overwriteExisting = false, string? currentUser = null)
         {
             try
             {
@@ -567,6 +561,10 @@ namespace DroneSimulator
                 var errors = new List<string>();
                 var detailedErrors = new List<string>();
 
+                // 收集所有有效题目到临时列表
+                var validQuestions = new List<TheoryQuestion>();
+                var tempAssignedIds = new HashSet<int>(); // 临时ID跟踪，避免重复
+
                 // 从第2行开始处理数据（第1行是标题）
                 for (int i = 1; i < lines.Length; i++)
                 {
@@ -582,13 +580,10 @@ namespace DroneSimulator
 
                         var fields = ParseCsvLine(line);
 
-                        // 调试信息：记录字段数量
+                        // 补全字段
                         if (fields.Count < 15)
                         {
-                            detailedErrors.Add($"第 {i + 1} 行：字段数量为 {fields.Count}，少于15个字段");
-
-                            // 如果字段太少，尝试补全
-                            while (fields.Count < 25) // 确保有足够的字段
+                            while (fields.Count < 25)
                             {
                                 fields.Add("");
                             }
@@ -602,31 +597,40 @@ namespace DroneSimulator
                             continue;
                         }
 
-                        // 检查题目编号是否为空（第2列，索引1）
-                        if (fields.Count <= 1 || string.IsNullOrWhiteSpace(fields[1]))
+                        var question = new TheoryQuestion();
+
+                        // 保存原始ID仅用于分类推断和日志记录
+                        var originalId = fields.Count > 1 ? fields[1].Trim() : $"行{i}";
+
+                        // 手动分配ID
+                        int nextId = 1;
+                        while (tempAssignedIds.Contains(nextId) && nextId <= 99999)
                         {
-                            detailedErrors.Add($"第 {i + 1} 行：题目编号为空，跳过");
+                            nextId++;
+                        }
+
+                        if (nextId > 99999)
+                        {
+                            detailedErrors.Add($"第 {i + 1} 行：题目数量已达到上限，无法分配更多ID");
                             skipCount++;
                             continue;
                         }
 
-                        var question = new TheoryQuestion();
-
-                        // 解析题目ID
-                        question.Id = fields[1].Trim();
+                        tempAssignedIds.Add(nextId);
+                        question.Id = nextId.ToString("D5");
 
                         // 解析题目陈述
                         question.QuestionStatement = fields[4].Trim();
 
-                        // 解析题目类型（第3列，索引2）
+                        // 解析题目类型
                         var typeCode = fields.Count > 2 ? fields[2].Trim() : "B";
                         question.Type = ParseQuestionType(typeCode);
 
-                        // 解析题目分类（根据题目编号推断）
-                        question.Category = ParseQuestionCategory(question.Id);
+                        // 解析题目分类
+                        question.Category = ParseQuestionCategory(originalId);
 
-                        // 解析难度（第14列，索引13）
-                        var difficultyCode = fields.Count > 13 ? fields[13].Trim() : "3（中等）";
+                        // 解析难度
+                        var difficultyCode = fields.Count > 12 ? fields[12].Trim() : "3（中等）";
                         question.Difficulty = ParseDifficulty(difficultyCode);
 
                         // 设置默认分值
@@ -660,51 +664,70 @@ namespace DroneSimulator
                             }
                         }
 
-                        // 解析正确答案（第13列，索引12）
-                        var correctAnswer = fields.Count > 12 ? fields[12].Trim() : "A";
-                        question.CorrectAnswers = ConvertAnswerLettersToText(correctAnswer, question);
+                        // ★★★ 关键修复：解析正确答案并添加详细日志 ★★★
+                        var correctAnswerField = fields.Count > 11 ? fields[11].Trim() : "A";
+                        detailedErrors.Add($"第 {i + 1} 行：原始正确答案字段 = '{correctAnswerField}'");
 
-                        // 如果没有正确答案，设置默认值
+                        // 直接解析答案代号，不依赖 ParseCorrectAnswerCodes 方法
+                        question.CorrectAnswers = new List<string>();
+
+                        if (!string.IsNullOrWhiteSpace(correctAnswerField))
+                        {
+                            // 提取所有A-F的字母
+                            var answerChars = correctAnswerField.ToCharArray()
+                                .Where(c => c >= 'A' && c <= 'F')
+                                .Select(c => c.ToString())
+                                .Distinct()
+                                .ToList();
+
+                            detailedErrors.Add($"第 {i + 1} 行：提取的答案代号 = [{string.Join(", ", answerChars)}]");
+
+                            // 将答案代号转换为选项文本
+                            foreach (var code in answerChars)
+                            {
+                                int optionIndex = code[0] - 'A'; // A=0, B=1, C=2...
+                                if (optionIndex >= 0 && optionIndex < question.Options.Count)
+                                {
+                                    question.CorrectAnswers.Add(question.Options[optionIndex].Text);
+                                    detailedErrors.Add($"第 {i + 1} 行：答案代号 {code} -> 选项文本 '{question.Options[optionIndex].Text}'");
+                                }
+                                else
+                                {
+                                    detailedErrors.Add($"第 {i + 1} 行：答案代号 {code} 超出选项范围 (选项数={question.Options.Count})");
+                                }
+                            }
+                        }
+
+                        // 如果仍然没有正确答案，设置默认值
                         if (!question.CorrectAnswers.Any() && question.Options.Any())
                         {
                             question.CorrectAnswers.Add(question.Options[0].Text);
+                            detailedErrors.Add($"第 {i + 1} 行：使用默认答案 '{question.Options[0].Text}'");
                         }
 
-                        // 设置默认值
+                        detailedErrors.Add($"第 {i + 1} 行：最终正确答案 = [{string.Join(", ", question.CorrectAnswers)}]");
+
+                        // 设置创建者信息
                         question.Explanation = fields.Count > 14 ? fields[14] : "";
-                        question.CreatedBy = "TQ4.csv导入";
+                        question.CreatedBy = !string.IsNullOrWhiteSpace(currentUser) ? currentUser : "TQ4.csv导入";
                         question.CreatedTime = DateTime.Now;
                         question.LastModified = DateTime.Now;
-                        question.LastModifiedBy = "系统导入";
+                        question.LastModifiedBy = !string.IsNullOrWhiteSpace(currentUser) ? currentUser : "系统导入";
                         question.IsActive = true;
 
-                        // 验证题目（使用更宽松的验证）
-                        if (!IsValidTQ4Question(question))
+                        // 验证题目
+                        if (!question.IsValid())
                         {
-                            detailedErrors.Add($"第 {i + 1} 行：题目验证失败 - ID: {question.Id}, 陈述: {question.QuestionStatement.Take(20)}...");
+                            detailedErrors.Add($"第 {i + 1} 行：题目验证失败，系统ID: {question.Id}, 原始ID: {originalId}");
+                            detailedErrors.Add($"  - 验证详情：题目='{question.QuestionStatement.Substring(0, Math.Min(20, question.QuestionStatement.Length))}...', 选项数={question.Options.Count}, 答案数={question.CorrectAnswers.Count}");
                             skipCount++;
                             continue;
                         }
 
-                        // 检查是否已存在
-                        var existingQuestion = TheoryQuestionBankManager.GetQuestionById(question.Id);
-                        if (existingQuestion != null && !overwriteExisting)
-                        {
-                            detailedErrors.Add($"第 {i + 1} 行：题目已存在，已跳过 - {question.Id}");
-                            skipCount++;
-                            continue;
-                        }
+                        detailedErrors.Add($"第 {i + 1} 行：题目验证通过，系统ID: {question.Id}, 原始ID: {originalId}");
 
-                        // 保存题目
-                        if (TheoryQuestionBankManager.SaveQuestion(question))
-                        {
-                            successCount++;
-                        }
-                        else
-                        {
-                            detailedErrors.Add($"第 {i + 1} 行：保存题目失败 - {question.Id}");
-                            skipCount++;
-                        }
+                        // 添加到临时列表
+                        validQuestions.Add(question);
                     }
                     catch (Exception ex)
                     {
@@ -713,15 +736,76 @@ namespace DroneSimulator
                     }
                 }
 
+                // 批量保存所有题目
+                if (validQuestions.Any())
+                {
+                    detailedErrors.Add($"开始批量保存 {validQuestions.Count} 个题目...");
+
+                    try
+                    {
+                        // 获取当前题库，确保不会与现有题目ID冲突
+                        var existingQuestions = TheoryQuestionBankManager.GetAllQuestions();
+                        var existingIds = new HashSet<int>();
+
+                        foreach (var q in existingQuestions)
+                        {
+                            if (int.TryParse(q.Id, out int existingNumericId))
+                            {
+                                existingIds.Add(existingNumericId);
+                            }
+                        }
+
+                        // 重新分配ID以避免冲突
+                        int currentId = 1;
+                        foreach (var question in validQuestions)
+                        {
+                            // 找到下一个不冲突的ID
+                            while (existingIds.Contains(currentId))
+                            {
+                                currentId++;
+                            }
+
+                            question.Id = currentId.ToString("D5");
+                            existingIds.Add(currentId);
+                            currentId++;
+                        }
+
+                        // 逐个保存题目
+                        foreach (var question in validQuestions)
+                        {
+                            if (TheoryQuestionBankManager.SaveQuestion(question))
+                            {
+                                successCount++;
+                                detailedErrors.Add($"保存成功 - ID: {question.Id}, 正确答案: [{string.Join(", ", question.CorrectAnswers)}]");
+                            }
+                            else
+                            {
+                                detailedErrors.Add($"保存失败 - ID: {question.Id}");
+                                skipCount++;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        detailedErrors.Add($"批量保存过程出错: {ex.Message}");
+                        skipCount += validQuestions.Count;
+                    }
+                }
+
                 // 构建详细的返回消息
                 var message = $"TQ4.csv导入完成：\n";
                 message += $"成功导入：{successCount} 题\n";
                 message += $"跳过/失败：{skipCount} 题\n";
                 message += $"总处理行数：{lines.Length - 1} 行\n";
+                message += $"导入用户：{(!string.IsNullOrWhiteSpace(currentUser) ? currentUser : "未指定")}\n";
+                message += $"\n💡 说明：\n";
+                message += $"• 所有题目已分配新的系统ID（5位数字），从 00001 开始递增\n";
+                message += $"• 正确答案已从选项代号转换为选项文本格式\n";
+                message += $"• 完全忽略文件中的原始ID，每条记录都作为新题目导入";
 
                 if (detailedErrors.Any())
                 {
-                    message += $"\n详细信息（前20条）：\n";
+                    message += $"\n\n详细信息（前20条）：\n";
                     message += string.Join("\n", detailedErrors.Take(20));
                     if (detailedErrors.Count > 20)
                     {
@@ -746,6 +830,49 @@ namespace DroneSimulator
                 };
             }
         }
+
+        // 添加新的方法：解析正确答案代号（不转换为文本）
+        /// <summary>
+        /// 解析正确答案代号（直接存储A、B、C等，不转换为选项文本）
+        /// </summary>
+        private static List<string> ParseCorrectAnswerCodes(string correctAnswer, TheoryQuestion question)
+        {
+            var answerCodes = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(correctAnswer))
+                return answerCodes;
+
+            correctAnswer = correctAnswer.Trim();
+
+            // 对于判断题的特殊处理
+            if (question.Type == TheoryQuestionType.MultipleChoice &&
+                question.Options.Count == 2 &&
+                (correctAnswer == "A" || correctAnswer == "B"))
+            {
+                answerCodes.Add(correctAnswer); // 直接添加A或B
+                return answerCodes;
+            }
+
+            // 解析答案字母（A、B、C等）
+            var answerChars = correctAnswer.ToCharArray()
+                .Where(c => c >= 'A' && c <= 'F')
+                .Select(c => c.ToString())
+                .ToList();
+
+            if (answerChars.Any())
+            {
+                answerCodes.AddRange(answerChars);
+            }
+            else
+            {
+                // 如果无法解析，默认使用A
+                answerCodes.Add("A");
+            }
+
+            return answerCodes;
+        }
+
+        // [保留所有其他辅助方法，包括文件编码检测、CSV解析等，内容不变]
 
         /// <summary>
         /// 计算编码质量得分（增强版）
@@ -805,25 +932,25 @@ namespace DroneSimulator
         /// <summary>
         /// 智能检测文件编码并读取文件（增强版，支持.NET Core/.NET 5+）
         /// </summary>
-        private static string[] ReadFileWithCorrectEncoding(string filePath)
+        public static string[] ReadFileWithCorrectEncoding(string filePath)
         {
             // 首先注册编码提供程序（.NET Core/.NET 5+需要）
             RegisterEncodingProvider();
 
             // 尝试不同的编码方式，按优先级排序
             var encodingsToTry = new List<(string Name, Func<Encoding> GetEncoding)>
-    {
-        ("UTF-8", () => Encoding.UTF8),
-        ("UTF-8 with BOM", () => new UTF8Encoding(true)),
-        ("GB18030", () => TryGetEncoding("GB18030")),
-        ("GBK", () => TryGetEncoding("GBK")),
-        ("GB2312", () => TryGetEncoding("GB2312")),
-        ("Big5", () => TryGetEncoding("Big5")),
-        ("系统默认", () => Encoding.Default),
-        ("ASCII", () => Encoding.ASCII),
-        ("Unicode", () => Encoding.Unicode),
-        ("UTF-32", () => Encoding.UTF32)
-    };
+            {
+                ("UTF-8", () => Encoding.UTF8),
+                ("UTF-8 with BOM", () => new UTF8Encoding(true)),
+                ("GB18030", () => TryGetEncoding("GB18030")),
+                ("GBK", () => TryGetEncoding("GBK")),
+                ("GB2312", () => TryGetEncoding("GB2312")),
+                ("Big5", () => TryGetEncoding("Big5")),
+                ("系统默认", () => Encoding.Default),
+                ("ASCII", () => Encoding.ASCII),
+                ("Unicode", () => Encoding.Unicode),
+                ("UTF-32", () => Encoding.UTF32)
+            };
 
             string[] bestResult = null;
             var maxScore = 0.0;
@@ -1004,13 +1131,13 @@ namespace DroneSimulator
             {
                 var encodingsToTry = new[]
                 {
-            ("GB2312", Encoding.GetEncoding("GB2312")),
-            ("GBK", Encoding.GetEncoding("GBK")),
-            ("GB18030", Encoding.GetEncoding("GB18030")),
-            ("UTF-8", Encoding.UTF8),
-            ("Big5", Encoding.GetEncoding("Big5")),
-            ("系统默认", Encoding.Default)
-        };
+                    ("GB2312", Encoding.GetEncoding("GB2312")),
+                    ("GBK", Encoding.GetEncoding("GBK")),
+                    ("GB18030", Encoding.GetEncoding("GB18030")),
+                    ("UTF-8", Encoding.UTF8),
+                    ("Big5", Encoding.GetEncoding("Big5")),
+                    ("系统默认", Encoding.Default)
+                };
 
                 var results = new List<(string Name, int ChineseCount, string Sample)>();
 
@@ -1092,34 +1219,67 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 针对TQ4格式的宽松题目验证
+        /// 增强的TQ4题目验证（更宽松）
         /// </summary>
-        private static bool IsValidTQ4Question(TheoryQuestion question)
+        public static bool IsValidTQ4Question(TheoryQuestion question)
         {
-            // 基本验证
-            if (string.IsNullOrWhiteSpace(question.QuestionStatement))
-                return false;
-
-            if (string.IsNullOrWhiteSpace(question.Id))
-                return false;
-
-            // 选项验证（更宽松）
-            if (!question.Options.Any())
-                return false;
-
-            // 需要有正确答案
-            if (question.CorrectAnswers == null || !question.CorrectAnswers.Any())
-                return false;
-
-            // 验证正确答案是否在选项中
-            var optionTexts = question.Options.Select(o => o.Text).ToList();
-            foreach (var answer in question.CorrectAnswers)
+            try
             {
-                if (!optionTexts.Contains(answer))
+                // 基本验证
+                if (string.IsNullOrWhiteSpace(question.QuestionStatement))
                     return false;
-            }
 
-            return true;
+                if (string.IsNullOrWhiteSpace(question.Id))
+                    return false;
+
+                // 选项验证（更宽松）
+                if (!question.Options.Any())
+                    return false;
+
+                // 需要有正确答案
+                if (question.CorrectAnswers == null || !question.CorrectAnswers.Any())
+                    return false;
+
+                // 对于判断题，选项通常是"正确"/"错误"，不需要严格匹配
+                if (question.Type == TheoryQuestionType.MultipleChoice && question.Options.Count == 2)
+                {
+                    // 判断题的答案验证更宽松
+                    return true;
+                }
+
+                // 对于TQ4格式，正确答案存储的是选项代号，进行更宽松的验证
+                // 只需要确保答案代号在有效范围内（A-F）
+                foreach (var answer in question.CorrectAnswers)
+                {
+                    if (answer.Length == 1 && answer[0] >= 'A' && answer[0] <= 'F')
+                    {
+                        // 检查选项代号是否在有效选项范围内
+                        int optionIndex = answer[0] - 'A';
+                        if (optionIndex >= question.Options.Count)
+                        {
+                            return false; // 答案代号超出选项范围
+                        }
+                    }
+                    else
+                    {
+                        // 对于非标准代号格式，进行文本匹配验证
+                        var optionTexts = question.Options.Select(o => o.Text.Trim()).ToList();
+                        var answerText = answer.Trim();
+                        if (!optionTexts.Any(opt => opt.Equals(answerText, StringComparison.OrdinalIgnoreCase) ||
+                                                   opt.Contains(answerText) ||
+                                                   answerText.Contains(opt)))
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
         #endregion
 
@@ -1254,9 +1414,11 @@ namespace DroneSimulator
             return typeCode.ToUpper() switch
             {
                 "B" => TheoryQuestionType.SingleChoice,      // B表示单选题
-                "C" => TheoryQuestionType.MultipleChoice,    // C表示判断题（作为多选题处理）
+                "C" => TheoryQuestionType.SingleChoice,    // C表示判断题（也是单选题，有两个选项：正确/错误）
+                "G" => TheoryQuestionType.MultipleChoice,  // G表示多选题
                 "B（单选题）" => TheoryQuestionType.SingleChoice,
-                "C（判断题）" => TheoryQuestionType.MultipleChoice,
+                "C（判断题）" => TheoryQuestionType.SingleChoice, // 判断题本质是单选题
+                "G（多选题）" => TheoryQuestionType.MultipleChoice,
                 _ => TheoryQuestionType.SingleChoice
             };
         }

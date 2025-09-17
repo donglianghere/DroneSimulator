@@ -307,13 +307,13 @@
                     Margin="10,10,0,0" HorizontalAlignment="Right" 
                     VerticalAlignment="Top">
                         <RadioButton x:Name="TheorySelectAllRadio" Content="全选  " Margin="0,0,10,0" 
-                         GroupName="TheorySelectGroup" FontSize="16"
+                         GroupName="TheorySelectGroup" FontSize="18" VerticalAlignment="Center" 
                          Checked="TheorySelectAllRadio_Checked"/>
                         <RadioButton x:Name="TheoryClearAllRadio" Content="清空  " Margin="0,0,10,0"
-                         GroupName="TheorySelectGroup" FontSize="16"
+                         GroupName="TheorySelectGroup" FontSize="18" VerticalAlignment="Center" 
                          Checked="TheoryClearAllRadio_Checked"/>
                         <RadioButton x:Name="TheoryRandomRadio" Content="随机  " Margin="0,0,10,0"
-                         GroupName="TheorySelectGroup" FontSize="16"
+                         GroupName="TheorySelectGroup" FontSize="18" VerticalAlignment="Center" 
                          Checked="TheoryRandomRadio_Checked"/>
 
                         <ComboBox x:Name="TheoryRandomCountComboBox" Width="60" Height="25" 
@@ -328,12 +328,12 @@
                             <ComboBoxItem Content="30"/>
                         </ComboBox>
 
-                        <TextBlock Text="题" FontSize="16" VerticalAlignment="Top" 
+                        <TextBlock Text="题" FontSize="18" VerticalAlignment="Center" 
                                    Margin="10,0,10,0" />
 
                         <!-- 添加题库管理按钮 -->
-                        <Button x:Name="ManageTheoryBankButton" Content="理论题库管理" Width="80" Height="25"
-                                  Background="#4CAF50" Foreground="White" FontSize="12"
+                        <Button x:Name="ManageTheoryBankButton" Content="题 库 管 理" Width="120" Height="40"
+                                  Background="#4CAF50" Foreground="White" FontSize="18"
                                   Click="ManageTheoryBank_Click" Margin="10,0,0,0"/>
                     </StackPanel>
 
