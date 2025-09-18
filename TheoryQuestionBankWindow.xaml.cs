@@ -4,9 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Text.Json;
+using System.Windows.Input;
 
 namespace DroneSimulator
 {
@@ -24,8 +25,16 @@ namespace DroneSimulator
                 InitializeComponent();
                 currentTeacher = teacherName;
 
+                // 🔧 设置窗口属性，防止多实例问题
+                this.ShowInTaskbar = true;
+                this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+
                 // 延迟初始化，确保所有控件都已加载
                 this.Loaded += TheoryQuestionBankWindow_Loaded;
+
+                // 🔧 监听窗口激活事件，用于调试
+                this.Activated += (s, e) => System.Diagnostics.Debug.WriteLine("理论题库管理窗口已激活");
+                this.Deactivated += (s, e) => System.Diagnostics.Debug.WriteLine("理论题库管理窗口失去焦点");
             }
             catch (Exception ex)
             {
@@ -34,17 +43,52 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 加载数据完成后，确保所有题目默认不选中
+        /// </summary>
         private void TheoryQuestionBankWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
                 InitializeFilters();
                 LoadQuestions();
+
+                // 🔧 确保所有题目默认不选中
+                EnsureNoQuestionsSelected();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"加载数据失败：{ex.Message}", "加载错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 确保所有题目默认不选中
+        /// </summary>
+        private void EnsureNoQuestionsSelected()
+        {
+            try
+            {
+                // 清除所有题目的选中状态
+                foreach (var question in allQuestions)
+                {
+                    question.IsSelected = false;
+                }
+
+                foreach (var question in filteredQuestions)
+                {
+                    question.IsSelected = false;
+                }
+
+                // 更新选择状态
+                UpdateSelectionStatus();
+
+                System.Diagnostics.Debug.WriteLine("已确保所有题目默认不选中");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清除题目选中状态失败：{ex.Message}");
             }
         }
 
@@ -588,7 +632,7 @@ namespace DroneSimulator
                 var openDialog = new OpenFileDialog
                 {
                     Title = "导入题库文件",
-                    Filter = "支持的文件 (*.json;*.csv;*.xlsx)|*.json;*.csv;*.xlsx|TQ4格式CSV (*.csv)|*.csv|JSON文件 (*.json)|*.json|Excel文件 (*.xlsx)|*.xlsx|所有文件 (*.*)|*.*",
+                    Filter = "支持的文件 (*.json;*.csv;*.xlsx)|*.json;*.csv;*.xlsx|TQ4格式CSV (*.csv)|*.csv|JSON文件 (*.json)|*.json|所有文件 (*.*)|*.*",
                     DefaultExt = "csv"
                 };
 
@@ -682,11 +726,7 @@ namespace DroneSimulator
                         break;
                     case ".csv":
                         result = await ImportCsvWithProgressAsync(filePath, overwriteExisting, cancellationToken);
-                        break;
-                    case ".xlsx":
-                    case ".xls":
-                        result = await ImportExcelWithProgressAsync(filePath, overwriteExisting, cancellationToken);
-                        break;
+                        break;                    
                     default:
                         MessageBox.Show("不支持的文件格式！", "格式错误",
                             MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -731,59 +771,71 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 带进度的JSON导入（增强版，支持用户名记录）
+        /// 带进度的JSON导入（修复版）
         /// </summary>
         private async Task<ImportExportResult> ImportJsonWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
         {
             return await Task.Run(() =>
             {
-                // 使用服务类的导入方法，并传递当前用户名
-                return TheoryQuestionImportExportService.ImportFromJson(filePath, overwriteExisting, currentTeacher);
+                // 创建进度回调
+                TheoryQuestionImportExportService.ProgressCallback progressCallback = (progress, message, detail) =>
+                {
+                    // 在UI线程更新进度
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        UpdateProgress(progress, message, detail);
+                    });
+                };
+
+                // 使用带进度回调的导入方法
+                return TheoryQuestionImportExportService.ImportFromJson(filePath, overwriteExisting, currentTeacher, progressCallback);
             }, cancellationToken);
         }
 
         /// <summary>
-        /// 带进度的TQ4 CSV导入（增强版，支持用户名记录）
+        /// 带进度的TQ4 CSV导入（修复版）
         /// </summary>
         private async Task<ImportExportResult> ImportTQ4CsvWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
         {
             return await Task.Run(() =>
             {
-                // 使用服务类的导入方法，并传递当前用户名
-                return TheoryQuestionImportExportService.ImportFromTQ4Csv(filePath, overwriteExisting, currentTeacher);
+                // 创建进度回调
+                TheoryQuestionImportExportService.ProgressCallback progressCallback = (progress, message, detail) =>
+                {
+                    // 在UI线程更新进度
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        UpdateProgress(progress, message, detail);
+                    });
+                };
+
+                // 使用带进度回调的导入方法
+                return TheoryQuestionImportExportService.ImportFromTQ4Csv(filePath, overwriteExisting, currentTeacher, progressCallback);
             }, cancellationToken);
         }
 
         /// <summary>
-        /// 带进度的CSV导入（增强版，支持用户名记录）
+        /// 带进度的CSV导入（修复版）
         /// </summary>
         private async Task<ImportExportResult> ImportCsvWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
         {
             return await Task.Run(() =>
             {
-                // 使用服务类的导入方法，并传递当前用户名
-                return TheoryQuestionImportExportService.ImportFromCsv(filePath, overwriteExisting, currentTeacher);
+                // 创建进度回调
+                TheoryQuestionImportExportService.ProgressCallback progressCallback = (progress, message, detail) =>
+                {
+                    // 在UI线程更新进度
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        UpdateProgress(progress, message, detail);
+                    });
+                };
+
+                // 使用带进度回调的导入方法
+                return TheoryQuestionImportExportService.ImportFromCsv(filePath, overwriteExisting, currentTeacher, progressCallback);
             }, cancellationToken);
         }
-
-        /// <summary>
-        /// 带进度的Excel导入
-        /// </summary>
-        private async Task<ImportExportResult> ImportExcelWithProgressAsync(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
-        {
-            return await Task.Run(() =>
-            {
-                UpdateProgress(50, "正在处理Excel文件...", "");
-
-                // 调用原有的Excel导入服务
-                var result = TheoryQuestionImportExportService.ImportFromExcel(filePath, overwriteExisting);
-
-                UpdateProgress(100, "Excel导入完成", result.Success ? "导入成功" : "导入失败");
-
-                return result;
-            }, cancellationToken);
-        }
-
+        
         /// <summary>
         /// 解析TQ4题目数据（修正版，简化正确答案解析）
         /// </summary>
@@ -1398,15 +1450,86 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// DataGrid 鼠标双击事件 - 限制只能编辑题目
+        /// </summary>
         private void QuestionsDataGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             try
             {
+                // 🔧 限制：双击只能编辑题目，不能打开新的管理窗口
                 EditQuestion_Click(sender, new RoutedEventArgs());
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"双击编辑失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// DataGrid 单元格开始编辑事件 - 禁用直接编辑
+        /// </summary>
+        private void QuestionsDataGrid_BeginningEdit(object sender, DataGridBeginningEditEventArgs e)
+        {
+            // 🔧 重要：禁用DataGrid的直接编辑功能
+            e.Cancel = true;
+            System.Diagnostics.Debug.WriteLine("已阻止DataGrid直接编辑，请使用编辑按钮");
+        }
+
+        /// <summary>
+        /// DataGrid 预览键盘按下事件 - 限制按键操作
+        /// </summary>
+        private void QuestionsDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            try
+            {
+                // 🔧 限制：只允许选择和导航相关的按键
+                switch (e.Key)
+                {
+                    case Key.Enter:
+                        // Enter键触发编辑而不是直接编辑
+                        EditQuestion_Click(sender, new RoutedEventArgs());
+                        e.Handled = true;
+                        break;
+
+                    case Key.F2:
+                        // F2键也触发编辑按钮
+                        EditQuestion_Click(sender, new RoutedEventArgs());
+                        e.Handled = true;
+                        break;
+
+                    case Key.Delete:
+                        // Delete键触发删除按钮
+                        DeleteQuestion_Click(sender, new RoutedEventArgs());
+                        e.Handled = true;
+                        break;
+
+                    // 允许导航按键
+                    case Key.Up:
+                    case Key.Down:
+                    case Key.Left:
+                    case Key.Right:
+                    case Key.Home:
+                    case Key.End:
+                    case Key.PageUp:
+                    case Key.PageDown:
+                    case Key.Tab:
+                        // 这些按键允许通过，用于导航
+                        break;
+
+                    default:
+                        // 其他按键（如字母数字键）被阻止，避免意外触发编辑
+                        if (char.IsLetterOrDigit((char)e.Key))
+                        {
+                            e.Handled = true;
+                            System.Diagnostics.Debug.WriteLine($"已阻止按键 {e.Key}，请使用编辑按钮");
+                        }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理按键事件失败：{ex.Message}");
             }
         }
 

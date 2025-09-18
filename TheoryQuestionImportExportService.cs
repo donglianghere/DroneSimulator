@@ -13,6 +13,14 @@ namespace DroneSimulator
     /// </summary>
     public static class TheoryQuestionImportExportService
     {
+        /// <summary>
+        /// 进度回调委托
+        /// </summary>
+        /// <param name="progress">进度百分比 (0-100)</param>
+        /// <param name="message">进度消息</param>
+        /// <param name="detail">详细信息</param>
+        public delegate void ProgressCallback(double progress, string message, string detail = "");
+
         #region JSON 格式导入导出
 
         /// <summary>
@@ -63,16 +71,19 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 从JSON文件导入理论题库
+        /// 从JSON文件导入理论题库 - 支持进度回调
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
         /// <param name="currentUser">当前导入操作的用户名</param>
+        /// <param name="progressCallback">进度回调</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromJson(string filePath, bool overwriteExisting = false, string? currentUser = null)
+        public static ImportExportResult ImportFromJson(string filePath, bool overwriteExisting = false, string? currentUser = null, ProgressCallback? progressCallback = null)
         {
             try
             {
+                progressCallback?.Invoke(5, "正在读取JSON文件...", "");
+
                 if (!File.Exists(filePath))
                 {
                     return new ImportExportResult
@@ -82,6 +93,8 @@ namespace DroneSimulator
                         ProcessedCount = 0
                     };
                 }
+
+                progressCallback?.Invoke(10, "正在解析JSON内容...", "");
 
                 string json = File.ReadAllText(filePath, Encoding.UTF8);
 
@@ -110,15 +123,24 @@ namespace DroneSimulator
                     };
                 }
 
+                progressCallback?.Invoke(20, "正在验证和导入题目...", $"共找到 {questions.Count} 道题目");
+
                 // 验证和导入题目
                 int successCount = 0;
                 int skipCount = 0;
                 var errors = new List<string>();
+                int totalQuestions = questions.Count;
 
-                foreach (var question in questions)
+                for (int i = 0; i < questions.Count; i++)
                 {
+                    var question = questions[i];
+
                     try
                     {
+                        // 更新进度 (20% + 70% * 处理进度)
+                        double currentProgress = 20 + (70.0 * i / totalQuestions);
+                        progressCallback?.Invoke(currentProgress, "正在导入题目...", $"正在处理第 {i + 1}/{totalQuestions} 道题目");
+
                         // 验证题目数据
                         if (!question.IsValid())
                         {
@@ -155,6 +177,8 @@ namespace DroneSimulator
                     }
                 }
 
+                progressCallback?.Invoke(95, "正在完成导入...", "");
+
                 var message = $"JSON导入完成：成功 {successCount} 题，跳过 {skipCount} 题\n";
                 message += $"💡 说明：所有题目已分配新的系统ID（5位数字），从 00001 开始递增。";
 
@@ -167,6 +191,8 @@ namespace DroneSimulator
                     }
                 }
 
+                progressCallback?.Invoke(100, "导入完成", $"成功导入 {successCount} 道题目");
+
                 return new ImportExportResult
                 {
                     Success = successCount > 0,
@@ -176,6 +202,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
+                progressCallback?.Invoke(0, "导入失败", ex.Message);
                 return new ImportExportResult
                 {
                     Success = false,
@@ -187,70 +214,7 @@ namespace DroneSimulator
 
         #endregion
 
-        #region Excel 格式导入导出
-
-        /// <summary>
-        /// 导出理论题库到Excel文件
-        /// </summary>
-        /// <param name="filePath">文件路径</param>
-        /// <param name="questions">要导出的题目列表，为空时导出全部</param>
-        /// <returns>导出结果</returns>
-        public static ImportExportResult ExportToExcel(string filePath, List<TheoryQuestion>? questions = null)
-        {
-            try
-            {
-                // 注意：这需要安装 EPPlus NuGet 包
-                // 暂时返回不支持的消息
-                return new ImportExportResult
-                {
-                    Success = false,
-                    Message = "Excel导出功能需要安装EPPlus包，当前版本暂不支持",
-                    ProcessedCount = 0
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ImportExportResult
-                {
-                    Success = false,
-                    Message = $"Excel导出失败：{ex.Message}",
-                    ProcessedCount = 0
-                };
-            }
-        }
-
-        /// <summary>
-        /// 从Excel文件导入理论题库
-        /// </summary>
-        /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
-        /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromExcel(string filePath, bool overwriteExisting = false)
-        {
-            try
-            {
-                // 注意：这需要安装 EPPlus NuGet 包
-                // 暂时返回不支持的消息
-                return new ImportExportResult
-                {
-                    Success = false,
-                    Message = "Excel导入功能需要安装EPPlus包，当前版本暂不支持",
-                    ProcessedCount = 0
-                };
-            }
-            catch (Exception ex)
-            {
-                return new ImportExportResult
-                {
-                    Success = false,
-                    Message = $"Excel导入失败：{ex.Message}",
-                    ProcessedCount = 0
-                };
-            }
-        }
-
-        #endregion
-
+        
         #region CSV 格式导入导出
 
         /// <summary>
@@ -327,16 +291,19 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 从CSV文件导入理论题库
+        /// 从CSV文件导入理论题库 - 支持进度回调
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
         /// <param name="currentUser">当前导入操作的用户名</param>
+        /// <param name="progressCallback">进度回调</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromCsv(string filePath, bool overwriteExisting = false, string? currentUser = null)
+        public static ImportExportResult ImportFromCsv(string filePath, bool overwriteExisting = false, string? currentUser = null, ProgressCallback? progressCallback = null)
         {
             try
             {
+                progressCallback?.Invoke(5, "正在读取CSV文件...", "");
+
                 if (!File.Exists(filePath))
                 {
                     return new ImportExportResult
@@ -346,6 +313,8 @@ namespace DroneSimulator
                         ProcessedCount = 0
                     };
                 }
+
+                progressCallback?.Invoke(10, "正在解析CSV内容...", "");
 
                 var lines = File.ReadAllLines(filePath, Encoding.UTF8);
                 if (lines.Length < 2) // 至少要有标题行和一行数据
@@ -358,15 +327,22 @@ namespace DroneSimulator
                     };
                 }
 
+                progressCallback?.Invoke(15, "正在验证CSV格式...", $"文件共 {lines.Length} 行");
+
                 int successCount = 0;
                 int skipCount = 0;
                 var errors = new List<string>();
+                int totalLines = lines.Length - 1; // 减去标题行
 
                 // 跳过标题行，从第二行开始处理
                 for (int i = 1; i < lines.Length; i++)
                 {
                     try
                     {
+                        // 更新进度 (15% + 80% * 处理进度)
+                        double currentProgress = 15 + (80.0 * (i - 1) / totalLines);
+                        progressCallback?.Invoke(currentProgress, "正在导入CSV题目...", $"正在处理第 {i}/{lines.Length} 行");
+
                         var fields = ParseCsvLine(lines[i]);
                         if (fields.Count < 8) // 最少需要基本字段
                         {
@@ -492,6 +468,8 @@ namespace DroneSimulator
                     }
                 }
 
+                progressCallback?.Invoke(100, "CSV导入完成", $"成功导入 {successCount} 道题目");
+
                 var message = $"CSV导入完成：成功 {successCount} 题，跳过 {skipCount} 题\n";
                 message += $"💡 说明：所有题目已分配新的系统ID（5位数字），从 00001 开始递增。";
 
@@ -513,6 +491,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
+                progressCallback?.Invoke(0, "导入失败", ex.Message);
                 return new ImportExportResult
                 {
                     Success = false,
@@ -523,16 +502,19 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 从 TQ4.csv 格式导入理论题库（修复正确答案解析问题）
+        /// 从 TQ4.csv 格式导入理论题库 - 支持进度回调（完整版）
         /// </summary>
         /// <param name="filePath">文件路径</param>
-        /// <param name="overwriteExisting">是否覆盖已存在的题目（此参数已废弃，系统自动分配新ID）</param>
+        /// <param name="overwriteExisting">是否覆盖已存在的题目</param>
         /// <param name="currentUser">当前导入操作的用户名</param>
+        /// <param name="progressCallback">进度回调</param>
         /// <returns>导入结果</returns>
-        public static ImportExportResult ImportFromTQ4Csv(string filePath, bool overwriteExisting = false, string? currentUser = null)
+        public static ImportExportResult ImportFromTQ4Csv(string filePath, bool overwriteExisting = false, string? currentUser = null, ProgressCallback? progressCallback = null)
         {
             try
             {
+                progressCallback?.Invoke(5, "正在读取TQ4.csv文件...", "");
+
                 if (!File.Exists(filePath))
                 {
                     return new ImportExportResult
@@ -542,6 +524,8 @@ namespace DroneSimulator
                         ProcessedCount = 0
                     };
                 }
+
+                progressCallback?.Invoke(10, "正在检测文件编码...", "");
 
                 // 智能检测和读取文件编码
                 string[] lines = ReadFileWithCorrectEncoding(filePath);
@@ -556,6 +540,8 @@ namespace DroneSimulator
                     };
                 }
 
+                progressCallback?.Invoke(15, "正在分析文件内容...", $"文件共 {lines.Length} 行");
+
                 int successCount = 0;
                 int skipCount = 0;
                 var errors = new List<string>();
@@ -565,11 +551,17 @@ namespace DroneSimulator
                 var validQuestions = new List<TheoryQuestion>();
                 var tempAssignedIds = new HashSet<int>(); // 临时ID跟踪，避免重复
 
+                int totalLines = lines.Length - 1; // 减去标题行
+
                 // 从第2行开始处理数据（第1行是标题）
                 for (int i = 1; i < lines.Length; i++)
                 {
                     try
                     {
+                        // 更新进度 (15% + 70% * 处理进度)
+                        double currentProgress = 15 + (70.0 * (i - 1) / totalLines);
+                        progressCallback?.Invoke(currentProgress, "正在解析TQ4题目...", $"正在处理第 {i}/{lines.Length} 行");
+
                         var line = lines[i].Trim();
 
                         // 跳过空行
@@ -619,24 +611,25 @@ namespace DroneSimulator
                         tempAssignedIds.Add(nextId);
                         question.Id = nextId.ToString("D5");
 
-                        // 解析题目陈述
+                        // ★★★ 完整的TQ4题目解析逻辑 ★★★
+                        // 解析题目陈述 (字段5，索引4)
                         question.QuestionStatement = fields[4].Trim();
 
-                        // 解析题目类型
+                        // 解析题目类型 (字段3，索引2)
                         var typeCode = fields.Count > 2 ? fields[2].Trim() : "B";
                         question.Type = ParseQuestionType(typeCode);
 
-                        // 解析题目分类
+                        // 根据原始ID推断分类（仅用于分类，不用作题目ID）
                         question.Category = ParseQuestionCategory(originalId);
 
-                        // 解析难度
+                        // 设置难度 (字段13，索引12)
                         var difficultyCode = fields.Count > 12 ? fields[12].Trim() : "3（中等）";
                         question.Difficulty = ParseDifficulty(difficultyCode);
 
-                        // 设置默认分值
+                        // 设置分值
                         question.Points = question.Type == TheoryQuestionType.MultipleChoice ? 3 : 2;
 
-                        // 解析选项（字段6-11对应选项A-F，索引5-10）
+                        // 解析选项 (字段6-11对应选项A-F，索引5-10)
                         question.Options = new List<TheoryOption>();
                         for (int optionIndex = 5; optionIndex <= 10; optionIndex++)
                         {
@@ -664,11 +657,10 @@ namespace DroneSimulator
                             }
                         }
 
-                        // ★★★ 关键修复：解析正确答案并添加详细日志 ★★★
+                        // ★★★ 关键修复：正确答案解析逻辑 ★★★
                         var correctAnswerField = fields.Count > 11 ? fields[11].Trim() : "A";
                         detailedErrors.Add($"第 {i + 1} 行：原始正确答案字段 = '{correctAnswerField}'");
 
-                        // 直接解析答案代号，不依赖 ParseCorrectAnswerCodes 方法
                         question.CorrectAnswers = new List<string>();
 
                         if (!string.IsNullOrWhiteSpace(correctAnswerField))
@@ -682,7 +674,7 @@ namespace DroneSimulator
 
                             detailedErrors.Add($"第 {i + 1} 行：提取的答案代号 = [{string.Join(", ", answerChars)}]");
 
-                            // 将答案代号转换为选项文本
+                            // 将答案代号转换为对应的选项文本
                             foreach (var code in answerChars)
                             {
                                 int optionIndex = code[0] - 'A'; // A=0, B=1, C=2...
@@ -707,7 +699,7 @@ namespace DroneSimulator
 
                         detailedErrors.Add($"第 {i + 1} 行：最终正确答案 = [{string.Join(", ", question.CorrectAnswers)}]");
 
-                        // 设置创建者信息
+                        // 设置其他属性
                         question.Explanation = fields.Count > 14 ? fields[14] : "";
                         question.CreatedBy = !string.IsNullOrWhiteSpace(currentUser) ? currentUser : "TQ4.csv导入";
                         question.CreatedTime = DateTime.Now;
@@ -735,6 +727,8 @@ namespace DroneSimulator
                         skipCount++;
                     }
                 }
+
+                progressCallback?.Invoke(85, "正在保存题目到数据库...", $"准备保存 {validQuestions.Count} 道题目");
 
                 // 批量保存所有题目
                 if (validQuestions.Any())
@@ -771,8 +765,14 @@ namespace DroneSimulator
                         }
 
                         // 逐个保存题目
-                        foreach (var question in validQuestions)
+                        for (int i = 0; i < validQuestions.Count; i++)
                         {
+                            var question = validQuestions[i];
+
+                            // 更新保存进度 (85% + 10% * 保存进度)
+                            double saveProgress = 85 + (10.0 * i / validQuestions.Count);
+                            progressCallback?.Invoke(saveProgress, "正在保存题目...", $"正在保存第 {i + 1}/{validQuestions.Count} 道题目");
+
                             if (TheoryQuestionBankManager.SaveQuestion(question))
                             {
                                 successCount++;
@@ -791,6 +791,8 @@ namespace DroneSimulator
                         skipCount += validQuestions.Count;
                     }
                 }
+
+                progressCallback?.Invoke(100, "TQ4.csv导入完成", $"成功导入 {successCount} 道题目");
 
                 // 构建详细的返回消息
                 var message = $"TQ4.csv导入完成：\n";
@@ -822,6 +824,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
+                progressCallback?.Invoke(0, "导入失败", ex.Message);
                 return new ImportExportResult
                 {
                     Success = false,
@@ -831,102 +834,75 @@ namespace DroneSimulator
             }
         }
 
-        // 添加新的方法：解析正确答案代号（不转换为文本）
+        #endregion
+
+        #region 辅助方法
+
         /// <summary>
-        /// 解析正确答案代号（直接存储A、B、C等，不转换为选项文本）
+        /// 转义CSV字段
         /// </summary>
-        private static List<string> ParseCorrectAnswerCodes(string correctAnswer, TheoryQuestion question)
+        private static string EscapeCsvField(string field)
         {
-            var answerCodes = new List<string>();
+            if (string.IsNullOrEmpty(field))
+                return "";
 
-            if (string.IsNullOrWhiteSpace(correctAnswer))
-                return answerCodes;
-
-            correctAnswer = correctAnswer.Trim();
-
-            // 对于判断题的特殊处理
-            if (question.Type == TheoryQuestionType.MultipleChoice &&
-                question.Options.Count == 2 &&
-                (correctAnswer == "A" || correctAnswer == "B"))
+            // 如果包含逗号、引号或换行符，需要用引号包围并转义内部引号
+            if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
             {
-                answerCodes.Add(correctAnswer); // 直接添加A或B
-                return answerCodes;
+                return $"\"{field.Replace("\"", "\"\"")}\"";
             }
 
-            // 解析答案字母（A、B、C等）
-            var answerChars = correctAnswer.ToCharArray()
-                .Where(c => c >= 'A' && c <= 'F')
-                .Select(c => c.ToString())
-                .ToList();
-
-            if (answerChars.Any())
-            {
-                answerCodes.AddRange(answerChars);
-            }
-            else
-            {
-                // 如果无法解析，默认使用A
-                answerCodes.Add("A");
-            }
-
-            return answerCodes;
+            return field;
         }
 
-        // [保留所有其他辅助方法，包括文件编码检测、CSV解析等，内容不变]
-
         /// <summary>
-        /// 计算编码质量得分（增强版）
+        /// 解析CSV行（现在为public，可以被其他类访问）
         /// </summary>
-        private static double CalculateEncodingScore(string text, string encodingName)
+        public static List<string> ParseCsvLine(string line)
         {
-            if (string.IsNullOrEmpty(text))
-                return 0;
+            var fields = new List<string>();
+            var currentField = new StringBuilder();
+            bool inQuotes = false;
 
-            double score = 0;
-            var textLength = text.Length;
-
-            // 1. 中文字符数量（权重35%）
-            var chineseCount = CountChineseCharacters(text);
-            var chineseRatio = textLength > 0 ? (double)chineseCount / textLength : 0;
-            score += chineseRatio * 35;
-
-            // 2. 检查是否包含乱码（权重25%）
-            if (!ContainsGarbledText(text))
+            if (string.IsNullOrEmpty(line))
             {
-                score += 25;
+                return fields;
             }
 
-            // 3. 可显示字符比例（权重20%）
-            var printableCount = text.Count(c => !char.IsControl(c) || char.IsWhiteSpace(c));
-            var printableRatio = textLength > 0 ? (double)printableCount / textLength : 0;
-            score += printableRatio * 20;
-
-            // 4. 常见中文词汇检测（权重10%）
-            var commonWords = new[] { "题目", "选项", "答案", "解析", "考试", "单选", "多选", "判断", "正确", "错误" };
-            var wordCount = commonWords.Count(word => text.Contains(word));
-            score += (double)wordCount / commonWords.Length * 10;
-
-            // 5. CSV格式特征检测（权重10%）
-            var csvFeatures = new[] { ",", "\"", "A-A-A", "A-B-A", "B（单选题）", "C（判断题）" };
-            var csvFeatureCount = csvFeatures.Count(feature => text.Contains(feature));
-            score += (double)csvFeatureCount / csvFeatures.Length * 10;
-
-            // 6. 特殊字符惩罚
-            var specialChars = new[] { '�', '锟', '烫', '屯', '\uFFFD' };
-            var specialCharCount = specialChars.Sum(c => text.Count(ch => ch == c));
-            score -= Math.Min(specialCharCount * 3, 20); // 最多扣20分
-
-            // 7. 编码特定加分
-            if ((encodingName.Contains("GB") || encodingName.Contains("GBK")) && chineseCount > 0)
+            for (int i = 0; i < line.Length; i++)
             {
-                score += 5; // GB系列编码处理中文更好
-            }
-            else if (encodingName.Contains("UTF-8") && !ContainsGarbledText(text))
-            {
-                score += 3; // UTF-8通用性好
+                char c = line[i];
+
+                if (c == '"')
+                {
+                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        // 转义的引号
+                        currentField.Append('"');
+                        i++; // 跳过下一个引号
+                    }
+                    else
+                    {
+                        // 切换引号状态
+                        inQuotes = !inQuotes;
+                    }
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    // 字段分隔符
+                    fields.Add(currentField.ToString().Trim());
+                    currentField.Clear();
+                }
+                else
+                {
+                    currentField.Append(c);
+                }
             }
 
-            return Math.Max(0, Math.Min(100, score)); // 限制在0-100范围
+            // 添加最后一个字段
+            fields.Add(currentField.ToString().Trim());
+
+            return fields;
         }
 
         /// <summary>
@@ -1047,6 +1023,61 @@ namespace DroneSimulator
         }
 
         /// <summary>
+        /// 计算编码质量得分（增强版）
+        /// </summary>
+        private static double CalculateEncodingScore(string text, string encodingName)
+        {
+            if (string.IsNullOrEmpty(text))
+                return 0;
+
+            double score = 0;
+            var textLength = text.Length;
+
+            // 1. 中文字符数量（权重35%）
+            var chineseCount = CountChineseCharacters(text);
+            var chineseRatio = textLength > 0 ? (double)chineseCount / textLength : 0;
+            score += chineseRatio * 35;
+
+            // 2. 检查是否包含乱码（权重25%）
+            if (!ContainsGarbledText(text))
+            {
+                score += 25;
+            }
+
+            // 3. 可显示字符比例（权重20%）
+            var printableCount = text.Count(c => !char.IsControl(c) || char.IsWhiteSpace(c));
+            var printableRatio = textLength > 0 ? (double)printableCount / textLength : 0;
+            score += printableRatio * 20;
+
+            // 4. 常见中文词汇检测（权重10%）
+            var commonWords = new[] { "题目", "选项", "答案", "解析", "考试", "单选", "多选", "判断", "正确", "错误" };
+            var wordCount = commonWords.Count(word => text.Contains(word));
+            score += (double)wordCount / commonWords.Length * 10;
+
+            // 5. CSV格式特征检测（权重10%）
+            var csvFeatures = new[] { ",", "\"", "A-A-A", "A-B-A", "B（单选题）", "C（判断题）" };
+            var csvFeatureCount = csvFeatures.Count(feature => text.Contains(feature));
+            score += (double)csvFeatureCount / csvFeatures.Length * 10;
+
+            // 6. 特殊字符惩罚
+            var specialChars = new[] { '�', '锟', '烫', '屯', '\uFFFD' };
+            var specialCharCount = specialChars.Sum(c => text.Count(ch => ch == c));
+            score -= Math.Min(specialCharCount * 3, 20); // 最多扣20分
+
+            // 7. 编码特定加分
+            if ((encodingName.Contains("GB") || encodingName.Contains("GBK")) && chineseCount > 0)
+            {
+                score += 5; // GB系列编码处理中文更好
+            }
+            else if (encodingName.Contains("UTF-8") && !ContainsGarbledText(text))
+            {
+                score += 3; // UTF-8通用性好
+            }
+
+            return Math.Max(0, Math.Min(100, score)); // 限制在0-100范围
+        }
+
+        /// <summary>
         /// 统计字符串中的中文字符数量（增强版）
         /// </summary>
         private static int CountChineseCharacters(string text)
@@ -1123,290 +1154,6 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 检测文件编码
-        /// </summary>
-        public static string DetectFileEncoding(string filePath)
-        {
-            try
-            {
-                var encodingsToTry = new[]
-                {
-                    ("GB2312", Encoding.GetEncoding("GB2312")),
-                    ("GBK", Encoding.GetEncoding("GBK")),
-                    ("GB18030", Encoding.GetEncoding("GB18030")),
-                    ("UTF-8", Encoding.UTF8),
-                    ("Big5", Encoding.GetEncoding("Big5")),
-                    ("系统默认", Encoding.Default)
-                };
-
-                var results = new List<(string Name, int ChineseCount, string Sample)>();
-
-                foreach (var (name, encoding) in encodingsToTry)
-                {
-                    try
-                    {
-                        var lines = File.ReadAllLines(filePath, encoding).Take(5).ToArray();
-                        var sample = string.Join(" ", lines);
-                        var chineseCount = CountChineseCharacters(sample);
-                        var containsGarbled = ContainsGarbledText(sample);
-
-                        if (!containsGarbled)
-                        {
-                            results.Add((name, chineseCount, sample.Length > 100 ? sample.Substring(0, 100) + "..." : sample));
-                        }
-                    }
-                    catch
-                    {
-                        // 忽略编码错误
-                    }
-                }
-
-                // 返回检测结果
-                var bestMatch = results.OrderByDescending(r => r.ChineseCount).FirstOrDefault();
-                return bestMatch.Name ?? "未知编码";
-            }
-            catch (Exception ex)
-            {
-                return $"检测失败: {ex.Message}";
-            }
-        }
-
-        /// <summary>
-        /// 将答案字母转换为选项文本
-        /// </summary>
-        private static List<string> ConvertAnswerLettersToText(string correctAnswer, TheoryQuestion question)
-        {
-            var answers = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(correctAnswer) || !question.Options.Any())
-                return answers;
-
-            correctAnswer = correctAnswer.Trim();
-
-            // 对于判断题的特殊处理
-            if (question.Type == TheoryQuestionType.MultipleChoice &&
-                question.Options.Count == 2 &&
-                (correctAnswer == "A" || correctAnswer == "B"))
-            {
-                if (correctAnswer == "A")
-                    answers.Add(question.Options[0].Text); // 通常是"正确"
-                else if (correctAnswer == "B")
-                    answers.Add(question.Options[1].Text); // 通常是"错误"
-                return answers;
-            }
-
-            // 解析答案字母（A、B、C等）
-            var answerChars = correctAnswer.ToCharArray()
-                .Where(c => c >= 'A' && c <= 'F')
-                .ToList();
-
-            foreach (var answerChar in answerChars)
-            {
-                int index = answerChar - 'A'; // A=0, B=1, C=2...
-                if (index >= 0 && index < question.Options.Count)
-                {
-                    answers.Add(question.Options[index].Text);
-                }
-            }
-
-            // 如果无法解析，使用第一个选项作为默认答案
-            if (!answers.Any() && question.Options.Any())
-            {
-                answers.Add(question.Options[0].Text);
-            }
-
-            return answers;
-        }
-
-        /// <summary>
-        /// 增强的TQ4题目验证（更宽松）
-        /// </summary>
-        public static bool IsValidTQ4Question(TheoryQuestion question)
-        {
-            try
-            {
-                // 基本验证
-                if (string.IsNullOrWhiteSpace(question.QuestionStatement))
-                    return false;
-
-                if (string.IsNullOrWhiteSpace(question.Id))
-                    return false;
-
-                // 选项验证（更宽松）
-                if (!question.Options.Any())
-                    return false;
-
-                // 需要有正确答案
-                if (question.CorrectAnswers == null || !question.CorrectAnswers.Any())
-                    return false;
-
-                // 对于判断题，选项通常是"正确"/"错误"，不需要严格匹配
-                if (question.Type == TheoryQuestionType.MultipleChoice && question.Options.Count == 2)
-                {
-                    // 判断题的答案验证更宽松
-                    return true;
-                }
-
-                // 对于TQ4格式，正确答案存储的是选项代号，进行更宽松的验证
-                // 只需要确保答案代号在有效范围内（A-F）
-                foreach (var answer in question.CorrectAnswers)
-                {
-                    if (answer.Length == 1 && answer[0] >= 'A' && answer[0] <= 'F')
-                    {
-                        // 检查选项代号是否在有效选项范围内
-                        int optionIndex = answer[0] - 'A';
-                        if (optionIndex >= question.Options.Count)
-                        {
-                            return false; // 答案代号超出选项范围
-                        }
-                    }
-                    else
-                    {
-                        // 对于非标准代号格式，进行文本匹配验证
-                        var optionTexts = question.Options.Select(o => o.Text.Trim()).ToList();
-                        var answerText = answer.Trim();
-                        if (!optionTexts.Any(opt => opt.Equals(answerText, StringComparison.OrdinalIgnoreCase) ||
-                                                   opt.Contains(answerText) ||
-                                                   answerText.Contains(opt)))
-                        {
-                            return false;
-                        }
-                    }
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-        #endregion
-
-        #region 辅助方法
-
-        /// <summary>
-        /// 转义CSV字段
-        /// </summary>
-        private static string EscapeCsvField(string field)
-        {
-            if (string.IsNullOrEmpty(field))
-                return "";
-
-            // 如果包含逗号、引号或换行符，需要用引号包围并转义内部引号
-            if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
-            {
-                return $"\"{field.Replace("\"", "\"\"")}\"";
-            }
-
-            return field;
-        }
-
-        /// <summary>
-        /// 解析CSV行（现在为public，可以被其他类访问）
-        /// </summary>
-        public static List<string> ParseCsvLine(string line)
-        {
-            var fields = new List<string>();
-            var currentField = new StringBuilder();
-            bool inQuotes = false;
-
-            if (string.IsNullOrEmpty(line))
-            {
-                return fields;
-            }
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-
-                if (c == '"')
-                {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        // 转义的引号
-                        currentField.Append('"');
-                        i++; // 跳过下一个引号
-                    }
-                    else
-                    {
-                        // 切换引号状态
-                        inQuotes = !inQuotes;
-                    }
-                }
-                else if (c == ',' && !inQuotes)
-                {
-                    // 字段分隔符
-                    fields.Add(currentField.ToString().Trim());
-                    currentField.Clear();
-                }
-                else
-                {
-                    currentField.Append(c);
-                }
-            }
-
-            // 添加最后一个字段
-            fields.Add(currentField.ToString().Trim());
-
-            return fields;
-        }
-
-        /// <summary>
-        /// 创建示例题目用于测试
-        /// </summary>
-        public static List<TheoryQuestion> CreateSampleQuestions()
-        {
-            var questions = new List<TheoryQuestion>();
-
-            // 示例飞行原理题目
-            questions.Add(new TheoryQuestion
-            {
-                QuestionStatement = "多旋翼无人机的升力主要来源于什么？",
-                Type = TheoryQuestionType.SingleChoice,
-                Category = TheoryQuestionCategory.FlightPrinciples,
-                Difficulty = QuestionDifficulty.Easy,
-                Points = 2,
-                Options = new List<TheoryOption>
-                {
-                    new TheoryOption { Text = "机翼产生的升力", IsCorrect = false },
-                    new TheoryOption { Text = "螺旋桨向下推动空气产生的反作用力", IsCorrect = true },
-                    new TheoryOption { Text = "热气球原理", IsCorrect = false },
-                    new TheoryOption { Text = "磁悬浮力", IsCorrect = false }
-                },
-                CorrectAnswers = new List<string> { "螺旋桨向下推动空气产生的反作用力" },
-                Explanation = "多旋翼无人机通过螺旋桨旋转推动空气向下，根据牛顿第三定律产生向上的反作用力，这就是升力的来源。",
-                CreatedBy = "系统",
-                CreatedTime = DateTime.Now
-            });
-
-            // 示例多选题
-            questions.Add(new TheoryQuestion
-            {
-                QuestionStatement = "影响多旋翼无人机飞行稳定性的主要因素包括哪些？",
-                Type = TheoryQuestionType.MultipleChoice,
-                Category = TheoryQuestionCategory.ControlAlgorithm,
-                Difficulty = QuestionDifficulty.Medium,
-                Points = 3,
-                Options = new List<TheoryOption>
-                {
-                    new TheoryOption { Text = "重心位置", IsCorrect = true },
-                    new TheoryOption { Text = "风力大小", IsCorrect = true },
-                    new TheoryOption { Text = "电池电量", IsCorrect = false },
-                    new TheoryOption { Text = "飞控算法", IsCorrect = true },
-                    new TheoryOption { Text = "螺旋桨平衡", IsCorrect = true },
-                    new TheoryOption { Text = "外壳颜色", IsCorrect = false }
-                },
-                CorrectAnswers = new List<string> { "重心位置", "风力大小", "飞控算法", "螺旋桨平衡" },
-                Explanation = "无人机的飞行稳定性主要受重心位置、外部风力、飞控算法和螺旋桨平衡等因素影响。",
-                CreatedBy = "系统",
-                CreatedTime = DateTime.Now
-            });
-
-            return questions;
-        }
-
-        /// <summary>
         /// 解析题目类型
         /// </summary>
         private static TheoryQuestionType ParseQuestionType(string typeCode)
@@ -1470,72 +1217,6 @@ namespace DroneSimulator
                 _ when difficultyCode.Contains("较难") || difficultyCode.Contains("很难") => QuestionDifficulty.Hard,
                 _ => QuestionDifficulty.Medium
             };
-        }
-
-        /// <summary>
-        /// 解析正确答案
-        /// </summary>
-        private static List<string> ParseCorrectAnswers(string correctAnswer, TheoryQuestionType questionType)
-        {
-            var answers = new List<string>();
-
-            if (string.IsNullOrWhiteSpace(correctAnswer))
-                return answers;
-
-            correctAnswer = correctAnswer.Trim();
-
-            // 对于判断题
-            if (questionType == TheoryQuestionType.MultipleChoice &&
-                (correctAnswer == "A" || correctAnswer == "B"))
-            {
-                // A通常表示"正确"，B通常表示"错误"
-                answers.Add(correctAnswer);
-                return answers;
-            }
-
-            // 对于选择题，解析答案选项
-            var answerChars = correctAnswer.ToCharArray()
-                .Where(c => c >= 'A' && c <= 'F')
-                .Select(c => c.ToString())
-                .ToList();
-
-            if (answerChars.Any())
-            {
-                answers.AddRange(answerChars);
-            }
-            else
-            {
-                // 如果无法解析，尝试直接使用原始答案
-                answers.Add(correctAnswer);
-            }
-
-            return answers;
-        }
-
-        /// <summary>
-        /// 验证题目是否有效
-        /// </summary>
-        private static bool IsValidQuestion(TheoryQuestion question)
-        {
-            // 基本验证
-            if (string.IsNullOrWhiteSpace(question.QuestionStatement))
-                return false;
-
-            if (string.IsNullOrWhiteSpace(question.Id))
-                return false;
-
-            // 对于单选题，至少需要1个选项（可以是判断题）
-            if (question.Type == TheoryQuestionType.SingleChoice)
-            {
-                if (question.Options.Count < 1)
-                    return false;
-            }
-
-            // 需要有正确答案
-            if (question.CorrectAnswers == null || !question.CorrectAnswers.Any())
-                return false;
-
-            return true;
         }
 
         #endregion

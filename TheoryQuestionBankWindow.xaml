@@ -94,11 +94,17 @@
             <!-- 右侧题目列表 -->
             <DataGrid x:Name="QuestionsDataGrid" Grid.Column="1"
                       AutoGenerateColumns="False"
+                      SelectionMode="Extended"
                       CanUserAddRows="False"
-                      SelectionMode="Single"
+                      CanUserDeleteRows="False" 
+                      CanUserResizeRows="False"
+                      CanUserReorderColumns="False"
+                      CanUserSortColumns="True"
+                      IsReadOnly="True"
                       GridLinesVisibility="Horizontal"
                       AlternatingRowBackground="#F5F5F5"
-                      MouseDoubleClick="QuestionsDataGrid_MouseDoubleClick">
+                      MouseDoubleClick="QuestionsDataGrid_MouseDoubleClick"
+                      BeginningEdit="QuestionsDataGrid_BeginningEdit">
                 <DataGrid.Columns>
                     <!-- 复选框列 -->
                     <DataGridTemplateColumn Header="选择" Width="50">

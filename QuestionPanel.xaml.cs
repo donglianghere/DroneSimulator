@@ -953,6 +953,26 @@ namespace DroneSimulator
         {
             try
             {
+                // 优先尝试解析文本输入
+                if (!string.IsNullOrWhiteSpace(TheoryRandomCountComboBox.Text))
+                {
+                    if (int.TryParse(TheoryRandomCountComboBox.Text.Trim(), out int textCount))
+                    {
+                        // 添加合理的范围验证
+                        if (textCount > 0 && textCount <= 1000) // 最大1000题的限制
+                        {
+                            return textCount;
+                        }
+                        else if (textCount > 1000)
+                        {
+                            // 如果超过1000，自动限制为1000
+                            TheoryRandomCountComboBox.Text = "1000";
+                            return 1000;
+                        }
+                    }
+                }
+
+                // 备用：尝试从选中项获取
                 if (TheoryRandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
                 {
                     if (int.TryParse(selectedItem.Content?.ToString(), out int count))
@@ -960,10 +980,13 @@ namespace DroneSimulator
                         return count;
                     }
                 }
-                return 5; // 默认值
+
+                // 默认值
+                return 5;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"获取理论题库随机数量失败: {ex.Message}");
                 return 5;
             }
         }
@@ -989,34 +1012,85 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 打开题库管理窗口
+        /// 电路随机数量文本变化事件
         /// </summary>
-        // 修改 ManageTheoryBank_Click 方法，添加更详细的错误诊断
+        private void CircuitRandomCountComboBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (CircuitRandomRadio?.IsChecked == true)
+                {
+                    if (int.TryParse(CircuitRandomCountComboBox.Text, out int count) && count > 0)
+                    {
+                        ExecuteRandomSelection(showResult: false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CircuitRandomCountComboBox 文本变化处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 打开题库管理窗口 - 单例模式
+        /// </summary>
+        private static TheoryQuestionBankWindow? _theoryBankWindowInstance;
+
         private void ManageTheoryBank_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 System.Diagnostics.Debug.WriteLine("=== 开始打开理论题库管理窗口 ===");
 
+                // 🔧 实现单例模式：检查是否已有窗口实例
+                if (_theoryBankWindowInstance != null)
+                {
+                    // 如果窗口实例存在，检查是否还在显示
+                    if (_theoryBankWindowInstance.IsVisible)
+                    {
+                        // 窗口已打开，将其激活并带到前台
+                        _theoryBankWindowInstance.Activate();
+                        _theoryBankWindowInstance.WindowState = WindowState.Normal;
+                        _theoryBankWindowInstance.Focus();
+
+                        System.Diagnostics.Debug.WriteLine("理论题库管理窗口已存在，激活现有窗口");
+                        return;
+                    }
+                    else
+                    {
+                        // 窗口实例存在但已关闭，清除引用
+                        _theoryBankWindowInstance = null;
+                    }
+                }
+
                 // 先检查理论题库管理器是否正常
                 System.Diagnostics.Debug.WriteLine("检查理论题库管理器...");
                 var testQuestions = TheoryQuestionBankManager.GetAllQuestions();
                 System.Diagnostics.Debug.WriteLine($"理论题库管理器正常，获取到 {testQuestions.Count} 道题目");
 
-                // 再检查窗口类是否可以实例化
-                System.Diagnostics.Debug.WriteLine("尝试创建理论题库管理窗口...");
+                // 创建新的窗口实例
+                System.Diagnostics.Debug.WriteLine("创建新的理论题库管理窗口...");
+                _theoryBankWindowInstance = new TheoryQuestionBankWindow(currentTeacher.Name);
 
-                var theoryBankWindow = new TheoryQuestionBankWindow(currentTeacher.Name);
+                // 🔧 重要：监听窗口关闭事件，确保引用被清除
+                _theoryBankWindowInstance.Closed += (s, args) =>
+                {
+                    _theoryBankWindowInstance = null;
+                    System.Diagnostics.Debug.WriteLine("理论题库管理窗口已关闭，清除实例引用");
+
+                    // 刷新理论题目选择界面
+                    RefreshTheoryQuestionSelection();
+
+                    // 重新加载题目
+                    LoadTheoryQuestions();
+                };
+
                 System.Diagnostics.Debug.WriteLine("窗口创建成功，准备显示...");
 
-                theoryBankWindow.ShowDialog();
-                System.Diagnostics.Debug.WriteLine("窗口已关闭");
+                // 显示窗口
+                _theoryBankWindowInstance.Show(); // 使用 Show() 而不是 ShowDialog()，避免阻塞
 
-                // 刷新理论题目选择界面
-                RefreshTheoryQuestionSelection();
-
-                // 关闭题库管理窗口后重新加载题目
-                LoadTheoryQuestions();
                 System.Diagnostics.Debug.WriteLine("=== 理论题库管理窗口操作完成 ===");
             }
             catch (Exception ex)
@@ -1026,6 +1100,9 @@ namespace DroneSimulator
                 System.Diagnostics.Debug.WriteLine($"错误消息：{ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
 
+                // 发生错误时清除实例引用
+                _theoryBankWindowInstance = null;
+
                 MessageBox.Show($"打开题库管理窗口失败：\n\n" +
                                $"错误类型：{ex.GetType().Name}\n" +
                                $"错误消息：{ex.Message}\n\n" +
@@ -1034,6 +1111,28 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 理论题库随机数量文本变化事件
+        /// </summary>
+        private void TheoryRandomCountComboBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                // 如果随机选项被选中，且用户手动输入了数字，立即应用
+                if (TheoryRandomRadio?.IsChecked == true)
+                {
+                    // 验证输入的数字是否有效
+                    if (int.TryParse(TheoryRandomCountComboBox.Text, out int count) && count > 0)
+                    {
+                        ExecuteTheoryRandomSelection(showResult: false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TheoryRandomCountComboBox 文本变化处理失败: {ex.Message}");
+            }
+        }
 
         // 新增：飞控题库管理入口
         // 添加缺少的 FCQuestionBankWindow 类引用，暂时使用简单实现
@@ -1625,6 +1724,24 @@ namespace DroneSimulator
         {
             try
             {
+                // 优先尝试解析文本输入
+                if (!string.IsNullOrWhiteSpace(CircuitRandomCountComboBox.Text))
+                {
+                    if (int.TryParse(CircuitRandomCountComboBox.Text.Trim(), out int textCount))
+                    {
+                        if (textCount > 0 && textCount <= 100) // 电路题目限制为100题
+                        {
+                            return textCount;
+                        }
+                        else if (textCount > 100)
+                        {
+                            CircuitRandomCountComboBox.Text = "100";
+                            return 100;
+                        }
+                    }
+                }
+
+                // 备用：从选中项获取
                 if (CircuitRandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
                 {
                     if (int.TryParse(selectedItem.Content?.ToString(), out int count))
@@ -1633,8 +1750,7 @@ namespace DroneSimulator
                     }
                 }
 
-                // 如果没有选择或解析失败，返回默认值4
-                return 4;
+                return 4; // 默认值
             }
             catch
             {

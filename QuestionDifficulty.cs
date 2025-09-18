@@ -132,13 +132,18 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 是否被选中（用于批量操作）
+        /// </summary>
         public bool IsSelected
         {
             get => _isSelected;
             set
             {
-                _isSelected = value;
-                OnPropertyChanged(nameof(IsSelected));
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                }
             }
         }
 
