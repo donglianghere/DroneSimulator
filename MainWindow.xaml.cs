@@ -1261,6 +1261,53 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 验证飞控实操题目答案
+        /// </summary>
+        private async Task<bool> ValidateFCAnswer(FlightControlQuestion question, string studentAnswer)
+        {
+            try
+            {
+                if (_fcService == null || !_fcService.IsConnected)
+                {
+                    MessageBox.Show("飞控未连接，无法验证参数！", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return false;
+                }
+
+                var result = await FlightControlQuestionBankManager.ValidateAnswerWithFlightController(
+                    question, studentAnswer, _fcService);
+
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    MessageBox.Show($"验证失败：{result.ErrorMessage}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return false;
+                }
+
+                if (result.IsCorrect)
+                {
+                    correctAnswers++;
+                    MessageBox.Show($"正确！参数 {question.ParameterName} 值为 {result.ActualValue}",
+                        "验证结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    wrongAnswers++;
+                    MessageBox.Show($"错误！参数 {question.ParameterName} 期望值：{result.CorrectValue}，实际值：{result.ActualValue}",
+                        "验证结果", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+
+                return result.IsCorrect;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"验证过程出错：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+        }
+
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
             // 停止计时

@@ -1135,17 +1135,23 @@ namespace DroneSimulator
         }
 
         // 新增：飞控题库管理入口
-        // 添加缺少的 FCQuestionBankWindow 类引用，暂时使用简单实现
+        /// <summary>
+        /// 管理飞控题库按钮点击事件
+        /// </summary>
         private void ManageFCBank_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // 暂时显示提示，因为 FCQuestionBankWindow 还未实现
-                MessageBox.Show("飞控题库管理功能正在开发中，敬请期待！", "功能提示",
+                // 暂时显示提示信息，等待 FlightControlQuestionBankWindow 实现
+                MessageBox.Show("飞控题库管理功能正在开发中...", "功能提示",
                     MessageBoxButton.OK, MessageBoxImage.Information);
+                
+                var fcBankWindow = new FlightControlQuestionBankWindow(TeacherNameText.Text);
+                fcBankWindow.ShowDialog();
 
-                // 刷新飞控题目选择界面
-                RefreshFCQuestionSelection();
+                // 刷新飞控题目显示
+                RefreshFCQuestions();
+
             }
             catch (Exception ex)
             {
@@ -1153,6 +1159,283 @@ namespace DroneSimulator
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        /// <summary>
+        /// 刷新飞控题目显示
+        /// </summary>
+        private void RefreshFCQuestions()
+        {
+            try
+            {
+                // 清空现有控件
+                var fcPanel = FindName("FCQuestionsPanel") as StackPanel;
+                if (fcPanel != null)
+                {
+                    fcPanel.Children.Clear();
+
+                    // 获取所有可用的飞控题目
+                    var availableQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
+
+                    foreach (var question in availableQuestions)
+                    {
+                        var questionControl = CreateFCQuestionControl(question);
+                        fcPanel.Children.Add(questionControl);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"刷新飞控题目失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 创建飞控题目控件
+        /// </summary>
+        private UIElement CreateFCQuestionControl(FlightControlQuestion question)
+        {
+            var border = new Border
+            {
+                BorderBrush = new SolidColorBrush(Colors.LightBlue),
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(5),
+                Margin = new Thickness(5),
+                Padding = new Thickness(10),
+                Background = new SolidColorBrush(Colors.White)
+            };
+
+            var stackPanel = new StackPanel();
+
+            // 题目标题
+            var titleText = new TextBlock
+            {
+                Text = question.QuestionStatement,
+                FontWeight = FontWeights.Bold,
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            stackPanel.Children.Add(titleText);
+
+            // 参数信息
+            var paramInfo = new TextBlock
+            {
+                Text = $"参数：{question.ParameterName} | 类型：{question.TypeDisplayName} | 分值：{question.Points}分",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.Gray),
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            stackPanel.Children.Add(paramInfo);
+
+            // 选择复选框
+            var checkBox = new CheckBox
+            {
+                Content = "选择此题",
+                Tag = question.Id,
+                Margin = new Thickness(0, 5, 0, 0)
+            };
+            checkBox.Checked += FCQuestionCheckBox_Changed;
+            checkBox.Unchecked += FCQuestionCheckBox_Changed;
+            stackPanel.Children.Add(checkBox);
+
+            border.Child = stackPanel;
+            return border;
+        }
+
+        /// <summary>
+        /// 飞控题目选择状态改变事件
+        /// </summary>
+        private void FCQuestionCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            // 更新选择统计等
+            UpdateFCSelectionStats();
+        }        
+
+        #endregion
+
+
+        #region 飞控题库事件处理
+
+        /// <summary>
+        /// 飞控题库全选事件
+        /// </summary>
+        private void FCSelectAllRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                try
+                {
+                    selectedFCQuestions = fcProvider.GetAvailableQuestions();
+                    RefreshFCQuestionSelection();
+
+                    MessageBox.Show($"已选择全部飞控题目", "全选完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"飞控题库全选失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 飞控题库清空事件
+        /// </summary>
+        private void FCClearAllRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                try
+                {
+                    selectedFCQuestions.Clear();
+                    RefreshFCQuestionSelection();
+
+                    MessageBox.Show("已清空所有飞控题目选择", "清空完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"飞控题库清空失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 飞控题库随机选择事件
+        /// </summary>
+        private void FCRandomRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton rb && rb.IsChecked == true)
+            {
+                try
+                {
+                    ExecuteFCRandomSelection(showResult: true);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"飞控题库随机选择失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 飞控题库随机数量选择变化事件
+        /// </summary>
+        private void FCRandomCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (FCRandomRadio?.IsChecked == true)
+            {
+                ExecuteFCRandomSelection(showResult: false);
+            }
+        }
+
+        /// <summary>
+        /// 执行飞控题库随机选择
+        /// </summary>
+        private void ExecuteFCRandomSelection(bool showResult = false)
+        {
+            try
+            {
+                int randomCount = GetFCRandomCount();
+
+                if (randomCount <= 0)
+                {
+                    MessageBox.Show("请选择有效的题目数量！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var availableQuestions = fcProvider.GetAvailableQuestions();
+
+                if (!availableQuestions.Any())
+                {
+                    MessageBox.Show("飞控题库为空，无法进行随机选择！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var random = new Random();
+                selectedFCQuestions = availableQuestions
+                    .OrderBy(x => random.Next())
+                    .Take(randomCount)
+                    .ToList();
+
+                RefreshFCQuestionSelection();
+
+                if (showResult)
+                {
+                    MessageBox.Show($"飞控题目随机选择完成！\n共选择了 {selectedFCQuestions.Count} 道题目。",
+                        "随机选择结果", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"执行飞控随机选择失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 获取飞控题库随机选择数量
+        /// </summary>
+        private int GetFCRandomCount()
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(FCRandomCountComboBox.Text))
+                {
+                    if (int.TryParse(FCRandomCountComboBox.Text.Trim(), out int textCount))
+                    {
+                        if (textCount > 0 && textCount <= 100)
+                        {
+                            return textCount;
+                        }
+                        else if (textCount > 100)
+                        {
+                            FCRandomCountComboBox.Text = "100";
+                            return 100;
+                        }
+                    }
+                }
+
+                if (FCRandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    if (int.TryParse(selectedItem.Content?.ToString(), out int count))
+                    {
+                        return count;
+                    }
+                }
+
+                return 3; // 默认值
+            }
+            catch
+            {
+                return 3;
+            }
+        }
+
+        /// <summary>
+        /// 更新飞控题目选择统计
+        /// </summary>
+        private void UpdateFCSelectionStats()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新飞控题目选择统计 ===");
+
+                int selectedFCCount = selectedFCQuestions?.Count ?? 0;
+                System.Diagnostics.Debug.WriteLine($"当前选中的飞控题目数量: {selectedFCCount}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新飞控题目选择统计失败: {ex.Message}");
+            }
+        }
+
         #endregion
 
         /// <summary>

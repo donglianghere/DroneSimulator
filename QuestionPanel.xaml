@@ -645,132 +645,53 @@
                 </TabItem.HeaderTemplate>
 
                 <Grid Background="#C6D8E8">
-                    <!-- 飞控实操面板内容 -->
-                    <Grid>
-                        <!-- 顶部控制按钮组 -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" 
-                        Margin="10,10,0,0" HorizontalAlignment="Right" 
-                        VerticalAlignment="Top">
-                            <RadioButton x:Name="FCSelectAllRadio" Content="全选  " Margin="0,0,10,0" 
-                             GroupName="FCSelectGroup" FontSize="16"/>
-                            <RadioButton x:Name="FCClearAllRadio" Content="清空  " Margin="0,0,10,0"
-                             GroupName="FCSelectGroup" FontSize="16"/>
-                            <RadioButton x:Name="FCRandomRadio" Content="随机  " Margin="0,0,10,0"
-                            GroupName="FCSelectGroup" FontSize="16"/>
+                    <!-- 顶部控制按钮组 -->
+                    <StackPanel Orientation="Horizontal" 
+                    Margin="10,10,0,0" HorizontalAlignment="Right" 
+                    VerticalAlignment="Top">
+                        <RadioButton x:Name="FCSelectAllRadio" Content="全选  " Margin="0,0,10,0" 
+                         GroupName="FCSelectGroup" FontSize="18" VerticalAlignment="Center" 
+                         Checked="FCSelectAllRadio_Checked"/>
+                        <RadioButton x:Name="FCClearAllRadio" Content="清空  " Margin="0,0,10,0"
+                         GroupName="FCSelectGroup" FontSize="18" VerticalAlignment="Center" 
+                         Checked="FCClearAllRadio_Checked"/>
+                        <RadioButton x:Name="FCRandomRadio" Content="随机  " Margin="0,0,10,0"
+                         GroupName="FCSelectGroup" FontSize="18" VerticalAlignment="Center" 
+                         Checked="FCRandomRadio_Checked"/>
 
-                            <ComboBox x:Name="FCRandomCountComboBox" Width="60" Height="25" 
-                          FontSize="16" VerticalAlignment="Center"
-                          ToolTip="选择随机生成的实操题目数量">
-                                <ComboBoxItem Content="3" IsSelected="True"/>
-                                <ComboBoxItem Content="5"/>
-                                <ComboBoxItem Content="8"/>
-                                <ComboBoxItem Content="10"/>
-                                <ComboBoxItem Content="12"/>
-                                <ComboBoxItem Content="15"/>
-                            </ComboBox>
+                        <ComboBox x:Name="FCRandomCountComboBox" Width="60" Height="25" 
+                      FontSize="16" VerticalAlignment="Center"
+                      ToolTip="选择随机生成的飞控题目数量"
+                      IsEditable="True"
+                      Text="3"
+                      SelectionChanged="FCRandomCountComboBox_SelectionChanged">
+                            <ComboBoxItem Content="3" IsSelected="True"/>
+                            <ComboBoxItem Content="5"/>
+                            <ComboBoxItem Content="8"/>
+                            <ComboBoxItem Content="10"/>
+                            <ComboBoxItem Content="12"/>
+                            <ComboBoxItem Content="15"/>
+                            <ComboBoxItem Content="20"/>
+                        </ComboBox>
 
-                            <TextBlock Text="题" FontSize="16" VerticalAlignment="Top" 
-                                       Margin="10,0,25,0" />
+                        <TextBlock Text="题" FontSize="18" VerticalAlignment="Center" 
+                       Margin="10,0,10,0" />
 
-                            <!-- 独立的题库管理入口 -->
-                            <Button Content="题库管理" Click="ManageFCBank_Click" 
-                                    Background="#9C27B0" Foreground="White"/>
-                        </StackPanel>
-                    </Grid>
+                        <!-- 添加题库管理按钮 -->
+                        <Button x:Name="ManageFCBankButton" Content="题 库 管 理" Width="120" Height="40"
+                    Background="#9C27B0" Foreground="White" FontSize="18"
+                    Click="ManageFCBank_Click" Margin="10,0,0,0"/>
+                    </StackPanel>
 
-                    <!-- 飞控实操内容区域 -->
-                    <ScrollViewer Margin="0,40,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent">
-                        <StackPanel>
-                            <!-- 参数配置实操 -->
-                            <GroupBox Header="参数配置实操" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                                <UniformGrid Columns="2">
-                                    <GroupBox Header="基础参数" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Param_1" Content="机架类型配置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Param_2" Content="电调输出映射" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Param_3" Content="电机转向设置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Param_4" Content="电池参数配置" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                    <GroupBox Header="控制参数" Margin="5" Style="{StaticResource EscGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Control_1" Content="姿态环PID调节" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Control_2" Content="角速度环PID调节" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Control_3" Content="位置环PID调节" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Control_4" Content="速度环PID调节" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                </UniformGrid>
-                            </GroupBox>
-
-                            <!-- 传感器校准实操 -->
-                            <GroupBox Header="传感器校准实操" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                                <UniformGrid Columns="2">
-                                    <GroupBox Header="惯性传感器" Margin="5" Style="{StaticResource PwmGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_IMU_1" Content="陀螺仪校准操作" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_IMU_2" Content="加速度计校准" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_IMU_3" Content="磁力计校准操作" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_IMU_4" Content="传感器方向设置" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                    <GroupBox Header="其他传感器" Margin="5" Style="{StaticResource GpsGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Other_1" Content="气压计校准操作" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Other_2" Content="电流传感器校准" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Other_3" Content="GPS模块配置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Other_4" Content="光流传感器设置" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                </UniformGrid>
-                            </GroupBox>
-
-                            <!-- 飞行模式实操 -->
-                            <GroupBox Header="飞行模式实操" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                                <UniformGrid Columns="2">
-                                    <GroupBox Header="基础模式" Margin="5" Style="{StaticResource ServoGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Mode_1" Content="手动模式设置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Mode_2" Content="定高模式配置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Mode_3" Content="定点模式设置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Mode_4" Content="返航模式配置" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                    <GroupBox Header="智能模式" Margin="5" Style="{StaticResource BatteryGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Smart_1" Content="任务模式设置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Smart_2" Content="跟随模式配置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Smart_3" Content="避障系统设置" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Smart_4" Content="失控保护配置" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                </UniformGrid>
-                            </GroupBox>
-
-                            <!-- 系统诊断实操 -->
-                            <GroupBox Header="系统诊断实操" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
-                                <UniformGrid Columns="2">
-                                    <GroupBox Header="状态检查" Margin="5" Style="{StaticResource ReceiverGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Diag_1" Content="系统状态读取" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Diag_2" Content="错误代码分析" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Diag_3" Content="传感器状态检查" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                    <GroupBox Header="日志分析" Margin="5" Style="{StaticResource MotorGroupBox}">
-                                        <StackPanel>
-                                            <CheckBox x:Name="FC_Log_1" Content="飞行日志提取" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Log_2" Content="数据分析方法" Margin="5" FontWeight="Normal"/>
-                                            <CheckBox x:Name="FC_Log_3" Content="故障诊断技巧" Margin="5" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </GroupBox>
-                                </UniformGrid>
-                            </GroupBox>
+                    <!-- 飞控实操题目内容区域 - 动态显示题目 -->
+                    <ScrollViewer Margin="0,50,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent">
+                        <StackPanel x:Name="FCQuestionsPanel" Margin="20">
+                            <!-- 动态生成的飞控题目将显示在这里 -->
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </TabItem>
-            
+
             <!-- 可以添加更多选项卡，例如题库统计、导入导出等 -->
             <TabItem Header="统计信息">
                 <TabItem.HeaderTemplate>
