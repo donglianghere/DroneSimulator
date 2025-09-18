@@ -232,7 +232,7 @@ namespace DroneSimulator
                 using var writer = new StreamWriter(filePath, false, Encoding.UTF8);
 
                 // 写入CSV标题行
-                writer.WriteLine("题目ID,题目陈述,题目类型,题目分类,难度等级,分值,是否启用,选项A,选项B,选项C,选项D,选项E,选项F,正确答案,题目解析,出题人,创建时间,最后修改时间");
+                writer.WriteLine("题目ID,题目陈述,题目类型,内容分类,难度等级,分值,是否启用,选项A,选项B,选项C,选项D,选项E,选项F,正确答案,题目解析,出题人,创建时间,最后修改时间");
 
                 foreach (var question in questionsToExport)
                 {

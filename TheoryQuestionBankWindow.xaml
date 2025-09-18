@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="理论题库管理" Height="800" Width="1200"
         WindowStartupLocation="CenterOwner"
+        ResizeMode="CanMinimize"
         Background="#F8F9FA">
 
     <Grid Margin="10">
@@ -17,29 +18,34 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,10,10">
             <Separator Margin="5,0"/>
             <!-- 基本操作 -->
-            <Button x:Name="AddQuestionButton" Content="新增题目" Width="100" Height="35"
-                    Background="#4CAF50" Foreground="White" Margin="0,0,10,0"
+            <Button x:Name="AddQuestionButton" Content="新 增 题 目" Width="100" Height="35"
+                    Background="#4CAF50" Foreground="White" FontSize="16" Margin="0,0,10,0"
                     Click="AddQuestion_Click"/>
-            <Button x:Name="EditQuestionButton" Content="编辑题目" Width="100" Height="35"
-                    Background="#2196F3" Foreground="White" Margin="0,0,10,0"
+            <Button x:Name="EditQuestionButton" Content="编 辑 题 目" Width="100" Height="35"
+                    Background="#2196F3" Foreground="White" FontSize="16" Margin="0,0,10,0"
                     Click="EditQuestion_Click"/>
-            <Button x:Name="DeleteQuestionButton" Content="删除题目" Width="100" Height="35"
-                    Background="#F44336" Foreground="White" Margin="0,0,10,0"
+            <Button x:Name="DeleteQuestionButton" Content="删 除 题 目" Width="100" Height="35"
+                    Background="#F44336" Foreground="White" FontSize="16" Margin="0,0,10,0"
                     Click="DeleteQuestion_Click"/>
+            <Button x:Name="DeleteDuplicatesButton" Content="删 除 重 复" Width="100" Height="35"
+                    Background="#F44336" Foreground="White" FontSize="16" Margin="0,0,10,0"
+                    Click="DeleteDuplicates_Click" 
+                    ToolTip="根据题目陈述检测并删除重复题目"/>
+
 
             <Separator Margin="10,0"/>
 
             <!-- 导入导出 -->
-            <Button x:Name="ImportButton" Content="导入题库" Width="100" Height="35"
-                    Background="#FF9800" Foreground="White" Margin="0,0,10,0"
+            <Button x:Name="ImportButton" Content="导 入 题 库" Width="100" Height="35"
+                    Background="#1C27B0" Foreground="White" FontSize="16" Margin="0,0,10,0"
                     Click="Import_Click"/>
-            <Button x:Name="ExportButton" Content="导出题库" Width="100" Height="35"
-                    Background="#9C27B0" Foreground="White" Margin="0,0,10,0"
+            <Button x:Name="ExportButton" Content="导 出 题 库" Width="100" Height="35"
+                    Background="#1C27B0" Foreground="White" FontSize="16" Margin="0,0,10,0"
                     Click="Export_Click"/>
             <!-- 选择操作 -->
             <CheckBox x:Name="SelectAllCheckBox" Content="全选" Margin="0,0,10,0" 
-          VerticalAlignment="Center" Checked="SelectAll_Checked" 
-          Unchecked="SelectAll_Unchecked" Indeterminate="SelectAll_Indeterminate"/>
+                      VerticalAlignment="Center" Checked="SelectAll_Checked" 
+                      Unchecked="SelectAll_Unchecked" Indeterminate="SelectAll_Indeterminate"/>
             <TextBlock x:Name="SelectedCountText" Text="已选择: 0 题" VerticalAlignment="Center" 
            Margin="0,0,15,0" Foreground="#666"/>
 
@@ -50,17 +56,14 @@
                      Margin="0,0,10,0" VerticalContentAlignment="Center"
                      TextChanged="SearchTextBox_TextChanged"
                      ToolTip="搜索题目..."/>
-            <Button x:Name="RefreshButton" Content="刷新" Width="80" Height="35"
-                    Background="#607D8B" Foreground="White"
-                    Click="Refresh_Click"/>
 
-            <Separator Margin="10,0"/>
+            <Separator Margin="6,0"/>
 
-            <Button x:Name="CloseButton" Content="关闭" Width="80" Height="35"
-                    Background="#F57575" Foreground="White" HorizontalAlignment="Right"
+            <Button x:Name="CloseButton" Content="关     闭" Width="90" Height="35"
+                    Background="#F17575" Foreground="White" FontSize="16" HorizontalAlignment="Right"
                     Click="Close_Click"/>
 
-            <Separator Margin="10,0"/>
+            <Separator Margin="5,0"/>
         </StackPanel>
 
         <!-- 主要内容区域 -->
@@ -76,7 +79,7 @@
                     <TextBlock Text="题目类型：" FontWeight="Bold" Margin="5"/>
                     <ComboBox x:Name="TypeFilterComboBox" Margin="5" SelectionChanged="Filter_Changed"/>
 
-                    <TextBlock Text="题目分类：" FontWeight="Bold" Margin="5,10,5,5"/>
+                    <TextBlock Text="内容分类：" FontWeight="Bold" Margin="5,10,5,5"/>
                     <ComboBox x:Name="CategoryFilterComboBox" Margin="5" SelectionChanged="Filter_Changed"/>
 
                     <TextBlock Text="难度等级：" FontWeight="Bold" Margin="5,10,5,5"/>
@@ -104,7 +107,8 @@
                       GridLinesVisibility="Horizontal"
                       AlternatingRowBackground="#F5F5F5"
                       MouseDoubleClick="QuestionsDataGrid_MouseDoubleClick"
-                      BeginningEdit="QuestionsDataGrid_BeginningEdit">
+                      BeginningEdit="QuestionsDataGrid_BeginningEdit"
+                      SelectionChanged="QuestionsDataGrid_SelectionChanged">
                 <DataGrid.Columns>
                     <!-- 复选框列 -->
                     <DataGridTemplateColumn Header="选择" Width="50">

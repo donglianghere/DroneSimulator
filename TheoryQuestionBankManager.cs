@@ -1,6 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.IO;
 using System.Text;
-using System.IO;
+using System.Text.Json;
 
 namespace DroneSimulator
 {
@@ -393,15 +393,125 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 批量删除结果
+        /// 检测重复题目（基于题目陈述）
         /// </summary>
-        public class BatchDeleteResult
+        /// <returns>重复题目检测结果</returns>
+        public static DuplicateDetectionResult DetectDuplicateQuestions()
         {
-            public bool Success { get; set; }
-            public string Message { get; set; } = "";
-            public int SuccessCount { get; set; }
-            public int FailCount { get; set; }
-            public List<string> Errors { get; set; } = new();
+            lock (_lockObject)
+            {
+                try
+                {
+                    if (!_cacheLoaded) LoadQuestions();
+
+                    var result = new DuplicateDetectionResult();
+                    var duplicateGroups = new List<List<TheoryQuestion>>();
+
+                    // 按题目陈述分组，找出重复的题目
+                    var groupedByStatement = _questionCache
+                        .Where(q => !string.IsNullOrWhiteSpace(q.QuestionStatement))
+                        .GroupBy(q => q.QuestionStatement.Trim(), StringComparer.OrdinalIgnoreCase)
+                        .Where(g => g.Count() > 1) // 只取有重复的组
+                        .ToList();
+
+                    foreach (var group in groupedByStatement)
+                    {
+                        var duplicateList = group.OrderBy(q => q.CreatedTime).ToList();
+                        duplicateGroups.Add(duplicateList);
+
+                        // 统计重复信息
+                        result.DuplicateGroups.Add(new DuplicateGroup
+                        {
+                            QuestionStatement = group.Key,
+                            DuplicateQuestions = duplicateList,
+                            Count = duplicateList.Count
+                        });
+                    }
+
+                    result.TotalDuplicateGroups = duplicateGroups.Count;
+                    result.TotalDuplicateQuestions = duplicateGroups.Sum(g => g.Count);
+                    result.QuestionsToKeep = duplicateGroups.Count; // 每组保留1个
+                    result.QuestionsToDelete = result.TotalDuplicateQuestions - result.QuestionsToKeep;
+
+                    result.Success = true;
+                    result.Message = result.TotalDuplicateGroups > 0
+                        ? $"检测到 {result.TotalDuplicateGroups} 组重复题目，共 {result.TotalDuplicateQuestions} 道题目"
+                        : "未发现重复题目";
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"检测重复题目失败: {ex.Message}");
+                    return new DuplicateDetectionResult
+                    {
+                        Success = false,
+                        Message = $"检测重复题目失败：{ex.Message}"
+                    };
+                }
+            }
+        }
+
+        /// <summary>
+        /// 删除重复题目（保留每组中最早创建的题目）
+        /// </summary>
+        /// <param name="duplicateGroups">重复题目分组</param>
+        /// <returns>删除结果</returns>
+        public static BatchDeleteResult DeleteDuplicateQuestions(List<DuplicateGroup> duplicateGroups)
+        {
+            lock (_lockObject)
+            {
+                try
+                {
+                    if (!_cacheLoaded) LoadQuestions();
+
+                    var questionsToDelete = new List<string>();
+
+                    // 对每个重复组，保留最早创建的题目，删除其他的
+                    foreach (var group in duplicateGroups)
+                    {
+                        var sortedQuestions = group.DuplicateQuestions
+                            .OrderBy(q => q.CreatedTime)
+                            .ThenBy(q => q.Id)
+                            .ToList();
+
+                        // 跳过第一个（最早的），删除其余的
+                        for (int i = 1; i < sortedQuestions.Count; i++)
+                        {
+                            questionsToDelete.Add(sortedQuestions[i].Id);
+                        }
+                    }
+
+                    if (questionsToDelete.Any())
+                    {
+                        // 创建备份
+                        CreateBackup($"before_delete_duplicates_{questionsToDelete.Count}_questions");
+
+                        // 使用现有的批量删除方法
+                        return BatchDeleteQuestions(questionsToDelete);
+                    }
+                    else
+                    {
+                        return new BatchDeleteResult
+                        {
+                            Success = true,
+                            Message = "没有找到需要删除的重复题目",
+                            SuccessCount = 0,
+                            FailCount = 0
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"删除重复题目失败: {ex.Message}");
+                    return new BatchDeleteResult
+                    {
+                        Success = false,
+                        Message = $"删除重复题目失败：{ex.Message}",
+                        FailCount = 0
+                    };
+                }
+            }
         }
 
         /// <summary>
@@ -675,6 +785,18 @@ namespace DroneSimulator
                 LoadQuestions();
             }
         }
+
+        /// <summary>
+        /// 批量删除结果
+        /// </summary>
+        public class BatchDeleteResult
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = "";
+            public int SuccessCount { get; set; }
+            public int FailCount { get; set; }
+            public List<string> Errors { get; set; } = new();
+        }
     }
 
     /// <summary>
@@ -684,5 +806,29 @@ namespace DroneSimulator
     {
         public TheoryBankException(string message) : base(message) { }
         public TheoryBankException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    /// <summary>
+    /// 重复题目检测结果
+    /// </summary>
+    public class DuplicateDetectionResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+        public int TotalDuplicateGroups { get; set; }
+        public int TotalDuplicateQuestions { get; set; }
+        public int QuestionsToKeep { get; set; }
+        public int QuestionsToDelete { get; set; }
+        public List<DuplicateGroup> DuplicateGroups { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 重复题目分组
+    /// </summary>
+    public class DuplicateGroup
+    {
+        public string QuestionStatement { get; set; } = "";
+        public List<TheoryQuestion> DuplicateQuestions { get; set; } = new();
+        public int Count { get; set; }
     }
 }

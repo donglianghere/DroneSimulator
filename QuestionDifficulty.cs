@@ -23,7 +23,7 @@ namespace DroneSimulator
     }
 
     /// <summary>
-    /// 题目分类
+    /// 内容分类
     /// </summary>
     public enum TheoryQuestionCategory
     {

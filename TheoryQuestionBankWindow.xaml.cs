@@ -247,72 +247,86 @@ namespace DroneSimulator
         #region 批量选择和删除功能
 
         /// <summary>
-        /// 更新选择状态和按钮状态
+        /// 更新选择状态和按钮状态（修改编辑按钮逻辑，增强鼠标多选显示）
         /// </summary>
         private void UpdateSelectionStatus()
         {
             try
             {
-                var selectedQuestions = filteredQuestions.Where(q => q.IsSelected).ToList();
-                int selectedCount = selectedQuestions.Count;
+                var checkboxSelected = filteredQuestions.Where(q => q.IsSelected).ToList();
+                var dataGridSelected = QuestionsDataGrid?.SelectedItems?.Cast<TheoryQuestion>().ToList() ?? new List<TheoryQuestion>();
+
+                int checkboxCount = checkboxSelected.Count;
+                int dataGridCount = dataGridSelected.Count;
                 int totalCount = filteredQuestions.Count;
 
-                // 更新选择计数显示
+                // 更新选择计数显示（显示两种选择方式）
                 if (SelectedCountText != null)
                 {
-                    SelectedCountText.Text = $"已选择: {selectedCount} 题";
-                }
-
-                // 更新编辑按钮状态和提示
-                if (EditQuestionButton != null)
-                {
-                    if (selectedCount == 1)
+                    if (checkboxCount > 0 && dataGridCount > 0)
                     {
-                        EditQuestionButton.IsEnabled = true;
-                        EditQuestionButton.ToolTip = "编辑选中的题目";
+                        SelectedCountText.Text = $"已选择: 🔘{checkboxCount} 🖱️{dataGridCount} 题";
                     }
-                    else if (selectedCount > 1)
+                    else if (checkboxCount > 0)
                     {
-                        EditQuestionButton.IsEnabled = true;
-                        EditQuestionButton.ToolTip = "只能编辑一个题目，将编辑第一个选中的题目";
+                        SelectedCountText.Text = $"已选择: 🔘{checkboxCount} 题";
+                    }
+                    else if (dataGridCount > 0)
+                    {
+                        SelectedCountText.Text = $"已选择: 🖱️{dataGridCount} 题";
                     }
                     else
                     {
-                        EditQuestionButton.IsEnabled = true;
-                        EditQuestionButton.ToolTip = "编辑当前行选中的题目";
+                        SelectedCountText.Text = "已选择: 0 题";
                     }
                 }
 
-                // 更新删除按钮状态和提示（合并了批量删除功能）
+                // 更新编辑按钮状态（保持原逻辑）
+                if (EditQuestionButton != null)
+                {
+                    EditQuestionButton.IsEnabled = true;
+                    EditQuestionButton.ToolTip = "编辑当前鼠标选中行的题目";
+                }
+
+                // 更新删除按钮状态（增强多选显示）
                 if (DeleteQuestionButton != null)
                 {
-                    DeleteQuestionButton.IsEnabled = true; // 始终启用，让按钮内部逻辑处理
+                    DeleteQuestionButton.IsEnabled = true;
 
-                    if (selectedCount == 0)
+                    int totalSelected = Math.Max(checkboxCount, dataGridCount);
+
+                    if (totalSelected == 0)
                     {
                         DeleteQuestionButton.Content = "删除题目";
-                        DeleteQuestionButton.ToolTip = "删除当前行选中的题目";
+                        DeleteQuestionButton.ToolTip = "支持鼠标多选删除：Ctrl+点击多选，Shift+点击范围选择";
                     }
-                    else if (selectedCount == 1)
+                    else if (totalSelected == 1)
                     {
                         DeleteQuestionButton.Content = "删除题目";
                         DeleteQuestionButton.ToolTip = "删除选中的题目";
                     }
                     else
                     {
-                        DeleteQuestionButton.Content = $"删除 {selectedCount} 题";
-                        DeleteQuestionButton.ToolTip = $"批量删除选中的 {selectedCount} 道题目";
+                        DeleteQuestionButton.Content = $"删除 {totalSelected} 题";
+                        if (checkboxCount > 0 && dataGridCount > 0)
+                        {
+                            DeleteQuestionButton.ToolTip = $"复选框选中{checkboxCount}题，鼠标选中{dataGridCount}题";
+                        }
+                        else
+                        {
+                            DeleteQuestionButton.ToolTip = $"批量删除选中的 {totalSelected} 道题目";
+                        }
                     }
                 }
 
                 // 更新全选复选框状态
                 if (SelectAllCheckBox != null)
                 {
-                    if (selectedCount == 0)
+                    if (checkboxCount == 0)
                     {
                         SelectAllCheckBox.IsChecked = false;
                     }
-                    else if (selectedCount == totalCount)
+                    else if (checkboxCount == totalCount)
                     {
                         SelectAllCheckBox.IsChecked = true;
                     }
@@ -325,6 +339,22 @@ namespace DroneSimulator
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"更新选择状态失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// DataGrid选择变化事件（新增）
+        /// </summary>
+        private void QuestionsDataGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                // 当DataGrid选择变化时更新按钮状态
+                UpdateSelectionStatus();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DataGrid选择变化处理失败：{ex.Message}");
             }
         }
 
@@ -390,42 +420,86 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 智能删除题目按钮点击事件（合并了批量删除功能）
+        /// 智能删除题目按钮点击事件（合并了批量删除功能，增强鼠标多选支持）
         /// </summary>
         private void DeleteQuestion_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // 首先检查是否有复选框选中的题目
-                var selectedQuestions = filteredQuestions.Where(q => q.IsSelected).ToList();
+                var questionsToDelete = new List<TheoryQuestion>();
 
-                if (selectedQuestions.Any())
+                // 1. 首先检查DataGrid的鼠标多选
+                if (QuestionsDataGrid?.SelectedItems != null && QuestionsDataGrid.SelectedItems.Count > 0)
                 {
-                    // 如果有复选框选中的题目，删除选中的题目
-                    if (selectedQuestions.Count == 1)
+                    // 获取DataGrid中鼠标选中的题目
+                    var dataGridSelected = QuestionsDataGrid.SelectedItems.Cast<TheoryQuestion>().ToList();
+
+                    // 2. 检查是否有复选框选中的题目
+                    var checkboxSelected = filteredQuestions.Where(q => q.IsSelected).ToList();
+
+                    if (checkboxSelected.Any())
                     {
-                        // 单个题目删除
-                        DeleteSingleQuestion(selectedQuestions.First());
+                        // 如果有复选框选中，询问用户希望删除哪些
+                        var dialogResult = MessageBox.Show(
+                            $"检测到两种选择方式：\n\n" +
+                            $"🔘 复选框选中：{checkboxSelected.Count} 道题目\n" +
+                            $"🖱️ 鼠标选中：{dataGridSelected.Count} 道题目\n\n" +
+                            $"选择'是'：删除复选框选中的题目\n" +
+                            $"选择'否'：删除鼠标选中的题目\n" +
+                            $"选择'取消'：不删除任何题目",
+                            "选择删除方式",
+                            MessageBoxButton.YesNoCancel,
+                            MessageBoxImage.Question);
+
+                        switch (dialogResult)
+                        {
+                            case MessageBoxResult.Yes:
+                                questionsToDelete = checkboxSelected;
+                                break;
+                            case MessageBoxResult.No:
+                                questionsToDelete = dataGridSelected;
+                                break;
+                            case MessageBoxResult.Cancel:
+                            default:
+                                return;
+                        }
                     }
                     else
                     {
-                        // 多个题目批量删除
-                        DeleteMultipleQuestions(selectedQuestions);
+                        // 如果没有复选框选中，直接使用鼠标选中的题目
+                        questionsToDelete = dataGridSelected;
                     }
                 }
                 else
                 {
-                    // 如果没有复选框选中的题目，使用DataGrid当前选中的行
-                    if (QuestionsDataGrid?.SelectedItem is TheoryQuestion selectedQuestion)
+                    // 3. 如果DataGrid没有选中项，检查复选框选中的题目
+                    var checkboxSelected = filteredQuestions.Where(q => q.IsSelected).ToList();
+                    if (checkboxSelected.Any())
                     {
-                        DeleteSingleQuestion(selectedQuestion);
+                        questionsToDelete = checkboxSelected;
                     }
                     else
                     {
-                        MessageBox.Show("请先选择要删除的题目！\n\n您可以：\n1. 勾选题目前的复选框\n2. 或者点击题目行进行选择",
+                        MessageBox.Show(
+                            "请先选择要删除的题目！\n\n" +
+                            "您可以：\n" +
+                            "🔘 勾选题目前的复选框\n" +
+                            "🖱️ 点击题目行进行单选\n" +
+                            "🖱️ Ctrl+点击进行多选\n" +
+                            "🖱️ Shift+点击进行范围选择",
                             "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                         return;
                     }
+                }
+
+                // 4. 执行删除操作
+                if (questionsToDelete.Count == 1)
+                {
+                    DeleteSingleQuestion(questionsToDelete.First());
+                }
+                else if (questionsToDelete.Count > 1)
+                {
+                    DeleteMultipleQuestions(questionsToDelete);
                 }
             }
             catch (Exception ex)
@@ -514,6 +588,145 @@ namespace DroneSimulator
                 StatusTextBlock.Text = $"批量删除完成：成功 {deleteResult.SuccessCount} 题，失败 {deleteResult.FailCount} 题";
             }
         }
+
+        /// <summary>
+        /// 删除重复题目按钮点击事件
+        /// </summary>
+        private void DeleteDuplicates_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                StatusTextBlock.Text = "正在检测重复题目...";
+
+                // 1. 检测重复题目
+                var detectionResult = TheoryQuestionBankManager.DetectDuplicateQuestions();
+
+                if (!detectionResult.Success)
+                {
+                    MessageBox.Show($"检测重复题目时出错：{detectionResult.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    StatusTextBlock.Text = "检测重复题目失败";
+                    return;
+                }
+
+                if (detectionResult.TotalDuplicateGroups == 0)
+                {
+                    MessageBox.Show("未发现重复题目！\n\n题库中所有题目的陈述都是唯一的。", "检测结果",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    StatusTextBlock.Text = "未发现重复题目";
+                    return;
+                }
+
+                // 2. 显示检测结果并确认删除
+                var confirmMessage = BuildDuplicateConfirmMessage(detectionResult);
+
+                var result = MessageBox.Show(confirmMessage, "确认删除重复题目",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    StatusTextBlock.Text = "取消删除重复题目";
+                    return;
+                }
+
+                // 3. 执行删除
+                StatusTextBlock.Text = $"正在删除 {detectionResult.QuestionsToDelete} 道重复题目...";
+
+                var deleteResult = TheoryQuestionBankManager.DeleteDuplicateQuestions(detectionResult.DuplicateGroups);
+
+                // 4. 显示删除结果
+                if (deleteResult.Success)
+                {
+                    var successMessage = $"重复题目删除完成！\n\n" +
+                                        $"成功删除：{deleteResult.SuccessCount} 道题目\n" +
+                                        $"保留：{detectionResult.QuestionsToKeep} 道题目\n" +
+                                        $"删除失败：{deleteResult.FailCount} 道题目";
+
+                    if (deleteResult.Errors.Any())
+                    {
+                        successMessage += $"\n\n错误详情：\n{string.Join("\n", deleteResult.Errors.Take(3))}";
+                        if (deleteResult.Errors.Count > 3)
+                        {
+                            successMessage += $"\n... 还有 {deleteResult.Errors.Count - 3} 个错误";
+                        }
+                    }
+
+                    MessageBox.Show(successMessage, "删除完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    // 刷新数据
+                    LoadQuestions();
+                    StatusTextBlock.Text = $"重复题目删除完成：删除 {deleteResult.SuccessCount} 题";
+                }
+                else
+                {
+                    MessageBox.Show($"删除重复题目失败：{deleteResult.Message}", "删除失败",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    StatusTextBlock.Text = "删除重复题目失败";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"删除重复题目时发生错误：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                StatusTextBlock.Text = "删除重复题目出错";
+            }
+        }
+
+        /// <summary>
+        /// 构建重复题目确认删除的消息
+        /// </summary>
+        private string BuildDuplicateConfirmMessage(DuplicateDetectionResult result)
+        {
+            var message = new StringBuilder();
+            message.AppendLine($"检测到 {result.TotalDuplicateGroups} 组重复题目，共 {result.TotalDuplicateQuestions} 道题目。");
+            message.AppendLine();
+            message.AppendLine($"将要删除：{result.QuestionsToDelete} 道重复题目");
+            message.AppendLine($"将要保留：{result.QuestionsToKeep} 道题目（每组保留最早创建的）");
+            message.AppendLine();
+            message.AppendLine("重复题目详情：");
+
+            // 显示前5组重复题目的详情
+            var groupsToShow = result.DuplicateGroups.Take(5).ToList();
+            for (int i = 0; i < groupsToShow.Count; i++)
+            {
+                var group = groupsToShow[i];
+                var questionPreview = group.QuestionStatement.Length > 40
+                    ? group.QuestionStatement.Substring(0, 40) + "..."
+                    : group.QuestionStatement;
+
+                message.AppendLine($"{i + 1}. 「{questionPreview}」 ({group.Count} 道重复)");
+
+                // 显示将要保留和删除的题目ID
+                var sorted = group.DuplicateQuestions.OrderBy(q => q.CreatedTime).ThenBy(q => q.Id).ToList();
+                message.AppendLine($"   保留：ID {sorted[0].Id} (创建于 {sorted[0].CreatedTime:yyyy-MM-dd})");
+
+                if (sorted.Count > 1)
+                {
+                    var toDelete = sorted.Skip(1).Take(3).ToList();
+                    var deleteIds = string.Join(", ", toDelete.Select(q => q.Id));
+                    message.AppendLine($"   删除：ID {deleteIds}");
+                    if (sorted.Count > 4)
+                    {
+                        message.AppendLine($"   ...还有 {sorted.Count - 4} 道");
+                    }
+                }
+                message.AppendLine();
+            }
+
+            if (result.DuplicateGroups.Count > 5)
+            {
+                message.AppendLine($"... 还有 {result.DuplicateGroups.Count - 5} 组重复题目");
+                message.AppendLine();
+            }
+
+            message.AppendLine("此操作将永久删除重复题目，无法撤销！");
+            message.AppendLine();
+            message.AppendLine("确定要继续删除重复题目吗？");
+
+            return message.ToString();
+        }
+
         #endregion
 
         private void AddQuestion_Click(object sender, RoutedEventArgs e)
@@ -545,59 +758,16 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 编辑题目按钮点击事件（支持复选框选择）
+        /// 编辑题目按钮点击事件（仅基于鼠标选择）
         /// </summary>
         private void EditQuestion_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                TheoryQuestion questionToEdit = null;
-
-                // 首先检查是否有复选框选中的题目
-                var selectedQuestions = filteredQuestions.Where(q => q.IsSelected).ToList();
-
-                if (selectedQuestions.Count == 1)
+                // 直接使用DataGrid当前选中的行，不考虑复选框状态
+                if (QuestionsDataGrid?.SelectedItem is TheoryQuestion selectedQuestion)
                 {
-                    // 如果只选中了一个题目，编辑该题目
-                    questionToEdit = selectedQuestions.First();
-                }
-                else if (selectedQuestions.Count > 1)
-                {
-                    // 如果选中了多个题目，提示用户并编辑第一个
-                    var result = MessageBox.Show(
-                        $"您选中了 {selectedQuestions.Count} 道题目，但只能编辑一道题目。\n\n" +
-                        $"是否编辑第一个选中的题目：\n\"{selectedQuestions.First().QuestionStatement.Substring(0, Math.Min(50, selectedQuestions.First().QuestionStatement.Length))}...\"？",
-                        "多个题目选中",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        questionToEdit = selectedQuestions.First();
-                    }
-                    else
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    // 如果没有复选框选中的题目，使用DataGrid当前选中的行
-                    if (QuestionsDataGrid?.SelectedItem is TheoryQuestion selectedQuestion)
-                    {
-                        questionToEdit = selectedQuestion;
-                    }
-                    else
-                    {
-                        MessageBox.Show("请先选择要编辑的题目！\n\n您可以：\n1. 勾选题目前的复选框\n2. 或者点击题目行进行选择",
-                            "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                        return;
-                    }
-                }
-
-                if (questionToEdit != null)
-                {
-                    var dialog = new TheoryQuestionEditWindow(questionToEdit, currentTeacher);
+                    var dialog = new TheoryQuestionEditWindow(selectedQuestion, currentTeacher);
                     if (dialog.ShowDialog() == true && dialog.Question != null)
                     {
                         if (TheoryQuestionBankManager.SaveQuestion(dialog.Question))
@@ -613,6 +783,11 @@ namespace DroneSimulator
                             MessageBox.Show("保存题目失败！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                         }
                     }
+                }
+                else
+                {
+                    MessageBox.Show("请先点击选择要编辑的题目行！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
@@ -1436,20 +1611,7 @@ namespace DroneSimulator
             }
         }
 
-        private void Refresh_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                TheoryQuestionBankManager.ReloadQuestions();
-                LoadQuestions();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"刷新题库时发生错误：{ex.Message}", "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
+        
         /// <summary>
         /// DataGrid 鼠标双击事件 - 限制只能编辑题目
         /// </summary>
