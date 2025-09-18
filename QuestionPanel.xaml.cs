@@ -125,6 +125,16 @@ namespace DroneSimulator
         private const string EXAMS_DIRECTORY = "Exams";
         private const string ACTIVE_EXAM_FILE = "active_exam.txt";
 
+        // === 核心字段：仅管理当前选中的题目 ===
+        private List<TheoryQuestion> selectedTheoryQuestions = new();
+        private List<CircuitQuestion> selectedCircuitQuestions = new();
+        private List<FCQuestion> selectedFCQuestions = new();
+
+        // === 题库管理器的引用（仅用于获取题目，不负责管理） ===
+        private readonly ITheoryQuestionProvider theoryProvider;
+        private readonly ICircuitQuestionProvider circuitProvider;
+        private readonly IFCQuestionProvider fcProvider;
+
         // 添加试卷列表数据
         private ObservableCollection<ExamListItem> examItems = new();
         private ExamListItem? selectedExamItem;
@@ -134,7 +144,6 @@ namespace DroneSimulator
 
         // 理论题库相关字段
         private List<TheoryQuestion> theoryQuestions = new List<TheoryQuestion>();
-        private List<TheoryQuestion> selectedTheoryQuestions = new List<TheoryQuestion>();
         private List<TheoryQuestion> currentDisplayedQuestions = new List<TheoryQuestion>();
 
 
@@ -142,6 +151,11 @@ namespace DroneSimulator
         {
             InitializeComponent();
             currentTeacher = teacher;
+
+            // 初始化题目提供者（暂时使用简单实现）
+            theoryProvider = new SimpleTheoryQuestionProvider();
+            circuitProvider = new SimpleCircuitQuestionProvider();
+            fcProvider = new SimpleFCQuestionProvider();
 
             // 初始化理论题库
             InitializeTheoryQuestionBank();
@@ -166,10 +180,10 @@ namespace DroneSimulator
                 // 延迟执行，确保所有控件都已完全加载
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    // 由于SelectAllRadio默认选中，手动触发全选逻辑
-                    if (SelectAllRadio.IsChecked == true)
+                    // 由于CircuitSelectAllRadio默认选中，手动触发全选逻辑
+                    if (CircuitSelectAllRadio.IsChecked == true)
                     {
-                        SelectAllRadio_Checked(SelectAllRadio, new RoutedEventArgs());
+                        CircuitSelectAllRadio_Checked(CircuitSelectAllRadio, new RoutedEventArgs());
                     }
 
                     UpdateCategoryStats(); // 验证分类统计
@@ -179,6 +193,101 @@ namespace DroneSimulator
                     LoadTheoryQuestions();
                 }), DispatcherPriority.Loaded);
             };
+        }
+
+        // 添加简单的接口实现类
+        private class SimpleTheoryQuestionProvider : ITheoryQuestionProvider
+        {
+            public List<TheoryQuestion> GetAvailableQuestions()
+            {
+                return TheoryQuestionBankManager.GetAllQuestions();
+            }
+
+            public void RefreshQuestions()
+            {
+                TheoryQuestionBankManager.ReloadQuestions();
+            }
+        }
+
+        private class SimpleCircuitQuestionProvider : ICircuitQuestionProvider
+        {
+            public List<CircuitQuestion> GetAvailableQuestions()
+            {
+                // 暂时返回空列表，后续可以实现具体逻辑
+                return new List<CircuitQuestion>();
+            }
+
+            public void RefreshQuestions()
+            {
+                // 暂时空实现
+            }
+        }
+
+        private class SimpleFCQuestionProvider : IFCQuestionProvider
+        {
+            public List<FCQuestion> GetAvailableQuestions()
+            {
+                // 暂时返回空列表，后续可以实现具体逻辑
+                return new List<FCQuestion>();
+            }
+
+            public void RefreshQuestions()
+            {
+                // 暂时空实现
+            }
+        }
+
+        // 添加收集各类题目的方法
+        private List<TheoryQuestion> CollectSelectedTheoryQuestions()
+        {
+            return selectedTheoryQuestions ?? new List<TheoryQuestion>();
+        }
+
+        private List<CircuitQuestion> CollectSelectedCircuitQuestions()
+        {
+            var circuitQuestions = new List<CircuitQuestion>();
+            foreach (var checkbox in FindAllCheckBoxes())
+            {
+                if (checkbox.IsChecked == true)
+                {
+                    circuitQuestions.Add(new CircuitQuestion(checkbox));
+                }
+            }
+            return circuitQuestions;
+        }
+
+        private List<FCQuestion> CollectSelectedFCQuestions()
+        {
+            return selectedFCQuestions ?? new List<FCQuestion>();
+        }
+
+        private void RefreshTheoryQuestionSelection()
+        {
+            // 刷新理论题目选择界面的逻辑
+            LoadTheoryQuestions();
+        }
+
+        private void RefreshFCQuestionSelection()
+        {
+            // 刷新飞控题目选择界面的逻辑
+            // 暂时空实现，后续可以添加具体逻辑
+        }
+
+        private void ShowExamCreationSummary(MixedExamData examData)
+        {
+            var message = $"试卷生成成功！\n\n" +
+                          $"试卷名称：{examData.ExamName}\n" +
+                          $"理论题目：{examData.TheoryQuestions.Count} 题\n" +
+                          $"电路题目：{examData.CircuitQuestions.Count} 题\n" +
+                          $"飞控题目：{examData.Content?.FCQuestions?.Count ?? 0} 题\n" +
+                          $"总题目数：{examData.TotalQuestions} 题";
+
+            MessageBox.Show(message, "试卷生成完成", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void ClearExamNameInput()
+        {
+            ExamNameBox.Text = "";
         }
 
         private void UpdateWindowTitle()
@@ -903,6 +1012,9 @@ namespace DroneSimulator
                 theoryBankWindow.ShowDialog();
                 System.Diagnostics.Debug.WriteLine("窗口已关闭");
 
+                // 刷新理论题目选择界面
+                RefreshTheoryQuestionSelection();
+
                 // 关闭题库管理窗口后重新加载题目
                 LoadTheoryQuestions();
                 System.Diagnostics.Debug.WriteLine("=== 理论题库管理窗口操作完成 ===");
@@ -922,6 +1034,26 @@ namespace DroneSimulator
             }
         }
 
+
+        // 新增：飞控题库管理入口
+        // 添加缺少的 FCQuestionBankWindow 类引用，暂时使用简单实现
+        private void ManageFCBank_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 暂时显示提示，因为 FCQuestionBankWindow 还未实现
+                MessageBox.Show("飞控题库管理功能正在开发中，敬请期待！", "功能提示",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+
+                // 刷新飞控题目选择界面
+                RefreshFCQuestionSelection();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"打开飞控题库管理失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         #endregion
 
         /// <summary>
@@ -1333,7 +1465,7 @@ namespace DroneSimulator
             }
         }
 
-        private void SelectAllRadio_Checked(object sender, RoutedEventArgs e)
+        private void CircuitSelectAllRadio_Checked(object sender, RoutedEventArgs e)
         {
             // 确保仅在 RadioButton 真正被选中时执行
             if (sender is RadioButton rb && rb.IsChecked == true)
@@ -1352,7 +1484,7 @@ namespace DroneSimulator
             }
         }
 
-        private void ClearAllRadio_Checked(object sender, RoutedEventArgs e)
+        private void CircuitClearAllRadio_Checked(object sender, RoutedEventArgs e)
         {
             // 确保仅在 RadioButton 真正被选中时执行
             if (sender is RadioButton rb && rb.IsChecked == true)
@@ -1374,12 +1506,12 @@ namespace DroneSimulator
         /// <summary>
         /// 随机题目数量下拉列表选择变化事件处理
         /// </summary>
-        private void RandomCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void CircuitRandomCountComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             try
             {
                 // 检查 RandomRadio 是否处于选中状态
-                if (RandomRadio?.IsChecked == true)
+                if (CircuitRandomRadio?.IsChecked == true)
                 {
                     // 如果随机选项被选中，则执行随机选题（不显示结果对话框）
                     ExecuteRandomSelection(showResult: false);
@@ -1387,7 +1519,7 @@ namespace DroneSimulator
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"RandomCountComboBox 选择变化处理失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"CircuitRandomCountComboBox 选择变化处理失败: {ex.Message}");
 
                 // 可选：显示错误提示给用户
                 MessageBox.Show($"更新随机选择时发生错误：{ex.Message}", "错误",
@@ -1398,7 +1530,7 @@ namespace DroneSimulator
         /// <summary>
         /// 随机选择事件处理方法
         /// </summary>
-        private void RandomRadio_Checked(object sender, RoutedEventArgs e)
+        private void CircuitRandomRadio_Checked(object sender, RoutedEventArgs e)
         {
             // 确保仅在 RadioButton 真正被选中时执行
             if (sender is RadioButton rb && rb.IsChecked == true)
@@ -1493,7 +1625,7 @@ namespace DroneSimulator
         {
             try
             {
-                if (RandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
+                if (CircuitRandomCountComboBox?.SelectedItem is ComboBoxItem selectedItem)
                 {
                     if (int.TryParse(selectedItem.Content?.ToString(), out int count))
                     {
@@ -1746,6 +1878,7 @@ namespace DroneSimulator
         }
 
         // 在 GenerateButton_Click 方法中添加理论题目支持
+        // === 专注于试卷管理的方法 ===
         private void GenerateButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(ExamNameBox.Text))
@@ -1754,49 +1887,32 @@ namespace DroneSimulator
                 return;
             }
 
-            // 获取电路实测题目
-            var allQuestions = GetAllQuestions();
-            var selectedQuestions = allQuestions.FindAll(q => q.IsChecked);
+            // 收集当前界面选中的题目
+            var examContent = CollectSelectedQuestions();
 
-            // 检查是否选择了理论题目
-            bool hasTheoryQuestions = selectedTheoryQuestions?.Any() == true;
-            bool hasCircuitQuestions = selectedQuestions.Any();
-
-            if (!hasTheoryQuestions && !hasCircuitQuestions)
+            if (!examContent.HasAnyQuestions)
             {
-                MessageBox.Show("请至少选择一道题目（电路实测或理论题目）！", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("请至少选择一道题目！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // 创建混合试卷数据
+            // 生成试卷
             var examData = new MixedExamData
             {
                 ExamName = ExamNameBox.Text,
                 TeacherName = currentTeacher.Name,
                 TeacherId = currentTeacher.IdNumber,
                 CreationTime = DateTime.Now,
-                CircuitQuestions = selectedQuestions,
-                TheoryQuestions = selectedTheoryQuestions ?? new List<TheoryQuestion>()
+                Content = examContent
             };
 
             try
             {
-                SaveMixedExam(examData);
+                ExamFileManager.SaveExam(examData);
                 LoadExistingExams();
 
-                ExamNameBox.Text = "";
-                if (ExamNameStatusText != null)
-                {
-                    ExamNameStatusText.Text = "";
-                }
-
-                string examInfo = $"试卷生成成功！\n\n" +
-                                 $"电路实测题目：{selectedQuestions.Count} 题\n" +
-                                 $"理论题目：{selectedTheoryQuestions?.Count ?? 0} 题\n" +
-                                 $"总计：{selectedQuestions.Count + (selectedTheoryQuestions?.Count ?? 0)} 题";
-
-                MessageBox.Show(examInfo, "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                ShowExamCreationSummary(examData);
+                ClearExamNameInput();
             }
             catch (Exception ex)
             {
@@ -1804,6 +1920,15 @@ namespace DroneSimulator
             }
         }
 
+        private ExamContent CollectSelectedQuestions()
+        {
+            return new ExamContent
+            {
+                TheoryQuestions = CollectSelectedTheoryQuestions(),
+                CircuitQuestions = CollectSelectedCircuitQuestions(),
+                FCQuestions = CollectSelectedFCQuestions()
+            };
+        }
         /// <summary>
         /// 保存混合试卷
         /// </summary>
@@ -1818,7 +1943,14 @@ namespace DroneSimulator
                     TeacherName = examData.TeacherName,
                     TeacherId = examData.TeacherId,
                     CreationTime = examData.CreationTime,
-                    Questions = examData.CircuitQuestions
+                    // 🔧 修复：显式转换 CircuitQuestion 为 Question
+                    Questions = examData.CircuitQuestions.Select(cq => new Question
+                    {
+                        Name = cq.Name,
+                        Content = cq.Content,
+                        IsChecked = cq.IsChecked,
+                        CommandString = cq.CommandString
+                    }).ToList()
                 };
 
                 // 保存电路题目（保持现有格式）
@@ -1858,10 +1990,10 @@ namespace DroneSimulator
             // 延迟执行，确保所有控件都已完全加载
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // 由于SelectAllRadio默认选中，手动触发全选逻辑
-                if (SelectAllRadio.IsChecked == true)
+                // 由于CircuitSelectAllRadio默认选中，手动触发全选逻辑
+                if (CircuitSelectAllRadio.IsChecked == true)
                 {
-                    SelectAllRadio_Checked(SelectAllRadio, new RoutedEventArgs());
+                    CircuitSelectAllRadio_Checked(CircuitSelectAllRadio, new RoutedEventArgs());
                 }
 
                 UpdateCategoryStats(); // 验证分类统计

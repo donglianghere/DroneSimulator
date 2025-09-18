@@ -317,9 +317,9 @@
                          Checked="TheoryRandomRadio_Checked"/>
 
                         <ComboBox x:Name="TheoryRandomCountComboBox" Width="60" Height="25" 
-                      FontSize="16" VerticalAlignment="Center"
-                      ToolTip="选择随机生成的理论题目数量"
-                      SelectionChanged="TheoryRandomCountComboBox_SelectionChanged">
+                                  FontSize="16" VerticalAlignment="Center"
+                                  ToolTip="选择随机生成的理论题目数量"
+                                  SelectionChanged="TheoryRandomCountComboBox_SelectionChanged">
                             <ComboBoxItem Content="5" IsSelected="True"/>
                             <ComboBoxItem Content="10"/>
                             <ComboBoxItem Content="15"/>
@@ -362,19 +362,19 @@
                         <StackPanel Grid.Column="1" Orientation="Horizontal" 
                                     Margin="10,10,0,0" HorizontalAlignment="Right" 
                                     VerticalAlignment="Top">
-                            <RadioButton x:Name="SelectAllRadio" Content="全选  " Margin="0,0,10,0" 
-                                         GroupName="SelectGroup" Checked="SelectAllRadio_Checked" FontSize="16"/>
-                            <RadioButton x:Name="ClearAllRadio" Content="清空       "
-                                         GroupName="SelectGroup" Checked="ClearAllRadio_Checked" FontSize="16"/>
+                            <RadioButton x:Name="CircuitSelectAllRadio" Content="全选  " Margin="0,0,10,0" 
+                                         GroupName="SelectGroup" Checked="CircuitSelectAllRadio_Checked" FontSize="16"/>
+                            <RadioButton x:Name="CircuitClearAllRadio" Content="清空       "
+                                         GroupName="SelectGroup" Checked="CircuitClearAllRadio_Checked" FontSize="16"/>
                             <!-- 新增：随机选择功能 -->
-                            <RadioButton x:Name="RandomRadio" Content="随机  " Margin="0,0,10,0"
-                                        GroupName="SelectGroup" Checked="RandomRadio_Checked" FontSize="16"/>
+                            <RadioButton x:Name="CircuitRandomRadio" Content="随机  " Margin="0,0,10,0"
+                                        GroupName="SelectGroup" Checked="CircuitRandomRadio_Checked" FontSize="16"/>
 
                             <!-- 新增：随机题目数量下拉列表 -->
-                            <ComboBox x:Name="RandomCountComboBox" Width="60" Height="25" 
+                            <ComboBox x:Name="CircuitRandomCountComboBox" Width="60" Height="25" 
                                       FontSize="16" VerticalAlignment="Center"
                                       ToolTip="选择随机生成的题目数量"
-                                      SelectionChanged="RandomCountComboBox_SelectionChanged">
+                                      SelectionChanged="CircuitRandomCountComboBox_SelectionChanged">
                                 <!-- 1到50的选项 -->
                                 <ComboBoxItem Content="1"/>
                                 <ComboBoxItem Content="2"/>
@@ -663,7 +663,11 @@
                             </ComboBox>
 
                             <TextBlock Text="题" FontSize="16" VerticalAlignment="Top" 
-                           Margin="10,0,25,0" />
+                                       Margin="10,0,25,0" />
+
+                            <!-- 独立的题库管理入口 -->
+                            <Button Content="题库管理" Click="ManageFCBank_Click" 
+                                    Background="#9C27B0" Foreground="White"/>
                         </StackPanel>
                     </Grid>
 
