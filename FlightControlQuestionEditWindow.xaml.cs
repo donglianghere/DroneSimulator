@@ -394,7 +394,7 @@ namespace DroneSimulator
         #region 🚀 全新高性能参数测试功能
 
         /// <summary>
-        /// 🔧 修复版：稳定的参数测试 - 解决连接和读取问题
+        /// 🔧 修复版：稳定的参数测试 - 严格端口配置检查
         /// </summary>
         private async void TestParameter_Click(object sender, RoutedEventArgs e)
         {
@@ -407,6 +407,20 @@ namespace DroneSimulator
                     MessageBox.Show("请先输入参数名称！", "提示",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
+                }
+
+                // 🔧 预先检查A3飞控端口配置
+                try
+                {
+                    var configCheck = GetFlightControllerPortConfigs();
+                    if (!configCheck.Any())
+                    {
+                        return; // 配置检查失败，已显示错误消息
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    return; // 配置错误，已显示错误消息
                 }
 
                 // 禁用按钮并显示进度
@@ -618,7 +632,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 🔧 建立飞控连接 - 智能端口检测
+        /// 🔧 建立飞控连接 - 严格依赖端口配置
         /// </summary>
         private async Task<bool> EstablishFlightControllerConnection()
         {
@@ -647,10 +661,26 @@ namespace DroneSimulator
                     System.Diagnostics.Debug.WriteLine($"📊 飞控状态: {e.Type} - {e.Message}");
                 };
 
-                // 🔧 智能获取飞控端口配置
-                var portConfigs = GetFlightControllerPortConfigs();
+                // 🔧 严格获取飞控端口配置
+                List<(string Port, int BaudRate)> portConfigs;
 
-                System.Diagnostics.Debug.WriteLine($"🔍 尝试连接飞控，候选端口: {string.Join(", ", portConfigs.Select(p => $"{p.Port}@{p.BaudRate}"))}");
+                try
+                {
+                    portConfigs = GetFlightControllerPortConfigs();
+                }
+                catch (InvalidOperationException)
+                {
+                    // 配置错误，直接返回失败
+                    return false;
+                }
+
+                if (!portConfigs.Any())
+                {
+                    System.Diagnostics.Debug.WriteLine("❌ 没有可用的A3飞控端口配置");
+                    return false;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"🔍 尝试连接飞控，配置端口: {string.Join(", ", portConfigs.Select(p => $"{p.Port}@{p.BaudRate}"))}");
 
                 foreach (var config in portConfigs)
                 {
@@ -685,7 +715,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 🔧 获取飞控端口配置 - 使用系统串口管理器
+        /// 🔧 获取飞控端口配置 - 严格依赖系统串口管理器
         /// </summary>
         private List<(string Port, int BaudRate)> GetFlightControllerPortConfigs()
         {
@@ -695,39 +725,61 @@ namespace DroneSimulator
             {
                 System.Diagnostics.Debug.WriteLine("🔍 使用串口管理器获取A3飞控连接配置...");
 
-                // 🔧 方法1: 从串口管理器获取A3飞控连接端口配置
+                // 🔧 严格模式：仅从串口管理器获取A3飞控连接端口配置
                 var flightControllerConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.FlightController);
 
                 if (flightControllerConfig != null && flightControllerConfig.IsEnabled)
                 {
                     configs.Add((flightControllerConfig.PortName, flightControllerConfig.BaudRate));
                     System.Diagnostics.Debug.WriteLine($"✅ 找到配置的A3飞控端口: {flightControllerConfig.PortName} @ {flightControllerConfig.BaudRate}");
-                }                
+                }
+                else
+                {
+                    // 🚨 未配置A3飞控端口 - 直接退出并提示用户
+                    System.Diagnostics.Debug.WriteLine("❌ 未找到A3飞控端口配置");
+
+                    string errorMessage = "未配置A3飞控连接端口！\n\n" +
+                                         "参数测试功能需要配置A3飞控通信端口才能使用。\n\n" +
+                                         "解决方案：\n" +
+                                         "1. 联系系统管理员配置A3飞控端口\n" +
+                                         "2. 在系统管理中设置串口用途为'A3飞控连接'\n" +
+                                         "3. 确保飞控设备已正确连接到计算机\n\n" +
+                                         "配置完成后请重新打开此窗口。";
+
+                    // 在UI线程显示错误消息
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show(errorMessage, "A3飞控端口未配置",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+
+                    // 抛出异常以中断连接过程
+                    throw new InvalidOperationException("A3飞控端口未配置");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"📋 找到 {configs.Count} 个A3飞控端口配置");
+            }
+            catch (InvalidOperationException)
+            {
+                // 重新抛出配置异常
+                throw;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"❌ 获取端口配置失败: {ex.Message}");
 
-                // 🔧 降级方案：直接使用可用端口
-                try
+                string errorMessage = "获取A3飞控端口配置时发生错误！\n\n" +
+                                     $"错误详情：{ex.Message}\n\n" +
+                                     "请联系系统管理员检查串口配置。";
+
+                // 在UI线程显示错误消息
+                Application.Current.Dispatcher.Invoke(() =>
                 {
-                    var availablePorts = ArduPilotParameterService.GetAvailablePorts();
-                    if (availablePorts.Contains("COM7"))
-                    {
-                        configs.Add(("COM7", 115200));
-                        System.Diagnostics.Debug.WriteLine("🆘 使用降级方案: COM7@115200");
-                    }
-                    else if (availablePorts.Any())
-                    {
-                        var firstPort = availablePorts.First();
-                        configs.Add((firstPort, 115200));
-                        System.Diagnostics.Debug.WriteLine($"🆘 使用降级方案: {firstPort}@115200");
-                    }
-                }
-                catch (Exception fallbackEx)
-                {
-                    System.Diagnostics.Debug.WriteLine($"❌ 降级方案也失败: {fallbackEx.Message}");
-                }
+                    MessageBox.Show(errorMessage, "配置错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+
+                throw new InvalidOperationException("A3飞控端口配置错误", ex);
             }
 
             return configs;

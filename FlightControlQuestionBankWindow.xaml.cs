@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AutoPilot.Parameters;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -18,6 +19,11 @@ namespace DroneSimulator
         private List<FlightControlQuestion> filteredQuestions = new();
         private string? currentTeacher;
         private CancellationTokenSource _importCancellationTokenSource;
+
+        // 🚀 新增：批量参数测试相关
+        private CancellationTokenSource _batchTestCancellationTokenSource;
+        private ArduPilotParameterService? _batchTestParameterService;
+        private bool _isBatchTestRunning = false;
 
         public FlightControlQuestionBankWindow(string? teacherName = null)
         {
@@ -913,6 +919,578 @@ namespace DroneSimulator
                 }));
             }
         }
+        #endregion
+
+        #region 🚀 新增：批量参数测试功能
+
+        /// <summary>
+        /// 批量参数测试按钮点击事件
+        /// </summary>
+        private async void BatchParameterTest_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isBatchTestRunning)
+                {
+                    MessageBox.Show("批量测试正在进行中，请稍候再试！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 获取要测试的题目
+                var questionsToTest = GetQuestionsForBatchTest();
+                if (!questionsToTest.Any())
+                {
+                    MessageBox.Show("没有可测试的题目！\n\n请检查：\n• 至少有一道启用的题目\n• 题目包含有效的参数名称",
+                        "无可测试题目", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 确认开始测试
+                var confirmResult = MessageBox.Show(
+                    $"即将对 {questionsToTest.Count} 道题目进行批量参数测试。\n\n" +
+                    $"测试将验证每道题目的参数名称是否在飞控中存在。\n" +
+                    $"测试失败的题目将被自动选中，便于后续修改或删除。\n\n" +
+                    $"注意：\n" +
+                    $"• 请确保A3飞控已连接并配置正确\n" +
+                    $"• 测试过程可能需要几分钟时间\n" +
+                    $"• 测试期间请勿断开飞控连接\n\n" +
+                    $"确定要开始批量测试吗？",
+                    "确认批量参数测试",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (confirmResult != MessageBoxResult.Yes)
+                    return;
+
+                // 开始批量测试
+                await StartBatchParameterTest(questionsToTest);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"启动批量参数测试失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await CleanupBatchTest();
+            }
+        }
+
+        /// <summary>
+        /// 获取需要进行批量测试的题目
+        /// </summary>
+        private List<FlightControlQuestion> GetQuestionsForBatchTest()
+        {
+            try
+            {
+                // 优先使用选中的题目
+                var selectedQuestions = filteredQuestions?.Where(q => q?.IsSelected == true).ToList()
+                                       ?? new List<FlightControlQuestion>();
+
+                if (selectedQuestions.Any())
+                {
+                    return selectedQuestions.Where(q =>
+                        q != null &&
+                        q.IsActive &&
+                        !string.IsNullOrWhiteSpace(q.ParameterName)).ToList();
+                }
+
+                // 如果没有选中的题目，使用所有当前筛选显示的启用题目
+                return filteredQuestions?.Where(q =>
+                    q != null &&
+                    q.IsActive &&
+                    !string.IsNullOrWhiteSpace(q.ParameterName)).ToList()
+                    ?? new List<FlightControlQuestion>();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"获取测试题目失败：{ex.Message}");
+                return new List<FlightControlQuestion>();
+            }
+        }
+
+        /// <summary>
+        /// 开始批量参数测试
+        /// </summary>
+        private async Task StartBatchParameterTest(List<FlightControlQuestion> questionsToTest)
+        {
+            _isBatchTestRunning = true;
+            _batchTestCancellationTokenSource = new CancellationTokenSource();
+
+            try
+            {
+                // 显示进度面板
+                BatchTestProgressPanel.Visibility = Visibility.Visible;
+                BatchParameterTestButton.IsEnabled = false;
+                BatchParameterTestButton.Content = "测试中...";
+
+                // 初始化进度
+                BatchTestProgressBar.Value = 0;
+                BatchTestProgressBar.Maximum = questionsToTest.Count;
+                BatchTestProgressText.Text = "正在初始化飞控连接...";
+                BatchTestDetailText.Text = "准备开始批量参数测试";
+                BatchTestStatsText.Text = "";
+
+                // 建立飞控连接
+                if (!await EstablishBatchTestConnection())
+                {
+                    BatchTestDetailText.Text = "飞控连接失败，测试终止";
+                    return;
+                }
+
+                // 执行批量测试
+                var testResults = await PerformBatchParameterTest(questionsToTest, _batchTestCancellationTokenSource.Token);
+
+                // 处理测试结果
+                await ProcessBatchTestResults(testResults);
+            }
+            catch (OperationCanceledException)
+            {
+                BatchTestDetailText.Text = "用户取消了批量测试";
+                StatusTextBlock.Text = "批量参数测试已取消";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"批量参数测试异常：{ex.Message}");
+                BatchTestDetailText.Text = $"测试过程中发生错误：{ex.Message}";
+                MessageBox.Show($"批量参数测试失败：{ex.Message}", "测试错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                await CleanupBatchTest();
+            }
+        }
+
+        /// <summary>
+        /// 建立批量测试的飞控连接
+        /// </summary>
+        private async Task<bool> EstablishBatchTestConnection()
+        {
+            try
+            {
+                BatchTestDetailText.Text = "正在连接A3飞控...";
+
+                // 检查端口配置
+                var flightControllerConfig = SerialPortManager.GetConfigByPurpose(SerialPortPurpose.FlightController);
+                if (flightControllerConfig == null || !flightControllerConfig.IsEnabled)
+                {
+                    BatchTestDetailText.Text = "未配置A3飞控端口，请联系管理员配置";
+                    MessageBox.Show("未配置A3飞控连接端口！\n\n" +
+                                   "批量参数测试需要配置A3飞控通信端口才能使用。\n\n" +
+                                   "解决方案：\n" +
+                                   "1. 联系系统管理员配置A3飞控端口\n" +
+                                   "2. 在系统管理中设置串口用途为'A3飞控连接'\n" +
+                                   "3. 确保飞控设备已正确连接到计算机",
+                                   "A3飞控端口未配置",
+                                   MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+
+                // 创建参数服务
+                _batchTestParameterService?.Dispose();
+                _batchTestParameterService = new ArduPilotParameterService();
+
+                // 订阅状态事件
+                _batchTestParameterService.StatusChanged += (s, e) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"批量测试飞控状态: {e.Type} - {e.Message}");
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (e.Type == StatusType.Error)
+                        {
+                            BatchTestDetailText.Text = $"飞控错误: {e.Message}";
+                        }
+                    });
+                };
+
+                // 尝试连接
+                BatchTestDetailText.Text = $"正在连接到 {flightControllerConfig.PortName}...";
+                var connected = await _batchTestParameterService.ConnectAsync(
+                    flightControllerConfig.PortName,
+                    flightControllerConfig.BaudRate);
+
+                if (!connected)
+                {
+                    BatchTestDetailText.Text = "飞控连接失败";
+                    MessageBox.Show($"无法连接到A3飞控（{flightControllerConfig.PortName}）！\n\n" +
+                                   "请检查：\n" +
+                                   "• 飞控是否已连接并上电\n" +
+                                   "• USB驱动是否正确安装\n" +
+                                   "• 串口是否被其他软件占用\n" +
+                                   "• 串口配置是否正确",
+                                   "连接失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return false;
+                }
+
+                // 读取参数列表
+                BatchTestDetailText.Text = "正在读取飞控参数列表...";
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45)); // 45秒超时
+                var readSuccess = await _batchTestParameterService.ReadParametersAsync(cts.Token);
+
+                if (!readSuccess || _batchTestParameterService.Parameters.Count == 0)
+                {
+                    BatchTestDetailText.Text = "无法读取飞控参数列表";
+                    MessageBox.Show("无法从A3飞控读取参数列表！\n\n" +
+                                   "可能原因：\n" +
+                                   "• 飞控通信超时\n" +
+                                   "• MAVLink协议版本不兼容\n" +
+                                   "• 飞控固件问题\n" +
+                                   "• 飞控正在启动过程中",
+                                   "读取参数失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return false;
+                }
+
+                BatchTestDetailText.Text = $"飞控连接成功，共读取到 {_batchTestParameterService.Parameters.Count} 个参数";
+                System.Diagnostics.Debug.WriteLine($"批量测试：成功读取 {_batchTestParameterService.Parameters.Count} 个飞控参数");
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                BatchTestDetailText.Text = "连接超时";
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"建立批量测试连接失败：{ex.Message}");
+                BatchTestDetailText.Text = $"连接异常：{ex.Message}";
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 执行批量参数测试
+        /// </summary>
+        private async Task<List<BatchParameterTestResult>> PerformBatchParameterTest(
+            List<FlightControlQuestion> questions,
+            CancellationToken cancellationToken)
+        {
+            var results = new List<BatchParameterTestResult>();
+            var successCount = 0;
+            var failCount = 0;
+
+            BatchTestProgressText.Text = $"正在测试参数（共 {questions.Count} 个）...";
+
+            for (int i = 0; i < questions.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var question = questions[i];
+                var result = new BatchParameterTestResult
+                {
+                    Question = question,
+                    TestIndex = i + 1,
+                    TotalCount = questions.Count
+                };
+
+                try
+                {
+                    // 更新进度显示
+                    Dispatcher.Invoke(() =>
+                    {
+                        BatchTestProgressBar.Value = i;
+                        BatchTestDetailText.Text = $"正在测试: {question.ParameterName} ({i + 1}/{questions.Count})";
+                        BatchTestStatsText.Text = $"成功: {successCount} | 失败: {failCount} | 剩余: {questions.Count - i}";
+                    });
+
+                    // 测试参数
+                    await Task.Delay(100, cancellationToken); // 避免过快的连续请求
+
+                    var parameter = _batchTestParameterService?.Parameters?.FirstOrDefault(p =>
+                        p.Name.Equals(question.ParameterName, StringComparison.OrdinalIgnoreCase));
+
+                    if (parameter != null)
+                    {
+                        result.Success = true;
+                        result.ErrorMessage = "";
+                        result.ParameterInfo = $"{parameter.Name} = {parameter.FormatValue()} ({GetParameterTypeDescription(parameter.Type)})";
+                        successCount++;
+                        System.Diagnostics.Debug.WriteLine($"✅ 参数测试成功: {question.ParameterName}");
+                    }
+                    else
+                    {
+                        result.Success = false;
+                        result.ErrorMessage = $"参数 '{question.ParameterName}' 在飞控中不存在";
+
+                        // 提供相似参数建议
+                        var similarParams = _batchTestParameterService?.Parameters?
+                            .Where(p => p.Name.IndexOf(question.ParameterName, StringComparison.OrdinalIgnoreCase) >= 0)
+                            .Take(3)
+                            .Select(p => p.Name)
+                            .ToList() ?? new List<string>();
+
+                        if (similarParams.Any())
+                        {
+                            result.ErrorMessage += $"\n相似参数: {string.Join(", ", similarParams)}";
+                        }
+
+                        failCount++;
+                        System.Diagnostics.Debug.WriteLine($"❌ 参数测试失败: {question.ParameterName} - {result.ErrorMessage}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.ErrorMessage = $"测试异常: {ex.Message}";
+                    failCount++;
+                    System.Diagnostics.Debug.WriteLine($"❌ 参数测试异常: {question.ParameterName} - {ex.Message}");
+                }
+
+                results.Add(result);
+            }
+
+            // 更新最终进度
+            Dispatcher.Invoke(() =>
+            {
+                BatchTestProgressBar.Value = questions.Count;
+                BatchTestDetailText.Text = $"批量测试完成：成功 {successCount} 个，失败 {failCount} 个";
+                BatchTestStatsText.Text = $"✅ 成功: {successCount} | ❌ 失败: {failCount}";
+            });
+
+            return results;
+        }
+
+        /// <summary>
+        /// 处理批量测试结果
+        /// </summary>
+        private async Task ProcessBatchTestResults(List<BatchParameterTestResult> results)
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var successResults = results.Where(r => r.Success).ToList();
+                    var failResults = results.Where(r => !r.Success).ToList();
+
+                    // 选中测试失败的题目
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            // 先清除所有选择
+                            foreach (var question in allQuestions)
+                            {
+                                question.IsSelected = false;
+                            }
+
+                            // 选中失败的题目
+                            foreach (var failResult in failResults)
+                            {
+                                if (failResult.Question != null)
+                                {
+                                    failResult.Question.IsSelected = true;
+                                }
+                            }
+
+                            // 更新选择状态显示
+                            UpdateSelectionStatus();
+
+                            // 更新状态文本
+                            BatchTestStatusText.Text = failResults.Any()
+                                ? $"已选中 {failResults.Count} 个测试失败的题目"
+                                : "所有参数测试通过";
+
+                            StatusTextBlock.Text = $"批量测试完成：成功 {successResults.Count}，失败 {failResults.Count}";
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"更新UI状态失败：{ex.Message}");
+                        }
+                    });
+
+                    // 显示详细结果
+                    Dispatcher.Invoke(() =>
+                    {
+                        ShowBatchTestResults(successResults, failResults);
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"处理批量测试结果失败：{ex.Message}");
+                    Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"处理测试结果时发生错误：{ex.Message}", "处理错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+            });
+        }
+
+        /// <summary>
+        /// 显示批量测试结果
+        /// </summary>
+        private void ShowBatchTestResults(List<BatchParameterTestResult> successResults, List<BatchParameterTestResult> failResults)
+        {
+            try
+            {
+                var resultMessage = new StringBuilder();
+                resultMessage.AppendLine("🚀 批量参数测试完成！");
+                resultMessage.AppendLine();
+                resultMessage.AppendLine($"📊 测试统计：");
+                resultMessage.AppendLine($"   ✅ 成功：{successResults.Count} 个参数");
+                resultMessage.AppendLine($"   ❌ 失败：{failResults.Count} 个参数");
+                resultMessage.AppendLine($"   📈 成功率：{(double)successResults.Count / (successResults.Count + failResults.Count) * 100:F1}%");
+                resultMessage.AppendLine();
+
+                if (failResults.Any())
+                {
+                    resultMessage.AppendLine("❌ 测试失败的参数：");
+                    foreach (var fail in failResults.Take(10)) // 只显示前10个
+                    {
+                        resultMessage.AppendLine($"   • {fail.Question?.ParameterName}: {fail.ErrorMessage}");
+                    }
+                    if (failResults.Count > 10)
+                    {
+                        resultMessage.AppendLine($"   ... 还有 {failResults.Count - 10} 个失败参数");
+                    }
+                    resultMessage.AppendLine();
+                    resultMessage.AppendLine("💡 测试失败的题目已被自动选中，您可以：");
+                    resultMessage.AppendLine("   • 批量删除这些题目");
+                    resultMessage.AppendLine("   • 逐个编辑修正参数名称");
+                    resultMessage.AppendLine("   • 检查参数名称拼写是否正确");
+                }
+                else
+                {
+                    resultMessage.AppendLine("🎉 所有参数测试都通过了！");
+                    resultMessage.AppendLine("所有题目的参数名称都在飞控中存在。");
+                }
+
+                MessageBox.Show(resultMessage.ToString(), "批量参数测试结果",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"显示批量测试结果失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 取消批量测试
+        /// </summary>
+        private void CancelBatchTest_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _batchTestCancellationTokenSource?.Cancel();
+                BatchTestDetailText.Text = "正在取消批量测试...";
+                CancelBatchTestButton.IsEnabled = false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"取消批量测试失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清理批量测试资源
+        /// </summary>
+        private async Task CleanupBatchTest()
+        {
+            try
+            {
+                _isBatchTestRunning = false;
+
+                Dispatcher.Invoke(() =>
+                {
+                    BatchTestProgressPanel.Visibility = Visibility.Collapsed;
+                    BatchParameterTestButton.IsEnabled = true;
+                    BatchParameterTestButton.Content = "批量参数测试";
+                    CancelBatchTestButton.IsEnabled = true;
+                });
+
+                // 异步清理连接
+                await Task.Run(() =>
+                {
+                    try
+                    {
+                        _batchTestParameterService?.Dispose();
+                        _batchTestParameterService = null;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"清理批量测试连接失败：{ex.Message}");
+                    }
+                });
+
+                _batchTestCancellationTokenSource?.Dispose();
+                _batchTestCancellationTokenSource = null;
+
+                System.Diagnostics.Debug.WriteLine("批量测试资源清理完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清理批量测试资源失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 将 MAVLink 参数类型转换为可读描述
+        /// </summary>
+        private string GetParameterTypeDescription(MAV_PARAM_TYPE mavType)
+        {
+            return mavType switch
+            {
+                MAV_PARAM_TYPE.UINT8 => "8位无符号整数",
+                MAV_PARAM_TYPE.INT8 => "8位有符号整数",
+                MAV_PARAM_TYPE.UINT16 => "16位无符号整数",
+                MAV_PARAM_TYPE.INT16 => "16位有符号整数",
+                MAV_PARAM_TYPE.UINT32 => "32位无符号整数",
+                MAV_PARAM_TYPE.INT32 => "32位有符号整数",
+                MAV_PARAM_TYPE.REAL32 => "32位浮点数",
+                MAV_PARAM_TYPE.REAL64 => "64位浮点数",
+                _ => mavType.ToString()
+            };
+        }
+
+        /// <summary>
+        /// 窗口关闭时清理资源
+        /// </summary>
+        protected override void OnClosed(EventArgs e)
+        {
+            try
+            {
+                // 取消正在进行的批量测试
+                _batchTestCancellationTokenSource?.Cancel();
+
+                // 异步清理资源
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await CleanupBatchTest();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"窗口关闭时清理资源失败：{ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"窗口关闭事件处理失败：{ex.Message}");
+            }
+            finally
+            {
+                base.OnClosed(e);
+            }
+        }
+
+        #endregion
+
+        #region 🚀 批量测试结果类
+
+        /// <summary>
+        /// 批量参数测试结果
+        /// </summary>
+        private class BatchParameterTestResult
+        {
+            public FlightControlQuestion? Question { get; set; }
+            public bool Success { get; set; }
+            public string ErrorMessage { get; set; } = "";
+            public string ParameterInfo { get; set; } = "";
+            public int TestIndex { get; set; }
+            public int TotalCount { get; set; }
+        }
+
         #endregion
     }
 }
