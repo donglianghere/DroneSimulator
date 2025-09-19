@@ -39,10 +39,21 @@ namespace DroneSimulator
     {
         public FCQuestion() : base() { }
         public FCQuestion(CheckBox checkBox) : base(checkBox) { }
-
-        // 飞控题目可能需要的额外属性
+        public string Id { get; set; } = "";
+        public string QuestionStatement { get; set; } = "";
+        public string ParameterName { get; set; } = "";
+        public string ParameterDescription { get; set; } = "";
+        public string Type { get; set; } = "";
         public string Category { get; set; } = "";
         public string Description { get; set; } = "";
+
+        public string Difficulty { get; set; } = "";
+        public int Points { get; set; }
+        public string CorrectValue { get; set; } = "";
+        public string DataType { get; set; } = "";
+        public bool IsActive { get; set; }
+        public string CreatedBy { get; set; } = "";
+        public DateTime CreatedTime { get; set; }
     }
 
     public enum ExamType

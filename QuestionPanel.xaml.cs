@@ -15,7 +15,8 @@ using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace DroneSimulator
-{
+{     
+
     public static class CheckBoxCommandHelper
     {
         public static readonly DependencyProperty CommandStringProperty =
@@ -160,6 +161,9 @@ namespace DroneSimulator
             // 初始化理论题库
             InitializeTheoryQuestionBank();
 
+            // 🔧 新增：初始化飞控题库
+            InitializeFCQuestionBank();
+
             // 绑定数据源
             ExamItemsControl.ItemsSource = examItems;
 
@@ -191,9 +195,202 @@ namespace DroneSimulator
 
                     // 初始化理论题库显示
                     LoadTheoryQuestions();
-                }), DispatcherPriority.Loaded);
+
+                    // 🔧 新增：初始化飞控题库显示
+                    LoadFCQuestions();
+                }), DispatcherPriority.Loaded);           
             };
         }
+
+        #region 飞控题库初始化功能
+
+        /// <summary>
+        /// 初始化飞控题库
+        /// </summary>
+        private void InitializeFCQuestionBank()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 初始化飞控题库 ===");
+                // 初始化时暂不加载，等待窗口完全加载后再执行
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"初始化飞控题库失败：{ex.Message}");
+                MessageBox.Show($"初始化飞控题库失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 加载飞控题目 - 默认加载10题
+        /// </summary>
+        private void LoadFCQuestions()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 开始加载飞控题目（默认10题） ===");
+
+                // 🔧 修复：从真实题库获取数据
+                var allFCQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
+
+                System.Diagnostics.Debug.WriteLine($"✅ 成功获取了 {allFCQuestions.Count} 道飞控题目");
+
+                if (allFCQuestions.Any())
+                {
+                    // 默认随机选择10道题目
+                    int defaultCount = 10;
+                    var randomQuestions = FlightControlQuestionBankManager.SelectRandomQuestions(
+                        Math.Min(defaultCount, allFCQuestions.Count),
+                        type: null,
+                        category: null,
+                        difficulty: null
+                    );
+
+                    // 转换格式并保存
+                    selectedFCQuestions = randomQuestions.Select(q => new FCQuestion
+                    {
+                        Id = q.Id,
+                        QuestionStatement = q.QuestionStatement,
+                        ParameterName = q.ParameterName,
+                        ParameterDescription = q.ParameterDescription,
+                        Type = q.Type.ToString(),
+                        Category = q.Category.ToString(),
+                        Difficulty = q.Difficulty.ToString(),
+                        Points = q.Points,
+                        CorrectValue = q.CorrectValue,
+                        DataType = q.DataType.ToString(),
+                        IsActive = q.IsActive,
+                        CreatedBy = q.CreatedBy,
+                        CreatedTime = q.CreatedTime
+                    }).ToList();
+
+                    // 刷新界面显示
+                    RefreshFCQuestionSelection();
+
+                    System.Diagnostics.Debug.WriteLine($"默认加载了 {selectedFCQuestions.Count} 道飞控题目");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("⚠️ 飞控题库为空");
+                    ShowEmptyFCBank();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"❌ 加载飞控题目失败：{ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+                ShowFCBankError($"加载飞控题目时发生错误：\n\n{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 显示空飞控题库提示
+        /// </summary>
+        private void ShowEmptyFCBank()
+        {
+            var fcPanel = FindName("FCQuestionsPanel") as Grid;
+            var titlePanel = FindName("FCTitlePanel") as StackPanel;
+            var leftColumn = FindName("FCQuestionsLeftColumn") as StackPanel;
+            var rightColumn = FindName("FCQuestionsRightColumn") as StackPanel;
+
+            if (titlePanel != null && leftColumn != null && rightColumn != null)
+            {
+                titlePanel.Children.Clear();
+                leftColumn.Children.Clear();
+                rightColumn.Children.Clear();
+
+                var emptyPanel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(20, 50, 20, 20)
+                };
+
+                var emptyIcon = new TextBlock
+                {
+                    Text = "🛩️",
+                    FontSize = 48,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 10)
+                };
+
+                var emptyText = new TextBlock
+                {
+                    Text = "飞控题库为空，请点击'题库管理'添加飞控题目",
+                    FontSize = 16,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    Foreground = new SolidColorBrush(Colors.Gray)
+                };
+
+                var manageButton = new Button
+                {
+                    Content = "打开题库管理",
+                    Width = 120,
+                    Height = 35,
+                    Background = new SolidColorBrush(Color.FromRgb(156, 39, 176)),
+                    Foreground = new SolidColorBrush(Colors.White),
+                    FontSize = 14,
+                    Margin = new Thickness(0, 20, 0, 0)
+                };
+                manageButton.Click += ManageFCBank_Click;
+
+                emptyPanel.Children.Add(emptyIcon);
+                emptyPanel.Children.Add(emptyText);
+                emptyPanel.Children.Add(manageButton);
+
+                titlePanel.Children.Add(emptyPanel);
+            }
+        }
+
+        /// <summary>
+        /// 显示飞控题库错误信息
+        /// </summary>
+        private void ShowFCBankError(string errorMessage)
+        {
+            var titlePanel = FindName("FCTitlePanel") as StackPanel;
+            var leftColumn = FindName("FCQuestionsLeftColumn") as StackPanel;
+            var rightColumn = FindName("FCQuestionsRightColumn") as StackPanel;
+
+            if (titlePanel != null && leftColumn != null && rightColumn != null)
+            {
+                titlePanel.Children.Clear();
+                leftColumn.Children.Clear();
+                rightColumn.Children.Clear();
+
+                var errorPanel = new StackPanel
+                {
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(20, 50, 20, 20)
+                };
+
+                var errorIcon = new TextBlock
+                {
+                    Text = "⚠️",
+                    FontSize = 48,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 10)
+                };
+
+                var errorText = new TextBlock
+                {
+                    Text = errorMessage,
+                    FontSize = 14,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    Foreground = new SolidColorBrush(Colors.Red),
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 600
+                };
+
+                errorPanel.Children.Add(errorIcon);
+                errorPanel.Children.Add(errorText);
+
+                titlePanel.Children.Add(errorPanel);
+            }
+        }
+
+        #endregion
 
         // 添加简单的接口实现类
         private class SimpleTheoryQuestionProvider : ITheoryQuestionProvider
@@ -227,13 +424,47 @@ namespace DroneSimulator
         {
             public List<FCQuestion> GetAvailableQuestions()
             {
-                // 暂时返回空列表，后续可以实现具体逻辑
-                return new List<FCQuestion>();
+                // 🔧 修复：从 FlightControlQuestionBankManager 获取真实数据
+                try
+                {
+                    var fcQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
+
+                    // 转换为 FCQuestion 格式
+                    return fcQuestions.Select(q => new FCQuestion
+                    {
+                        Id = q.Id,
+                        QuestionStatement = q.QuestionStatement,
+                        ParameterName = q.ParameterName,
+                        ParameterDescription = q.ParameterDescription,
+                        Type = q.Type.ToString(),
+                        Category = q.Category.ToString(),
+                        Difficulty = q.Difficulty.ToString(),
+                        Points = q.Points,
+                        CorrectValue = q.CorrectValue,
+                        DataType = q.DataType.ToString(),
+                        IsActive = q.IsActive,
+                        CreatedBy = q.CreatedBy,
+                        CreatedTime = q.CreatedTime
+                    }).ToList();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"获取飞控题目失败: {ex.Message}");
+                    return new List<FCQuestion>();
+                }
             }
 
             public void RefreshQuestions()
             {
-                // 暂时空实现
+                // 重新加载飞控题库
+                try
+                {
+                    FlightControlQuestionBankManager.GetAllQuestions();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"刷新飞控题目失败: {ex.Message}");
+                }
             }
         }
 
@@ -267,11 +498,252 @@ namespace DroneSimulator
             LoadTheoryQuestions();
         }
 
+        /// <summary>
+        /// 刷新飞控题目选择界面 - 修复左右对齐和标题居中版
+        /// </summary>
         private void RefreshFCQuestionSelection()
         {
-            // 刷新飞控题目选择界面的逻辑
-            // 暂时空实现，后续可以添加具体逻辑
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 刷新飞控题目选择界面（左右对齐+标题居中） ===");
+
+                // 🔧 修复：获取新的Grid布局和相关容器
+                var fcPanel = FindName("FCQuestionsPanel") as Grid;
+                var titlePanel = FindName("FCTitlePanel") as StackPanel;
+                var leftColumn = FindName("FCQuestionsLeftColumn") as StackPanel;
+                var rightColumn = FindName("FCQuestionsRightColumn") as StackPanel;
+
+                if (fcPanel == null || titlePanel == null || leftColumn == null || rightColumn == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("❌ 未找到飞控题目面板或容器");
+                    return;
+                }
+
+                // 清空所有内容
+                titlePanel.Children.Clear();
+                leftColumn.Children.Clear();
+                rightColumn.Children.Clear();
+
+                if (!selectedFCQuestions.Any())
+                {
+                    var emptyText = new TextBlock
+                    {
+                        Text = "当前未选择任何飞控题目",
+                        FontSize = 16,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Margin = new Thickness(0, 50, 0, 0),
+                        Foreground = new SolidColorBrush(Colors.Gray)
+                    };
+
+                    // 将空提示放在标题区域，居中显示
+                    titlePanel.Children.Add(emptyText);
+                    return;
+                }
+
+                // 🔧 修复：创建居中的标题
+                var titleText = new TextBlock
+                {
+                    Text = $"飞控实操试卷预览（共 {selectedFCQuestions.Count} 题）",
+                    FontSize = 20,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(35, 57, 93)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
+                };
+
+                // 将标题添加到专用的标题面板
+                titlePanel.Children.Add(titleText);
+
+                // 🔧 修复：将题目分配到两列显示，确保左右对齐
+                for (int i = 0; i < selectedFCQuestions.Count; i++)
+                {
+                    var question = selectedFCQuestions[i];
+                    var questionControl = CreateFCQuestionDisplayControl(question, i + 1);
+
+                    // 奇数题目（序号1,3,5...）放左列，偶数题目（序号2,4,6...）放右列
+                    if ((i + 1) % 2 == 1) // 奇数序号
+                    {
+                        leftColumn.Children.Add(questionControl);
+                    }
+                    else // 偶数序号
+                    {
+                        rightColumn.Children.Add(questionControl);
+                    }
+                }
+
+                // 🔧 新增：如果题目数量为奇数，在右列添加占位符以保持视觉平衡
+                if (selectedFCQuestions.Count % 2 == 1)
+                {
+                    var placeholder = new Border
+                    {
+                        Height = 50, // 最小高度
+                        Background = Brushes.Transparent
+                    };
+                    rightColumn.Children.Add(placeholder);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"✅ 已按两列对齐显示 {selectedFCQuestions.Count} 道飞控题目");
+                System.Diagnostics.Debug.WriteLine($"左列题目数: {leftColumn.Children.Count}, 右列题目数: {rightColumn.Children.Count}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"刷新飞控题目界面失败：{ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+            }
         }
+
+        /// <summary>
+        /// 创建飞控题目显示控件 - 新增方法
+        /// </summary>
+        private Border CreateFCQuestionDisplayControl(FCQuestion question, int questionNumber)
+        {
+            var border = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromRgb(156, 39, 176)), // 紫色边框
+                BorderThickness = new Thickness(2),
+                CornerRadius = new CornerRadius(6),
+                Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
+                Margin = new Thickness(10),
+                Padding = new Thickness(15)
+            };
+
+            var mainPanel = new StackPanel();
+
+            // 题目标题行
+            var headerPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            // 题号
+            var questionNumberText = new TextBlock
+            {
+                Text = $"{questionNumber}. ",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(156, 39, 176))
+            };
+
+            // 题目类型标识
+            var typeText = new TextBlock
+            {
+                Text = $"[{question.Type}]",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(156, 39, 176)),
+                Margin = new Thickness(5, 0, 10, 0)
+            };
+
+            // ID显示
+            var idText = new TextBlock
+            {
+                Text = $"ID: {question.Id}",
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Colors.Gray),
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            headerPanel.Children.Add(questionNumberText);
+            headerPanel.Children.Add(typeText);
+            headerPanel.Children.Add(idText);
+
+            // 题目陈述
+            var questionText = new TextBlock
+            {
+                Text = question.QuestionStatement ?? "",
+                FontSize = 14,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10),
+                LineHeight = 20
+            };
+
+            // 参数信息
+            var paramPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            var paramNameText = new TextBlock
+            {
+                Text = $"参数名称：{question.ParameterName}",
+                FontSize = 13,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(76, 175, 80))
+            };
+
+            var paramDescText = new TextBlock
+            {
+                Text = $"参数描述：{question.ParameterDescription}",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Colors.DarkBlue),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            var correctValueText = new TextBlock
+            {
+                Text = $"正确答案：{question.CorrectValue}",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(Color.FromRgb(255, 152, 0)),
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+
+            paramPanel.Children.Add(paramNameText);
+            paramPanel.Children.Add(paramDescText);
+            paramPanel.Children.Add(correctValueText);
+
+            // 题目信息底部
+            var infoPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+
+            var difficultyText = new TextBlock
+            {
+                Text = $"难度：{question.Difficulty}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var categoryText = new TextBlock
+            {
+                Text = $" | 分类：{question.Category}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var pointsText = new TextBlock
+            {
+                Text = $" | {question.Points}分",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            var dataTypeText = new TextBlock
+            {
+                Text = $" | 类型：{question.DataType}",
+                FontSize = 11,
+                Foreground = new SolidColorBrush(Colors.Gray)
+            };
+
+            infoPanel.Children.Add(difficultyText);
+            infoPanel.Children.Add(categoryText);
+            infoPanel.Children.Add(pointsText);
+            infoPanel.Children.Add(dataTypeText);
+
+            // 组装面板
+            mainPanel.Children.Add(headerPanel);
+            mainPanel.Children.Add(questionText);
+            mainPanel.Children.Add(paramPanel);
+            mainPanel.Children.Add(infoPanel);
+
+            border.Child = mainPanel;
+            return border;
+        }
+        
 
         private void ShowExamCreationSummary(MixedExamData examData)
         {
@@ -337,10 +809,10 @@ namespace DroneSimulator
 
                 System.Diagnostics.Debug.WriteLine($"✅ QuestionPanel: 成功加载了 {theoryQuestions.Count} 道理论题目");
 
-                // 默认显示前5道题目
+                // 默认显示前50道题目
                 if (theoryQuestions.Any())
                 {
-                    var defaultQuestions = theoryQuestions.Take(5).ToList();
+                    var defaultQuestions = theoryQuestions.Take(50).ToList();
                     DisplayTheoryQuestions(defaultQuestions);
                     selectedTheoryQuestions = new List<TheoryQuestion>(defaultQuestions);
                     System.Diagnostics.Debug.WriteLine($"显示了前 {defaultQuestions.Count} 道题目");
@@ -1142,16 +1614,12 @@ namespace DroneSimulator
         {
             try
             {
-                // 暂时显示提示信息，等待 FlightControlQuestionBankWindow 实现
-                MessageBox.Show("飞控题库管理功能正在开发中...", "功能提示",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-                
-                var fcBankWindow = new FlightControlQuestionBankWindow(TeacherNameText.Text);
+                var teacherName = GetTeacherNameFromTextBlock();
+                var fcBankWindow = new FlightControlQuestionBankWindow(teacherName);
                 fcBankWindow.ShowDialog();
 
                 // 刷新飞控题目显示
                 RefreshFCQuestions();
-
             }
             catch (Exception ex)
             {
@@ -1250,7 +1718,7 @@ namespace DroneSimulator
         {
             // 更新选择统计等
             UpdateFCSelectionStats();
-        }        
+        }
 
         #endregion
 
@@ -1266,14 +1734,48 @@ namespace DroneSimulator
             {
                 try
                 {
-                    selectedFCQuestions = fcProvider.GetAvailableQuestions();
-                    RefreshFCQuestionSelection();
+                    System.Diagnostics.Debug.WriteLine("=== 执行飞控题库全选操作 ===");
 
-                    MessageBox.Show($"已选择全部飞控题目", "全选完成",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    // 🔧 修复：直接从 FlightControlQuestionBankManager 获取数据
+                    var allFCQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
+
+                    System.Diagnostics.Debug.WriteLine($"找到 {allFCQuestions.Count} 道飞控题目");
+
+                    if (allFCQuestions.Any())
+                    {
+                        // 转换为内部格式并保存选择
+                        selectedFCQuestions = allFCQuestions.Select(q => new FCQuestion
+                        {
+                            Id = q.Id,
+                            QuestionStatement = q.QuestionStatement,
+                            ParameterName = q.ParameterName,
+                            ParameterDescription = q.ParameterDescription,
+                            Type = q.Type.ToString(),
+                            Category = q.Category.ToString(),
+                            Difficulty = q.Difficulty.ToString(),
+                            Points = q.Points,
+                            CorrectValue = q.CorrectValue,
+                            DataType = q.DataType.ToString(),
+                            IsActive = q.IsActive,
+                            CreatedBy = q.CreatedBy,
+                            CreatedTime = q.CreatedTime
+                        }).ToList();
+
+                        // 刷新界面显示
+                        RefreshFCQuestionSelection();
+
+                        MessageBox.Show($"已选择全部 {selectedFCQuestions.Count} 道飞控题目", "全选完成",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("飞控题库为空，无法执行全选操作！\n\n请点击'题库管理'添加飞控题目。", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"飞控题库全选失败：{ex.Message}");
                     MessageBox.Show($"飞控题库全选失败：{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
@@ -1290,7 +1792,24 @@ namespace DroneSimulator
                 try
                 {
                     selectedFCQuestions.Clear();
-                    RefreshFCQuestionSelection();
+
+                    // 清空界面显示
+                    var fcPanel = FindName("FCQuestionsPanel") as StackPanel;
+                    if (fcPanel != null)
+                    {
+                        fcPanel.Children.Clear();
+
+                        var emptyText = new TextBlock
+                        {
+                            Text = "已清空所有飞控题目选择",
+                            FontSize = 16,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Margin = new Thickness(0, 50, 0, 0),
+                            Foreground = new SolidColorBrush(Colors.Gray)
+                        };
+
+                        fcPanel.Children.Add(emptyText);
+                    }
 
                     MessageBox.Show("已清空所有飞控题目选择", "清空完成",
                         MessageBoxButton.OK, MessageBoxImage.Information);
@@ -1312,10 +1831,24 @@ namespace DroneSimulator
             {
                 try
                 {
-                    ExecuteFCRandomSelection(showResult: true);
+                    System.Diagnostics.Debug.WriteLine("=== 执行飞控题库随机选择操作 ===");
+
+                    // 🔧 修复：从真实题库获取数据
+                    var allFCQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
+
+                    if (allFCQuestions.Any())
+                    {
+                        ExecuteFCRandomSelection(showResult: true);
+                    }
+                    else
+                    {
+                        MessageBox.Show("飞控题库为空，无法执行随机选择！\n\n请点击'题库管理'添加飞控题目。", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"飞控题库随机选择失败：{ex.Message}");
                     MessageBox.Show($"飞控题库随机选择失败：{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
@@ -1349,7 +1882,8 @@ namespace DroneSimulator
                     return;
                 }
 
-                var availableQuestions = fcProvider.GetAvailableQuestions();
+                // 🔧 修复：从真实题库获取数据
+                var availableQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
 
                 if (!availableQuestions.Any())
                 {
@@ -1358,22 +1892,47 @@ namespace DroneSimulator
                     return;
                 }
 
-                var random = new Random();
-                selectedFCQuestions = availableQuestions
-                    .OrderBy(x => random.Next())
-                    .Take(randomCount)
-                    .ToList();
+                // 使用智能随机选择（如果可用）
+                var randomQuestions = FlightControlQuestionBankManager.SelectRandomQuestions(
+                    Math.Min(randomCount, availableQuestions.Count),
+                    type: null,
+                    category: null,
+                    difficulty: null
+                );
 
+                // 转换格式并保存
+                selectedFCQuestions = randomQuestions.Select(q => new FCQuestion
+                {
+                    Id = q.Id,
+                    QuestionStatement = q.QuestionStatement,
+                    ParameterName = q.ParameterName,
+                    ParameterDescription = q.ParameterDescription,
+                    Type = q.Type.ToString(),
+                    Category = q.Category.ToString(),
+                    Difficulty = q.Difficulty.ToString(),
+                    Points = q.Points,
+                    CorrectValue = q.CorrectValue,
+                    DataType = q.DataType.ToString(),
+                    IsActive = q.IsActive,
+                    CreatedBy = q.CreatedBy,
+                    CreatedTime = q.CreatedTime
+                }).ToList();
+
+                // 刷新界面显示
                 RefreshFCQuestionSelection();
 
                 if (showResult)
                 {
-                    MessageBox.Show($"飞控题目随机选择完成！\n共选择了 {selectedFCQuestions.Count} 道题目。",
+                    MessageBox.Show($"飞控题目随机选择完成！\n" +
+                                   $"请求选择：{randomCount} 题\n" +
+                                   $"实际选择：{selectedFCQuestions.Count} 题\n" +
+                                   $"题库总数：{availableQuestions.Count} 题",
                         "随机选择结果", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"执行飞控随机选择失败：{ex.Message}");
                 MessageBox.Show($"执行飞控随机选择失败：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -1410,11 +1969,11 @@ namespace DroneSimulator
                     }
                 }
 
-                return 3; // 默认值
+                return 10; // 🔧 修改默认值从3改为10
             }
             catch
             {
-                return 3;
+                return 10; // 🔧 修改默认值从3改为10
             }
         }
 
@@ -3059,6 +3618,27 @@ namespace DroneSimulator
                 }
             }
             return questions;
+        }
+
+        /// <summary>
+        /// 获取教师姓名文本 - 添加缺少的属性访问
+        /// </summary>
+        private string GetTeacherNameFromTextBlock()
+        {
+            try
+            {
+                // 从TeacherNameText获取教师姓名
+                var fullText = TeacherNameText?.Text ?? "";
+                if (fullText.StartsWith("姓名："))
+                {
+                    return fullText.Substring("姓名：".Length).Trim();
+                }
+                return currentTeacher?.Name ?? "";
+            }
+            catch
+            {
+                return currentTeacher?.Name ?? "";
+            }
         }
     }
 }

@@ -119,15 +119,78 @@ namespace DroneSimulator
         {
             try
             {
-                StatusTextBlock.Text = "正在加载数据...";
-                allQuestions = FlightControlQuestionBankManager.GetAllQuestions();
+                if (StatusTextBlock != null)
+                {
+                    StatusTextBlock.Text = "正在加载数据...";
+                }
+
+                // 安全获取所有题目
+                var loadedQuestions = FlightControlQuestionBankManager.GetAllQuestions();
+                allQuestions = loadedQuestions ?? new List<FlightControlQuestion>();
+
+                // 验证加载的题目数据完整性
+                int invalidCount = 0;
+                var validQuestions = new List<FlightControlQuestion>();
+
+                foreach (var question in allQuestions)
+                {
+                    if (question != null && !string.IsNullOrEmpty(question.Id))
+                    {
+                        // 确保关键属性不为空
+                        if (string.IsNullOrEmpty(question.QuestionStatement))
+                            question.QuestionStatement = "[题目陈述为空]";
+                        if (string.IsNullOrEmpty(question.ParameterName))
+                            question.ParameterName = "[参数名称为空]";
+                        if (string.IsNullOrEmpty(question.ParameterDescription))
+                            question.ParameterDescription = "";
+
+                        validQuestions.Add(question);
+                    }
+                    else
+                    {
+                        invalidCount++;
+                        System.Diagnostics.Debug.WriteLine($"发现无效题目: {question?.Id ?? "null"}");
+                    }
+                }
+
+                allQuestions = validQuestions;
+
+                if (invalidCount > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"过滤了 {invalidCount} 个无效题目");
+                }
+
                 ApplyFilters();
-                StatusTextBlock.Text = "数据加载完成";
+
+                if (StatusTextBlock != null)
+                {
+                    StatusTextBlock.Text = invalidCount > 0
+                        ? $"数据加载完成 (过滤了 {invalidCount} 个无效题目)"
+                        : "数据加载完成";
+                }
             }
             catch (Exception ex)
             {
-                StatusTextBlock.Text = "加载失败";
-                MessageBox.Show($"加载数据失败：{ex.Message}", "错误",
+                System.Diagnostics.Debug.WriteLine($"LoadQuestions 失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+
+                // 发生异常时的安全处理
+                allQuestions = new List<FlightControlQuestion>();
+                filteredQuestions = new List<FlightControlQuestion>();
+
+                if (StatusTextBlock != null)
+                {
+                    StatusTextBlock.Text = "加载失败";
+                }
+
+                MessageBox.Show($"加载数据失败：{ex.Message}\n\n可能原因:\n" +
+                               "1. 题库文件损坏\n" +
+                               "2. 文件权限不足\n" +
+                               "3. 磁盘空间不足\n\n" +
+                               "建议:\n" +
+                               "• 检查程序运行权限\n" +
+                               "• 重启应用程序\n" +
+                               "• 联系技术支持", "加载错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -136,61 +199,152 @@ namespace DroneSimulator
         {
             try
             {
-                filteredQuestions = allQuestions.ToList();
+                // 1. 确保基础集合不为空
+                if (allQuestions == null)
+                {
+                    allQuestions = new List<FlightControlQuestion>();
+                }
 
-                // 搜索筛选
-                var searchText = SearchTextBox?.Text?.Trim().ToLower();
+                filteredQuestions = new List<FlightControlQuestion>(allQuestions);
+
+                // 2. 搜索筛选 - 添加空值安全检查
+                var searchText = SearchTextBox?.Text?.Trim()?.ToLower();
                 if (!string.IsNullOrEmpty(searchText))
                 {
-                    filteredQuestions = filteredQuestions.Where(q =>
-                        q.QuestionStatement.ToLower().Contains(searchText) ||
-                        q.ParameterName.ToLower().Contains(searchText) ||
-                        q.ParameterDescription.ToLower().Contains(searchText)
-                    ).ToList();
+                    filteredQuestions = filteredQuestions.Where(q => q != null && (
+                        (!string.IsNullOrEmpty(q.QuestionStatement) && q.QuestionStatement.ToLower().Contains(searchText)) ||
+                        (!string.IsNullOrEmpty(q.ParameterName) && q.ParameterName.ToLower().Contains(searchText)) ||
+                        (!string.IsNullOrEmpty(q.ParameterDescription) && q.ParameterDescription.ToLower().Contains(searchText))
+                    )).ToList();
                 }
 
-                // 类型筛选
-                if (TypeFilterComboBox?.SelectedValue is FCQuestionType selectedType)
+                // 3. 类型筛选 - 安全访问 SelectedValue
+                try
                 {
-                    filteredQuestions = filteredQuestions.Where(q => q.Type == selectedType).ToList();
+                    if (TypeFilterComboBox?.SelectedValue is FCQuestionType selectedType)
+                    {
+                        filteredQuestions = filteredQuestions.Where(q => q != null && q.Type == selectedType).ToList();
+                    }
                 }
-
-                // 分类筛选
-                if (CategoryFilterComboBox?.SelectedValue is FCQuestionCategory selectedCategory)
+                catch (Exception ex)
                 {
-                    filteredQuestions = filteredQuestions.Where(q => q.Category == selectedCategory).ToList();
+                    System.Diagnostics.Debug.WriteLine($"类型筛选失败: {ex.Message}");
                 }
 
-                // 难度筛选
-                if (DifficultyFilterComboBox?.SelectedValue is QuestionDifficulty selectedDifficulty)
+                // 4. 分类筛选 - 安全访问 SelectedValue
+                try
                 {
-                    filteredQuestions = filteredQuestions.Where(q => q.Difficulty == selectedDifficulty).ToList();
+                    if (CategoryFilterComboBox?.SelectedValue is FCQuestionCategory selectedCategory)
+                    {
+                        filteredQuestions = filteredQuestions.Where(q => q != null && q.Category == selectedCategory).ToList();
+                    }
                 }
-
-                // 数据类型筛选
-                if (DataTypeFilterComboBox?.SelectedValue is ParameterDataType selectedDataType)
+                catch (Exception ex)
                 {
-                    filteredQuestions = filteredQuestions.Where(q => q.DataType == selectedDataType).ToList();
+                    System.Diagnostics.Debug.WriteLine($"分类筛选失败: {ex.Message}");
                 }
 
-                // 仅显示启用的题目
-                if (OnlyActiveCheckBox?.IsChecked == true)
+                // 5. 难度筛选 - 安全访问 SelectedValue
+                try
                 {
-                    filteredQuestions = filteredQuestions.Where(q => q.IsActive).ToList();
+                    if (DifficultyFilterComboBox?.SelectedValue is QuestionDifficulty selectedDifficulty)
+                    {
+                        filteredQuestions = filteredQuestions.Where(q => q != null && q.Difficulty == selectedDifficulty).ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"难度筛选失败: {ex.Message}");
                 }
 
-                // 更新数据网格
-                QuestionsDataGrid.ItemsSource = filteredQuestions;
+                // 6. 数据类型筛选 - 安全访问 SelectedValue
+                try
+                {
+                    if (DataTypeFilterComboBox?.SelectedValue is ParameterDataType selectedDataType)
+                    {
+                        filteredQuestions = filteredQuestions.Where(q => q != null && q.DataType == selectedDataType).ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"数据类型筛选失败: {ex.Message}");
+                }
 
-                // 更新统计文本
-                CountTextBlock.Text = $"总计: {filteredQuestions.Count} 题 (共 {allQuestions.Count} 题)";
+                // 7. 仅显示启用的题目 - 安全检查
+                try
+                {
+                    if (OnlyActiveCheckBox?.IsChecked == true)
+                    {
+                        filteredQuestions = filteredQuestions.Where(q => q != null && q.IsActive).ToList();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"启用状态筛选失败: {ex.Message}");
+                }
 
-                UpdateSelectionStatus();
+                // 8. 确保筛选结果不为空
+                if (filteredQuestions == null)
+                {
+                    filteredQuestions = new List<FlightControlQuestion>();
+                }
+
+                // 9. 安全更新数据网格
+                try
+                {
+                    if (QuestionsDataGrid != null)
+                    {
+                        QuestionsDataGrid.ItemsSource = filteredQuestions;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"更新数据网格失败: {ex.Message}");
+                }
+
+                // 10. 安全更新统计文本
+                try
+                {
+                    if (CountTextBlock != null)
+                    {
+                        CountTextBlock.Text = $"总计: {filteredQuestions.Count} 题 (共 {allQuestions.Count} 题)";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"更新统计文本失败: {ex.Message}");
+                }
+
+                // 11. 安全更新选择状态
+                try
+                {
+                    UpdateSelectionStatus();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"更新选择状态失败: {ex.Message}");
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"筛选题目时发生错误：{ex.Message}", "筛选错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Diagnostics.Debug.WriteLine($"ApplyFilters 方法发生未处理的异常: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+
+                // 发生异常时的安全处理
+                filteredQuestions = allQuestions?.ToList() ?? new List<FlightControlQuestion>();
+
+                if (CountTextBlock != null)
+                {
+                    CountTextBlock.Text = $"筛选出错，显示全部: {filteredQuestions.Count} 题";
+                }
+
+                if (QuestionsDataGrid != null)
+                {
+                    QuestionsDataGrid.ItemsSource = filteredQuestions;
+                }
+
+                MessageBox.Show($"筛选题目时发生错误：{ex.Message}\n\n已显示全部题目。", "筛选错误",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -218,14 +372,21 @@ namespace DroneSimulator
         {
             try
             {
-                var checkboxSelected = filteredQuestions.Where(q => q.IsSelected).ToList();
-                var dataGridSelected = QuestionsDataGrid?.SelectedItems?.Cast<FlightControlQuestion>().ToList() ?? new List<FlightControlQuestion>();
+                // 确保集合不为空
+                if (filteredQuestions == null)
+                {
+                    filteredQuestions = new List<FlightControlQuestion>();
+                }
+
+                var checkboxSelected = filteredQuestions.Where(q => q?.IsSelected == true).ToList();
+                var dataGridSelected = QuestionsDataGrid?.SelectedItems?.Cast<FlightControlQuestion>()?.Where(q => q != null)?.ToList()
+                                      ?? new List<FlightControlQuestion>();
 
                 int checkboxCount = checkboxSelected.Count;
                 int dataGridCount = dataGridSelected.Count;
                 int totalCount = filteredQuestions.Count;
 
-                // 更新选择计数显示
+                // 安全更新选择计数显示
                 if (SelectedCountText != null)
                 {
                     if (checkboxCount > 0 && dataGridCount > 0)
@@ -246,7 +407,7 @@ namespace DroneSimulator
                     }
                 }
 
-                // 更新按钮状态
+                // 安全更新按钮状态
                 if (EditQuestionButton != null)
                 {
                     EditQuestionButton.IsEnabled = true;
@@ -257,7 +418,7 @@ namespace DroneSimulator
                 {
                     DeleteQuestionButton.IsEnabled = true;
                     int totalSelected = Math.Max(checkboxCount, dataGridCount);
-                    
+
                     if (totalSelected == 0)
                     {
                         DeleteQuestionButton.Content = "删除题目";
@@ -275,14 +436,14 @@ namespace DroneSimulator
                     }
                 }
 
-                // 更新全选复选框状态
+                // 安全更新全选复选框状态
                 if (SelectAllCheckBox != null)
                 {
                     if (checkboxCount == 0)
                     {
                         SelectAllCheckBox.IsChecked = false;
                     }
-                    else if (checkboxCount == totalCount)
+                    else if (checkboxCount == totalCount && totalCount > 0)
                     {
                         SelectAllCheckBox.IsChecked = true;
                     }
@@ -295,6 +456,7 @@ namespace DroneSimulator
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"更新选择状态失败：{ex.Message}");
+                // 发生异常时不显示错误对话框，只记录日志
             }
         }
 
@@ -545,18 +707,63 @@ namespace DroneSimulator
             }
         }
 
+        // 更新导入按钮事件
         private void Import_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: 实现导入功能
-            MessageBox.Show("导入功能开发中...", "功能提示", 
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                FlightControlQuestionBankManager.ShowImportDialog();
+
+                // 导入完成后刷新显示
+                LoadQuestions();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导入操作失败：{ex.Message}", "导入错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
+        // 更新导出按钮事件
         private void Export_Click(object sender, RoutedEventArgs e)
         {
-            // TODO: 实现导出功能
-            MessageBox.Show("导出功能开发中...", "功能提示", 
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                // 检查是否有选中的题目
+                List<FlightControlQuestion>? selectedQuestions = null;
+
+                var checkboxSelected = filteredQuestions?.Where(q => q?.IsSelected == true).ToList();
+                var dataGridSelected = QuestionsDataGrid?.SelectedItems?.Cast<FlightControlQuestion>()?.ToList();
+
+                if (checkboxSelected?.Any() == true)
+                {
+                    selectedQuestions = checkboxSelected;
+                }
+                else if (dataGridSelected?.Any() == true)
+                {
+                    selectedQuestions = dataGridSelected;
+                }
+
+                // 如果没有选中的题目，询问是否导出全部
+                if (selectedQuestions == null || !selectedQuestions.Any())
+                {
+                    var result = MessageBox.Show(
+                        "没有选中的题目。是否导出全部题目？",
+                        "导出确认",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (result != MessageBoxResult.Yes)
+                        return;
+                }
+
+                FlightControlQuestionBankManager.ShowExportDialog(selectedQuestions);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"导出操作失败：{ex.Message}", "导出错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
