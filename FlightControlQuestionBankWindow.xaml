@@ -47,24 +47,9 @@
                     Click="Import_Click"/>
             <Button x:Name="ExportButton" Content="导 出 题 库" Width="100" Height="35"
                     Background="#9C27B0" Foreground="White" FontSize="16" Margin="0,0,10,0"
-                    Click="Export_Click"/>
-            
-            <!-- 选择操作 -->
-            <CheckBox x:Name="SelectAllCheckBox" Content="全选" Margin="0,0,10,0" 
-                      VerticalAlignment="Center" Checked="SelectAll_Checked" 
-                      Unchecked="SelectAll_Unchecked" Indeterminate="SelectAll_Indeterminate"/>
-            <TextBlock x:Name="SelectedCountText" Text="已选择: 0 题" VerticalAlignment="Center" 
-                       Margin="0,0,15,0" Foreground="#666"/>
+                    Click="Export_Click"/>                     
 
-            <Separator Margin="10,0"/>
-
-            <!-- 搜索 -->
-            <TextBox x:Name="SearchTextBox" Width="140" Height="35" 
-                     Margin="0,0,10,0" VerticalContentAlignment="Center"
-                     TextChanged="SearchTextBox_TextChanged"
-                     ToolTip="搜索题目..."/>
-
-            <Separator Margin="6,0"/>
+            <Separator Margin="145,0"/>
 
             <Button x:Name="CloseButton" Content="关     闭" Width="90" Height="35"
                     Background="#F17575" Foreground="White" FontSize="16" HorizontalAlignment="Right"
@@ -94,11 +79,22 @@
 
                     <TextBlock Text="数据类型：" FontWeight="Bold" Margin="5,10,5,5"/>
                     <ComboBox x:Name="DataTypeFilterComboBox" Margin="5" SelectionChanged="Filter_Changed"/>
-
+                    <!-- 搜索 -->
+                    <TextBox x:Name="SearchTextBox" Width="217" Height="20" 
+                             Margin="0,10,0,0" VerticalContentAlignment="Center"
+                             TextChanged="SearchTextBox_TextChanged"
+                             ToolTip="搜索题目..."/>
                     <CheckBox x:Name="OnlyActiveCheckBox" Content="仅显示启用题目" 
                               Margin="5,10,5,5" IsChecked="True" 
                               Checked="Filter_Changed" Unchecked="Filter_Changed"/>
-
+                    <!-- 选择操作 -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,10,10,10">
+                        <CheckBox x:Name="SelectAllCheckBox" Content="全选" Margin="5,0,10,0" 
+                                  VerticalAlignment="Center" Checked="SelectAll_Checked" 
+                                  Unchecked="SelectAll_Unchecked" Indeterminate="SelectAll_Indeterminate"/>
+                        <TextBlock x:Name="SelectedCountText" Text="已选择: 0 题" VerticalAlignment="Center" 
+                                    Margin="5,0,15,0" Foreground="#666"/>
+                    </StackPanel>
                     <Button x:Name="ClearFiltersButton" Content="清除筛选" Width="100" Height="30"
                             Margin="5,20,5,5" Click="ClearFilters_Click"/>
                 </StackPanel>
