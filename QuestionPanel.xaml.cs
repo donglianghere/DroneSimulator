@@ -602,7 +602,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 创建飞控题目显示控件 - 🚀 新增复选框支持
+        /// 创建飞控题目显示控件 - 🚀 新增复选框支持 + 🎯 添加点击区域切换复选框功能
         /// </summary>
         private Border CreateFCQuestionDisplayControl(FCQuestion question, int questionNumber)
         {
@@ -613,7 +613,9 @@ namespace DroneSimulator
                 CornerRadius = new CornerRadius(6),
                 Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
                 Margin = new Thickness(10),
-                Padding = new Thickness(15)
+                Padding = new Thickness(15),
+                Cursor = Cursors.Hand, // 🎯 添加手型光标提示用户可点击
+                Tag = question.Id // 🎯 将题目ID存储在Border的Tag中
             };
 
             var mainPanel = new StackPanel();
@@ -635,6 +637,74 @@ namespace DroneSimulator
             questionCheckBox.Checked += FCQuestionCheckBox_Changed;
             questionCheckBox.Unchecked += FCQuestionCheckBox_Changed;
             DockPanel.SetDock(questionCheckBox, Dock.Left);
+
+            // 🎯 新增：为整个Border添加鼠标点击事件，点击题目区域切换复选框状态
+            border.MouseLeftButtonDown += (sender, e) =>
+            {
+                try
+                {
+                    // 阻止事件冒泡，避免重复触发
+                    e.Handled = true;
+
+                    // 切换复选框状态
+                    questionCheckBox.IsChecked = !questionCheckBox.IsChecked;
+
+                    // 添加视觉反馈 - 紫色主题
+                    var originalColor = ((SolidColorBrush)border.Background).Color;
+                    var highlightColor = Color.FromRgb(240, 220, 255); // 浅紫色高亮
+
+                    // 短暂高亮效果
+                    border.Background = new SolidColorBrush(highlightColor);
+
+                    // 0.2秒后恢复原色
+                    var timer = new DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(200)
+                    };
+                    timer.Tick += (s, args) =>
+                    {
+                        border.Background = new SolidColorBrush(originalColor);
+                        timer.Stop();
+                    };
+                    timer.Start();
+
+                    System.Diagnostics.Debug.WriteLine($"🎯 用户点击飞控题目区域切换选择状态: ID={question.Id}, 新状态={questionCheckBox.IsChecked}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"飞控题目区域点击处理失败: {ex.Message}");
+                }
+            };
+
+            // 🎯 新增：鼠标悬停效果 - 紫色主题
+            border.MouseEnter += (sender, e) =>
+            {
+                try
+                {
+                    var originalBrush = border.Background as SolidColorBrush;
+                    if (originalBrush != null)
+                    {
+                        var hoverColor = Color.FromArgb(255, 250, 240, 255); // 更浅的紫色
+                        border.Background = new SolidColorBrush(hoverColor);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"飞控题目鼠标进入效果失败: {ex.Message}");
+                }
+            };
+
+            border.MouseLeave += (sender, e) =>
+            {
+                try
+                {
+                    border.Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)); // 恢复原色
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"飞控题目鼠标离开效果失败: {ex.Message}");
+                }
+            };
 
             // 题目标题信息面板
             var titlePanel = new StackPanel
@@ -1307,7 +1377,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 创建单个题目面板 - 🚀 新增复选框支持
+        /// 创建单个题目面板 - 🚀 新增复选框支持 + 🎯 添加点击区域切换复选框功能
         /// </summary>
         private Border CreateQuestionPanel(TheoryQuestion question, int questionNumber)
         {
@@ -1318,7 +1388,9 @@ namespace DroneSimulator
                 CornerRadius = new CornerRadius(6),
                 Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)),
                 Margin = new Thickness(10),
-                Padding = new Thickness(15)
+                Padding = new Thickness(15),
+                Cursor = Cursors.Hand, // 🎯 添加手型光标提示用户可点击
+                Tag = question.Id // 🎯 将题目ID存储在Border的Tag中
             };
 
             var mainPanel = new StackPanel();
@@ -1340,6 +1412,74 @@ namespace DroneSimulator
             questionCheckBox.Checked += TheoryQuestionCheckBox_Changed;
             questionCheckBox.Unchecked += TheoryQuestionCheckBox_Changed;
             DockPanel.SetDock(questionCheckBox, Dock.Left);
+
+            // 🎯 新增：为整个Border添加鼠标点击事件，点击题目区域切换复选框状态
+            border.MouseLeftButtonDown += (sender, e) =>
+            {
+                try
+                {
+                    // 阻止事件冒泡，避免重复触发
+                    e.Handled = true;
+
+                    // 切换复选框状态
+                    questionCheckBox.IsChecked = !questionCheckBox.IsChecked;
+
+                    // 添加视觉反馈
+                    var originalColor = ((SolidColorBrush)border.Background).Color;
+                    var highlightColor = Color.FromRgb(220, 235, 255); // 浅蓝色高亮
+
+                    // 短暂高亮效果
+                    border.Background = new SolidColorBrush(highlightColor);
+
+                    // 0.2秒后恢复原色
+                    var timer = new DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(200)
+                    };
+                    timer.Tick += (s, args) =>
+                    {
+                        border.Background = new SolidColorBrush(originalColor);
+                        timer.Stop();
+                    };
+                    timer.Start();
+
+                    System.Diagnostics.Debug.WriteLine($"🎯 用户点击理论题目区域切换选择状态: ID={question.Id}, 新状态={questionCheckBox.IsChecked}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题目区域点击处理失败: {ex.Message}");
+                }
+            };
+
+            // 🎯 新增：鼠标悬停效果
+            border.MouseEnter += (sender, e) =>
+            {
+                try
+                {
+                    var originalBrush = border.Background as SolidColorBrush;
+                    if (originalBrush != null)
+                    {
+                        var hoverColor = Color.FromArgb(255, 240, 248, 255); // 更浅的蓝色
+                        border.Background = new SolidColorBrush(hoverColor);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题目鼠标进入效果失败: {ex.Message}");
+                }
+            };
+
+            border.MouseLeave += (sender, e) =>
+            {
+                try
+                {
+                    border.Background = new SolidColorBrush(Color.FromRgb(248, 249, 250)); // 恢复原色
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题目鼠标离开效果失败: {ex.Message}");
+                }
+            };
 
             // 题目标题信息面板
             var titlePanel = new StackPanel
