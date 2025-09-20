@@ -6,15 +6,16 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
+using System.Threading;          
+using System.Threading.Tasks;    
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using System.Threading;          
-using System.Threading.Tasks;    
 
 namespace DroneSimulator
 {     
@@ -178,6 +179,9 @@ namespace DroneSimulator
             // 添加试卷名称输入框的实时检查
             ExamNameBox.TextChanged += ExamNameBox_TextChanged;
 
+            // 🚀 新增：启用试卷管理区域的鼠标滚轮响应
+            EnableMouseWheelScrolling();
+
             // 初始化状态检查（在窗口加载完成后执行）
             this.Loaded += (s, e) => {
                 CheckExamNameConflict();
@@ -203,7 +207,185 @@ namespace DroneSimulator
                 }), DispatcherPriority.Loaded);           
             };
         }
+        #region 鼠标滚轮响应
+        /// <summary>
+        /// 🚀 新增：启用试卷管理区域的鼠标滚轮响应
+        /// </summary>
+        private void EnableMouseWheelScrolling()
+        {
+            try
+            {
+                // 找到试卷管理区域的主要控件
+                var examManagementBorder = this.FindName("ExamManagementBorder") as Border;
+                if (examManagementBorder == null)
+                {
+                    // 如果没有专门的Border，则查找右侧Grid列
+                    var rightGrid = this.Content as Grid;
+                    if (rightGrid?.Children.Count > 1 && rightGrid.Children[1] is Border border)
+                    {
+                        examManagementBorder = border;
+                    }
+                }
 
+                // 如果找到了试卷管理区域，添加滚轮事件处理
+                if (examManagementBorder != null)
+                {
+                    examManagementBorder.PreviewMouseWheel += ExamManagementArea_PreviewMouseWheel;
+                    System.Diagnostics.Debug.WriteLine("✅ 试卷管理区域鼠标滚轮事件已启用");
+                }
+                else
+                {
+                    // 备用方法：直接为整个窗口的右侧区域添加事件处理
+                    var mainGrid = this.Content as Grid;
+                    if (mainGrid != null)
+                    {
+                        foreach (UIElement child in mainGrid.Children)
+                        {
+                            if (child is Border border && Grid.GetColumn(border) == 1)
+                            {
+                                border.PreviewMouseWheel += ExamManagementArea_PreviewMouseWheel;
+                                System.Diagnostics.Debug.WriteLine("✅ 备用方法：试卷管理区域鼠标滚轮事件已启用");
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // 🔧 新增：为试卷列表的ScrollViewer启用鼠标焦点捕获
+                EnableScrollViewerMouseFocus();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"启用鼠标滚轮响应失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：试卷管理区域鼠标滚轮事件处理
+        /// </summary>
+        private void ExamManagementArea_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            try
+            {
+                // 查找试卷管理区域内的ScrollViewer
+                var scrollViewer = FindExamManagementScrollViewer(sender as DependencyObject);
+
+                if (scrollViewer != null)
+                {
+                    // 计算滚动增量（负值向上滚动，正值向下滚动）
+                    double scrollDelta = -e.Delta / 3.0; // 调整滚动敏感度
+
+                    // 应用滚动
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset + scrollDelta);
+
+                    // 标记事件已处理，阻止冒泡
+                    e.Handled = true;
+
+                    System.Diagnostics.Debug.WriteLine($"🖱️ 试卷管理区域滚轮滚动: Delta={e.Delta}, NewOffset={scrollViewer.VerticalOffset}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理鼠标滚轮事件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：查找试卷管理区域内的ScrollViewer
+        /// </summary>
+        private ScrollViewer? FindExamManagementScrollViewer(DependencyObject? parent)
+        {
+            if (parent == null) return null;
+
+            try
+            {
+                // 递归查找ScrollViewer
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(parent, i);
+
+                    if (child is ScrollViewer scrollViewer)
+                    {
+                        // 确保找到的是试卷管理区域的ScrollViewer（不是其他TabItem的）
+                        var parentBorder = FindParent<Border>(scrollViewer);
+                        if (parentBorder != null && Grid.GetColumn(parentBorder) == 1)
+                        {
+                            return scrollViewer;
+                        }
+                    }
+
+                    // 递归查找子控件
+                    var result = FindExamManagementScrollViewer(child);
+                    if (result != null) return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"查找ScrollViewer失败: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 🚀 新增：查找指定类型的父控件
+        /// </summary>
+        private T? FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            try
+            {
+                var parent = VisualTreeHelper.GetParent(child);
+
+                if (parent == null) return null;
+
+                if (parent is T) return parent as T;
+
+                return FindParent<T>(parent);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：为ScrollViewer启用鼠标焦点捕获
+        /// </summary>
+        private void EnableScrollViewerMouseFocus()
+        {
+            try
+            {
+                // 为窗口添加鼠标进入事件，自动设置焦点到正确的ScrollViewer
+                this.MouseEnter += (sender, e) =>
+                {
+                    try
+                    {
+                        var position = e.GetPosition(this);
+                        var hitTest = VisualTreeHelper.HitTest(this, position);
+
+                        if (hitTest?.VisualHit != null)
+                        {
+                            var scrollViewer = FindExamManagementScrollViewer(hitTest.VisualHit);
+                            if (scrollViewer != null && scrollViewer.Focusable)
+                            {
+                                scrollViewer.Focus();
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"设置ScrollViewer焦点失败: {ex.Message}");
+                    }
+                };
+
+                System.Diagnostics.Debug.WriteLine("✅ ScrollViewer鼠标焦点捕获已启用");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"启用ScrollViewer焦点捕获失败: {ex.Message}");
+            }
+        }
+        #endregion
         #region 飞控题库初始化功能
 
         /// <summary>
@@ -2569,52 +2751,7 @@ namespace DroneSimulator
             TeacherNameText.Text = $"姓名：{currentTeacher.Name}";
             TeacherIdText.Text = $"工号：{currentTeacher.IdNumber}";
         }
-
-        private void LoadExistingExams()
-        {
-            if (!Directory.Exists(EXAMS_DIRECTORY))
-                Directory.CreateDirectory(EXAMS_DIRECTORY);
-
-            examFiles.Clear();
-            examItems.Clear();
-
-            // 读取考卷试卷设置
-            string activeExamName = GetActiveExamName();
-
-            var examFileInfos = new List<(string filePath, string examName, DateTime creationTime)>();
-
-            foreach (string file in Directory.GetFiles(EXAMS_DIRECTORY, "*.json"))
-            {
-                string examName = Path.GetFileNameWithoutExtension(file);
-                DateTime creationTime = File.GetLastWriteTime(file);
-
-                examFiles.Add(file);
-                examFileInfos.Add((file, examName, creationTime));
-            }
-
-            // 按创建时间排序（最新的在前）
-            examFileInfos = examFileInfos.OrderByDescending(x => x.creationTime).ToList();
-
-            // 如果没有设置考卷，自动设置最新的试题为考卷
-            if (string.IsNullOrEmpty(activeExamName) && examFileInfos.Count > 0)
-            {
-                activeExamName = examFileInfos[0].examName;
-                SetActiveExamName(activeExamName);
-            }
-
-            // 创建试卷列表项
-            foreach (var (filePath, examName, creationTime) in examFileInfos)
-            {
-                var item = new ExamListItem
-                {
-                    ExamName = examName,
-                    IsActive = examName == activeExamName,
-                    CreationTime = creationTime,
-                    FilePath = filePath
-                };
-                examItems.Add(item);
-            }
-        }
+               
 
         // 获取考卷名称
         private string GetActiveExamName()
@@ -2670,58 +2807,139 @@ namespace DroneSimulator
             }
         }
 
-        // 试卷名称点击事件
+        /// <summary>
+        /// 🔧 完善：试卷名称点击事件 - 显示详细摘要
+        /// </summary>
         private void ExamName_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is TextBlock textBlock && textBlock.Tag is string examName)
             {
-                // 清除所有项的选中状态
-                foreach (var item in examItems)
+                try
                 {
-                    item.IsSelected = false;
-                }
+                    // 清除所有项的选中状态
+                    foreach (var item in examItems)
+                    {
+                        item.IsSelected = false;
+                    }
 
-                // 设置当前点击项为选中状态
-                var clickedItem = examItems.FirstOrDefault(x => x.ExamName == examName);
-                if (clickedItem != null)
+                    // 设置当前点击项为选中状态
+                    var clickedItem = examItems.FirstOrDefault(x => x.ExamName == examName);
+                    if (clickedItem != null)
+                    {
+                        clickedItem.IsSelected = true;
+                        selectedExamItem = clickedItem;
+                    }
+
+                    // 🔧 异步加载并显示试卷详情摘要
+                    _ = LoadAndDisplayExamSummaryAsync(examName);
+                }
+                catch (Exception ex)
                 {
-                    clickedItem.IsSelected = true;
+                    System.Diagnostics.Debug.WriteLine($"点击试卷名称处理失败: {ex.Message}");
+                    ExamSummaryText.Text = "加载试卷信息时发生错误";
                 }
-
-                // 加载试卷详情
-                LoadExamByName(examName);
             }
         }
 
-        // 根据试卷名称加载试卷
+        /// <summary>
+        /// 🔧 根据试卷名称加载试卷 - 更新为显示摘要
+        /// </summary>
         private void LoadExamByName(string examName)
         {
             selectedExamItem = examItems.FirstOrDefault(x => x.ExamName == examName);
             if (selectedExamItem != null)
             {
-                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
-                if (File.Exists(fileName))
-                {
-                    try
-                    {
-                        string jsonString = File.ReadAllText(fileName);
-                        var examData = JsonSerializer.Deserialize<ExamData>(jsonString);
-                        LoadExamData(examData);
-
-                        // 更新试卷信息概述
-                        ExamSummaryText.Text = GenerateExamSummary(examData);
-
-                        // 根据权限更新删除按钮状态
-                        UpdateDeleteButtonState(examData);
-                    }
-                    catch (Exception ex)
-                    {
-                        ExamSummaryText.Text = $"读取试卷信息失败：{ex.Message}";
-                        DeleteButton.IsEnabled = false;
-                    }
-                }
+                // 异步加载试卷摘要
+                _ = LoadAndDisplayExamSummaryAsync(examName);
             }
         }
+
+        /// <summary>
+        /// 🚀 新增：异步加载并显示试卷摘要
+        /// </summary>
+        private async Task LoadAndDisplayExamSummaryAsync(string examName)
+        {
+            try
+            {
+                // 显示加载状态
+                ExamSummaryText.Text = "正在加载试卷信息...";
+
+                // 异步生成摘要
+                string summary = await GenerateEnhancedExamSummary(examName);
+
+                // 在UI线程上更新显示
+                Dispatcher.Invoke(() =>
+                {
+                    ExamSummaryText.Text = summary;
+                });
+
+                // 同时加载试卷数据用于删除按钮状态更新
+                await LoadExamDataForButtonState(examName);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载试卷摘要失败: {ex.Message}");
+                Dispatcher.Invoke(() =>
+                {
+                    ExamSummaryText.Text = $"加载试卷信息失败：{ex.Message}";
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// 🚀 新增：加载试卷数据以更新按钮状态
+        /// </summary>
+        private async Task LoadExamDataForButtonState(string examName)
+        {
+            try
+            {
+                // 优先检查混合试卷格式
+                string mixedPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+                string normalPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+
+                ExamData? examData = null;
+
+                if (File.Exists(mixedPath))
+                {
+                    // 加载混合试卷并转换为ExamData
+                    var json = await File.ReadAllTextAsync(mixedPath);
+                    var mixedExam = JsonSerializer.Deserialize<MixedExamData>(json);
+
+                    if (mixedExam != null)
+                    {
+                        examData = new ExamData
+                        {
+                            ExamName = mixedExam.ExamName,
+                            TeacherName = mixedExam.TeacherName,
+                            TeacherId = mixedExam.TeacherId,
+                            CreationTime = mixedExam.CreationTime,
+                            Questions = mixedExam.Content.GetAllQuestionsAsGeneric()
+                        };
+                    }
+                }
+                else if (File.Exists(normalPath))
+                {
+                    // 加载传统格式试卷
+                    var json = await File.ReadAllTextAsync(normalPath);
+                    examData = JsonSerializer.Deserialize<ExamData>(json);
+                }
+
+                if (examData != null)
+                {
+                    // 在UI线程上更新删除按钮状态
+                    Dispatcher.Invoke(() =>
+                    {
+                        UpdateDeleteButtonState(examData);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载试卷数据失败: {ex.Message}");
+            }
+        }
+
 
         // 通用的获取右键菜单试卷名称的方法
         private string GetExamNameFromContextMenu(object sender)
@@ -3848,47 +4066,811 @@ namespace DroneSimulator
                 prefixes.Any(prefix => cb.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // 在 GenerateButton_Click 方法中添加理论题目支持
-        // === 专注于试卷管理的方法 ===
-        private void GenerateButton_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// 生成试卷按钮点击事件 - 🚀 增强版
+        /// </summary>
+        private async void GenerateButton_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(ExamNameBox.Text))
-            {
-                MessageBox.Show("请输入试卷名称！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // 收集当前界面选中的题目
-            var examContent = CollectSelectedQuestions();
-
-            if (!examContent.HasAnyQuestions)
-            {
-                MessageBox.Show("请至少选择一道题目！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            // 生成试卷
-            var examData = new MixedExamData
-            {
-                ExamName = ExamNameBox.Text,
-                TeacherName = currentTeacher.Name,
-                TeacherId = currentTeacher.IdNumber,
-                CreationTime = DateTime.Now,
-                Content = examContent
-            };
-
             try
             {
-                ExamFileManager.SaveExam(examData);
-                LoadExistingExams();
+                // 🔧 1. 增强输入验证
+                var validationResult = ValidateExamInputs();
+                if (!validationResult.IsValid)
+                {
+                    MessageBox.Show($"输入验证失败：\n\n{string.Join("\n", validationResult.Errors)}",
+                        "输入错误", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
-                ShowExamCreationSummary(examData);
+                // 🔧 2. 收集和验证题目
+                var examContent = CollectSelectedQuestions();
+                var contentValidation = ValidateExamContent(examContent);
+                if (!contentValidation.IsValid)
+                {
+                    var result = MessageBox.Show(
+                        $"题目验证警告：\n\n{string.Join("\n", contentValidation.Warnings)}\n\n是否继续生成试卷？",
+                        "题目验证", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                    if (result != MessageBoxResult.Yes)
+                        return;
+                }
+
+                // 🔧 3. 处理试卷名称冲突
+                string examName = ExamNameBox.Text.Trim();
+                var conflictResult = HandleExamNameConflict(examName);
+                if (!conflictResult.CanProceed)
+                {
+                    return;
+                }
+                examName = conflictResult.FinalName;
+
+                // 🔧 4. 生成试卷数据
+                var examData = CreateExamData(examName, examContent);
+
+                // 🔧 5. 保存试卷（带事务性）
+                var saveResult = await SaveExamWithTransaction(examData);
+                if (!saveResult.Success)
+                {
+                    MessageBox.Show($"保存试卷失败：\n\n{saveResult.ErrorMessage}",
+                        "保存错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // 🔧 6. 更新界面
+                await RefreshExamListAsync();
+
+                // 🔧 7. 显示成功结果
+                ShowEnhancedExamCreationSummary(examData, saveResult);
+
+                // 🔧 8. 清理界面
                 ClearExamNameInput();
+
+                // 🔧 9. 记录操作日志
+                LogExamCreation(examData, currentTeacher);
+
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"保存试卷失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Diagnostics.Debug.WriteLine($"生成试卷时发生未知错误: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+
+                MessageBox.Show($"生成试卷时发生未知错误：\n\n{ex.Message}\n\n请联系技术支持或重试操作。",
+                    "系统错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// 🚀 新增：验证试卷输入
+        /// </summary>
+        private ValidationResult ValidateExamInputs()
+        {
+            var result = new ValidationResult();
+            string examName = ExamNameBox.Text?.Trim() ?? "";
+
+            // 检查试卷名称
+            if (string.IsNullOrWhiteSpace(examName))
+            {
+                result.Errors.Add("试卷名称不能为空");
+            }
+            else
+            {
+                if (examName.Length < 2)
+                    result.Errors.Add("试卷名称至少需要2个字符");
+
+                if (examName.Length > 100)
+                    result.Errors.Add("试卷名称不能超过100个字符");
+
+                // 检查文件系统禁用字符
+                char[] invalidChars = Path.GetInvalidFileNameChars();
+                if (examName.IndexOfAny(invalidChars) >= 0)
+                {
+                    result.Errors.Add($"试卷名称包含无效字符，不能使用: {string.Join(" ", invalidChars)}");
+                }
+
+                // 检查是否以点开头（Windows系统问题）
+                if (examName.StartsWith("."))
+                {
+                    result.Errors.Add("试卷名称不能以点(.)开头");
+                }
+            }
+
+            result.IsValid = !result.Errors.Any();
+            return result;
+        }
+
+        /// <summary>
+        /// 🚀 新增：验证试卷内容
+        /// </summary>
+        private ContentValidationResult ValidateExamContent(ExamContent examContent)
+        {
+            var result = new ContentValidationResult();
+
+            if (!examContent.HasAnyQuestions)
+            {
+                result.Errors.Add("至少需要选择一道题目");
+                result.IsValid = false;
+                return result;
+            }
+
+            // 检查题目平衡性
+            int theoryCount = examContent.TheoryQuestions.Count;
+            int circuitCount = examContent.CircuitQuestions.Count;
+            int fcCount = examContent.FCQuestions.Count;
+            int totalCount = examContent.TotalQuestions;
+
+            // 建议性警告
+            if (totalCount < 5)
+            {
+                result.Warnings.Add($"题目数量较少({totalCount}题)，建议增加到5题以上");
+            }
+
+            if (totalCount > 100)
+            {
+                result.Warnings.Add($"题目数量较多({totalCount}题)，可能影响考试体验");
+            }
+
+            // 检查是否只有一种类型的题目
+            int typeCount = 0;
+            if (theoryCount > 0) typeCount++;
+            if (circuitCount > 0) typeCount++;
+            if (fcCount > 0) typeCount++;
+
+            if (typeCount == 1)
+            {
+                result.Warnings.Add("试卷只包含一种类型的题目，建议添加其他类型以增加综合性");
+            }
+
+            // 检查理论题目的类型分布
+            if (theoryCount > 0)
+            {
+                var singleChoice = examContent.TheoryQuestions.Count(q => q.Type == TheoryQuestionType.SingleChoice);
+                var multipleChoice = examContent.TheoryQuestions.Count(q => q.Type == TheoryQuestionType.MultipleChoice);
+
+                if (singleChoice == 0 && multipleChoice > 0)
+                {
+                    result.Warnings.Add("理论题目只包含多选题，建议添加一些单选题");
+                }
+                else if (multipleChoice == 0 && singleChoice > 0)
+                {
+                    result.Warnings.Add("理论题目只包含单选题，建议添加一些多选题");
+                }
+            }
+
+            result.IsValid = !result.Errors.Any();
+            return result;
+        }
+
+        /// <summary>
+        /// 🚀 新增：处理试卷名称冲突
+        /// </summary>
+        private ConflictResolutionResult HandleExamNameConflict(string examName)
+        {
+            string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+
+            if (!File.Exists(fileName))
+            {
+                return new ConflictResolutionResult
+                {
+                    CanProceed = true,
+                    FinalName = examName
+                };
+            }
+
+            try
+            {
+                // 读取现有试卷信息
+                string existingJson = File.ReadAllText(fileName);
+                var existingExam = JsonSerializer.Deserialize<ExamData>(existingJson);
+
+                if (existingExam != null)
+                {
+                    bool canModify = CanModifyExam(existingExam);
+
+                    if (!canModify)
+                    {
+                        MessageBox.Show($"试卷名称已被教师 {existingExam.TeacherName} 使用，请更换名称",
+                            "名称冲突", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return new ConflictResolutionResult { CanProceed = false };
+                    }
+
+                    // 可以覆盖，询问用户
+                    var result = MessageBox.Show(
+                        $"试卷《{examName}》已存在\n\n" +
+                        $"创建时间：{existingExam.CreationTime:yyyy-MM-dd HH:mm}\n" +
+                        $"出题教师：{existingExam.TeacherName}\n" +
+                        $"题目数量：{existingExam.Questions?.Count(q => q.IsChecked) ?? 0}\n\n" +
+                        $"是否要覆盖现有试卷？",
+                        "试卷已存在", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                    if (result != MessageBoxResult.Yes)
+                    {
+                        return new ConflictResolutionResult { CanProceed = false };
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"读取现有试卷失败: {ex.Message}");
+
+                var result = MessageBox.Show(
+                    $"检测到同名试卷文件，但读取失败\n\n是否要覆盖该文件？\n\n注意：这可能会导致数据丢失！",
+                    "文件冲突", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    return new ConflictResolutionResult { CanProceed = false };
+                }
+            }
+
+            return new ConflictResolutionResult
+            {
+                CanProceed = true,
+                FinalName = examName
+            };
+        }
+
+        /// <summary>
+        /// 🚀 新增：创建试卷数据
+        /// </summary>
+        private MixedExamData CreateExamData(string examName, ExamContent examContent)
+        {
+            return new MixedExamData
+            {
+                ExamName = examName,
+                TeacherName = currentTeacher.Name,
+                TeacherId = currentTeacher.IdNumber,
+                CreationTime = DateTime.Now,
+                ExamType = DetermineExamType(examContent),
+                Content = examContent
+            };
+        }
+
+        /// <summary>
+        /// 🚀 新增：确定试卷类型
+        /// </summary>
+        private ExamType DetermineExamType(ExamContent examContent)
+        {
+            bool hasTheory = examContent.TheoryQuestions.Any();
+            bool hasCircuit = examContent.CircuitQuestions.Any();
+            bool hasFC = examContent.FCQuestions.Any();
+
+            int typeCount = 0;
+            if (hasTheory) typeCount++;
+            if (hasCircuit) typeCount++;
+            if (hasFC) typeCount++;
+
+            return typeCount switch
+            {
+                0 => ExamType.Mixed,
+                1 when hasTheory => ExamType.TheoryOnly,
+                1 when hasCircuit => ExamType.CircuitOnly,
+                1 when hasFC => ExamType.FCOnly,
+                2 => ExamType.Mixed,
+                3 => ExamType.Comprehensive,
+                _ => ExamType.Mixed
+            };
+        }
+
+        /// <summary>
+        /// 🚀 新增：事务性保存试卷 - 🔧 修改为仅保存混合格式
+        /// </summary>
+        private async Task<SaveResult> SaveExamWithTransaction(MixedExamData examData)
+        {
+            try
+            {
+                // 创建临时备份
+                string backupPath = await CreateTemporaryBackup(examData.ExamName);
+
+                try
+                {
+                    // 🔧 修改：仅保存混合格式试卷
+                    SaveMixedExamOnly(examData);
+
+                    // 验证保存结果
+                    if (!VerifySavedExam(examData))
+                    {
+                        throw new Exception("试卷保存验证失败");
+                    }
+
+                    // 删除临时备份
+                    if (!string.IsNullOrEmpty(backupPath) && File.Exists(backupPath))
+                    {
+                        File.Delete(backupPath);
+                    }
+
+                    return new SaveResult
+                    {
+                        Success = true,
+                        Message = "试卷保存成功（混合格式）"
+                    };
+                }
+                catch (Exception ex)
+                {
+                    // 恢复备份
+                    if (!string.IsNullOrEmpty(backupPath) && File.Exists(backupPath))
+                    {
+                        await RestoreFromBackup(backupPath, examData.ExamName);
+                    }
+
+                    throw new Exception($"保存失败：{ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return new SaveResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：仅保存混合试卷格式 - 避免重复文件
+        /// </summary>
+        private void SaveMixedExamOnly(MixedExamData examData)
+        {
+            try
+            {
+                if (!Directory.Exists(EXAMS_DIRECTORY))
+                {
+                    Directory.CreateDirectory(EXAMS_DIRECTORY);
+                }
+
+                // 🔧 仅保存混合试卷格式
+                string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_mixed.json");
+                string mixedJson = JsonSerializer.Serialize(examData, new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+                File.WriteAllText(mixedFileName, mixedJson);
+
+                System.Diagnostics.Debug.WriteLine($"✅ 仅保存混合格式试卷: {mixedFileName}");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"保存混合试卷失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：增强的试卷创建摘要 - 突出混合格式
+        /// </summary>
+        private void ShowEnhancedExamCreationSummary(MixedExamData examData, SaveResult saveResult)
+        {
+            var summary = new StringBuilder();
+            summary.AppendLine("🎉 试卷生成成功！");
+            summary.AppendLine();
+            summary.AppendLine($"📝 试卷名称：{examData.ExamName}");
+            summary.AppendLine($"👨‍🏫 出题教师：{examData.TeacherName}");
+            summary.AppendLine($"📅 创建时间：{examData.CreationTime:yyyy-MM-dd HH:mm:ss}");
+            summary.AppendLine($"📊 试卷类型：{GetExamTypeDisplayName(examData.ExamType)} (混合格式)");
+            summary.AppendLine();
+
+            // 题目统计
+            summary.AppendLine("📋 题目统计：");
+            if (examData.Content.TheoryQuestions.Any())
+            {
+                var theoryStats = AnalyzeTheoryQuestions(examData.Content.TheoryQuestions);
+                summary.AppendLine($"  📚 理论题目：{examData.Content.TheoryQuestions.Count} 题 {theoryStats}");
+            }
+
+            if (examData.Content.CircuitQuestions.Any())
+            {
+                summary.AppendLine($"  🔧 电路实测：{examData.Content.CircuitQuestions.Count} 题");
+            }
+
+            if (examData.Content.FCQuestions.Any())
+            {
+                summary.AppendLine($"  🛩️ 飞控实操：{examData.Content.FCQuestions.Count} 题");
+            }
+
+            summary.AppendLine($"  📊 总计：{examData.TotalQuestions} 题");
+
+            // 计算预估考试时间
+            int estimatedMinutes = CalculateEstimatedExamTime(examData.Content);
+            summary.AppendLine();
+            summary.AppendLine($"⏱️ 预估考试时间：{estimatedMinutes} 分钟");
+
+            // 保存信息
+            summary.AppendLine();
+            summary.AppendLine($"💾 {saveResult.Message}");
+            summary.AppendLine($"📄 格式：混合试卷格式（{examData.ExamName}_mixed.json）");
+            summary.AppendLine($"🎯 优势：支持理论、电路、飞控三种题型的统一管理");
+
+            MessageBox.Show(summary.ToString(), "试卷生成完成",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 🚀 增强版：加载现有试卷（支持混合试卷和缓存）
+        /// </summary>
+        private async void LoadExistingExams()
+        {
+            try
+            {
+                if (!Directory.Exists(EXAMS_DIRECTORY))
+                    Directory.CreateDirectory(EXAMS_DIRECTORY);
+
+                // 🔧 修复：在UI线程上清空集合
+                Dispatcher.Invoke(() =>
+                {
+                    examFiles.Clear();
+                    examItems.Clear();
+                });
+
+                // 🔧 并行加载试卷文件信息
+                var examInfoTasks = new List<Task<ExamFileInfo>>();
+
+                var allJsonFiles = Directory.GetFiles(EXAMS_DIRECTORY, "*.json");
+
+                // 🔧 修复：优先加载混合试卷格式，避免重复
+                var validExamFiles = new List<string>();
+                var processedExamNames = new HashSet<string>();
+
+                foreach (string file in allJsonFiles)
+                {
+                    // 跳过理论和飞控的单独文件
+                    if (file.EndsWith("_theory.json") || file.EndsWith("_fc.json"))
+                        continue;
+
+                    string fileName = Path.GetFileNameWithoutExtension(file);
+                    string examName;
+
+                    // 处理混合试卷格式
+                    if (fileName.EndsWith("_mixed"))
+                    {
+                        examName = fileName.Replace("_mixed", "");
+                        if (!processedExamNames.Contains(examName))
+                        {
+                            validExamFiles.Add(file);
+                            processedExamNames.Add(examName);
+                        }
+                    }
+                    else
+                    {
+                        // 处理传统格式，但只有在没有对应的混合格式时才加载
+                        examName = fileName;
+                        string mixedFile = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+
+                        if (!File.Exists(mixedFile) && !processedExamNames.Contains(examName))
+                        {
+                            validExamFiles.Add(file);
+                            processedExamNames.Add(examName);
+                        }
+                    }
+                }
+
+                foreach (string file in validExamFiles)
+                {
+                    examInfoTasks.Add(LoadExamFileInfoAsync(file));
+                }
+
+                var examInfoResults = await Task.WhenAll(examInfoTasks);
+                var validExamInfos = examInfoResults.Where(info => info != null).ToList();
+
+                // 读取活跃试卷设置
+                string activeExamName = GetActiveExamName();
+
+                // 如果没有设置活跃试卷，自动设置最新的试卷
+                if (string.IsNullOrEmpty(activeExamName) && validExamInfos.Count > 0)
+                {
+                    activeExamName = validExamInfos
+                        .OrderByDescending(x => x.CreationTime)
+                        .First().ExamName;
+                    SetActiveExamName(activeExamName);
+                }
+
+                // 🔧 修复：在UI线程上创建和添加试卷列表项
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    try
+                    {
+                        foreach (var examInfo in validExamInfos.OrderByDescending(x => x.CreationTime))
+                        {
+                            var item = new EnhancedExamListItem
+                            {
+                                ExamName = examInfo.ExamName,
+                                IsActive = examInfo.ExamName == activeExamName,
+                                CreationTime = examInfo.CreationTime,
+                                FilePath = examInfo.FilePath,
+                                TeacherName = examInfo.TeacherName,
+                                QuestionCount = examInfo.QuestionCount,
+                                ExamType = examInfo.ExamType,
+                                FileSize = examInfo.FileSize,
+                                IsMixedExam = examInfo.IsMixedExam
+                            };
+
+                            // 在UI线程上添加到集合
+                            examItems.Add(item);
+                            examFiles.Add(examInfo.FilePath);
+                        }
+
+                        // 🔧 更新试卷统计信息
+                        UpdateExamListStatistics(validExamInfos);
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 成功加载 {validExamInfos.Count} 份试卷（已去重）");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"UI线程更新失败: {ex.Message}");
+                        throw; // 重新抛出异常，让外层处理
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载试卷列表失败: {ex.Message}");
+
+                // 🔧 在UI线程上显示错误消息
+                Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"加载试卷列表失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：异步加载单个试卷文件信息
+        /// </summary>
+        private async Task<ExamFileInfo> LoadExamFileInfoAsync(string filePath)
+        {
+            try
+            {
+                string examName = Path.GetFileNameWithoutExtension(filePath);
+                var fileInfo = new FileInfo(filePath);
+
+                // 尝试读取试卷数据
+                string jsonContent = await File.ReadAllTextAsync(filePath);
+
+                // 检查是否为混合试卷
+                bool isMixedExam = examName.EndsWith("_mixed");
+                ExamData? examData = null;
+                MixedExamData? mixedExamData = null;
+
+                if (isMixedExam)
+                {
+                    mixedExamData = JsonSerializer.Deserialize<MixedExamData>(jsonContent);
+                }
+                else
+                {
+                    examData = JsonSerializer.Deserialize<ExamData>(jsonContent);
+                }
+
+                return new ExamFileInfo
+                {
+                    ExamName = isMixedExam ? examName.Replace("_mixed", "") : examName,
+                    FilePath = filePath,
+                    CreationTime = fileInfo.LastWriteTime,
+                    FileSize = fileInfo.Length,
+                    TeacherName = mixedExamData?.TeacherName ?? examData?.TeacherName ?? "未知",
+                    QuestionCount = mixedExamData?.TotalQuestions ?? examData?.Questions?.Count(q => q.IsChecked) ?? 0,
+                    ExamType = mixedExamData?.ExamType.ToString() ?? "传统",
+                    IsMixedExam = isMixedExam
+                };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"加载试卷文件 {filePath} 失败: {ex.Message}");
+
+                // 返回基本信息
+                var fileInfo = new FileInfo(filePath);
+                return new ExamFileInfo
+                {
+                    ExamName = Path.GetFileNameWithoutExtension(filePath),
+                    FilePath = filePath,
+                    CreationTime = fileInfo.LastWriteTime,
+                    FileSize = fileInfo.Length,
+                    TeacherName = "读取失败",
+                    QuestionCount = 0,
+                    ExamType = "未知",
+                    IsMixedExam = false
+                };
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：增强的试卷摘要生成 - 支持混合试卷和详细信息
+        /// </summary>
+        private async Task<string> GenerateEnhancedExamSummary(string examName)
+        {
+            try
+            {
+                var summary = new StringBuilder();
+                ExamData? examData = null;
+
+                // 尝试加载混合试卷
+                string mixedPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+                string normalPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+
+                if (File.Exists(mixedPath))
+                {
+                    var mixedExam = JsonSerializer.Deserialize<MixedExamData>(
+                        await File.ReadAllTextAsync(mixedPath));
+
+                    if (mixedExam != null)
+                    {
+                        summary.AppendLine($"📝 试卷名称：{mixedExam.ExamName}");
+                        summary.AppendLine($"👨‍🏫 出题教师：{mixedExam.TeacherName} ({mixedExam.TeacherId})");
+                        summary.AppendLine($"📅 创建时间：{mixedExam.CreationTime:yyyy-MM-dd HH:mm:ss}");
+                        summary.AppendLine($"📊 试卷类型：{GetExamTypeDisplayName(mixedExam.ExamType)} (混合试卷)");
+                        summary.AppendLine();
+
+                        // 详细题目分析
+                        summary.AppendLine("📋 题目详情：");
+
+                        if (mixedExam.Content.TheoryQuestions.Any())
+                        {
+                            var theoryAnalysis = AnalyzeTheoryQuestions(mixedExam.Content.TheoryQuestions);
+                            summary.AppendLine($"  📚 理论题目：{mixedExam.Content.TheoryQuestions.Count} 题");
+                            summary.AppendLine($"     {theoryAnalysis}");
+                        }
+
+                        if (mixedExam.Content.CircuitQuestions.Any())
+                        {
+                            summary.AppendLine($"  🔧 电路实测：{mixedExam.Content.CircuitQuestions.Count} 题");
+                            summary.AppendLine($"     已配置串口指令，支持设备初始化");
+                        }
+
+                        if (mixedExam.Content.FCQuestions.Any())
+                        {
+                            summary.AppendLine($"  🛩️ 飞控实操：{mixedExam.Content.FCQuestions.Count} 题");
+                            summary.AppendLine($"     需要飞控设备连接进行参数验证");
+                        }
+
+                        summary.AppendLine($"  📊 总计：{mixedExam.TotalQuestions} 题");
+
+                        // 计算预估信息
+                        int estimatedTime = CalculateEstimatedExamTime(mixedExam.Content);
+                        summary.AppendLine();
+                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟");
+
+                        var fileInfo = new FileInfo(mixedPath);
+                        summary.AppendLine($"💾 文件大小：{FormatFileSize(fileInfo.Length)}");
+
+                        // 创建兼容的 ExamData 以便权限检查
+                        examData = new ExamData
+                        {
+                            ExamName = mixedExam.ExamName,
+                            TeacherName = mixedExam.TeacherName,
+                            TeacherId = mixedExam.TeacherId,
+                            CreationTime = mixedExam.CreationTime
+                        };
+                    }
+                }
+                else if (File.Exists(normalPath))
+                {
+                    examData = JsonSerializer.Deserialize<ExamData>(
+                        await File.ReadAllTextAsync(normalPath));
+
+                    if (examData != null)
+                    {
+                        summary.AppendLine($"📝 试卷名称：{examData.ExamName}");
+                        summary.AppendLine($"👨‍🏫 出题教师：{examData.TeacherName} ({examData.TeacherId})");
+                        summary.AppendLine($"📅 创建时间：{examData.CreationTime:yyyy-MM-dd HH:mm:ss}");
+                        summary.AppendLine($"📊 试卷类型：传统格式 (电路实测)");
+                        summary.AppendLine();
+
+                        int selectedCount = examData.Questions?.Count(q => q.IsChecked) ?? 0;
+                        int totalCount = examData.Questions?.Count ?? 0;
+
+                        summary.AppendLine("📋 题目详情：");
+                        summary.AppendLine($"  🔧 电路实测题目：{selectedCount} 题 (总共 {totalCount} 题)");
+
+                        if (selectedCount > 0)
+                        {
+                            var categoryStats = AnalyzeCircuitQuestions(examData.Questions.Where(q => q.IsChecked));
+                            summary.AppendLine($"     {categoryStats}");
+                        }
+
+                        int estimatedTime = selectedCount * 2; // 电路题目每题约2分钟
+                        summary.AppendLine();
+                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟");
+
+                        var fileInfo = new FileInfo(normalPath);
+                        summary.AppendLine($"💾 文件大小：{FormatFileSize(fileInfo.Length)}");
+                    }
+                }
+                else
+                {
+                    return $"❌ 未找到试卷文件：{examName}";
+                }
+
+                // 权限信息检查
+                summary.AppendLine();
+                if (examData != null)
+                {
+                    bool canModify = CanModifyExam(examData);
+                    if (canModify)
+                    {
+                        if (currentTeacher.Type == UserType.Admin)
+                            summary.AppendLine("🔓 管理员权限：可以编辑和删除此试卷");
+                        else
+                            summary.AppendLine("✅ 您可以编辑和删除此试卷");
+                    }
+                    else
+                    {
+                        summary.AppendLine("🔒 此试卷由其他教师创建，您只能查看");
+                    }
+                }
+
+                return summary.ToString();
+            }
+            catch (Exception ex)
+            {
+                return $"加载试卷详情失败：{ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：验证结果类
+        /// </summary>
+        private class ValidationResult
+        {
+            public bool IsValid { get; set; } = true;
+            public List<string> Errors { get; set; } = new();
+        }
+
+        /// <summary>
+        /// 🚀 新增：内容验证结果类
+        /// </summary>
+        private class ContentValidationResult
+        {
+            public bool IsValid { get; set; } = true;
+            public List<string> Errors { get; set; } = new();
+            public List<string> Warnings { get; set; } = new();
+        }
+
+        /// <summary>
+        /// 🚀 新增：冲突解决结果类
+        /// </summary>
+        private class ConflictResolutionResult
+        {
+            public bool CanProceed { get; set; }
+            public string FinalName { get; set; } = "";
+        }
+
+        /// <summary>
+        /// 🚀 新增：保存结果类
+        /// </summary>
+        private class SaveResult
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = "";
+            public string ErrorMessage { get; set; } = "";
+        }
+
+        /// <summary>
+        /// 🚀 新增：试卷文件信息类
+        /// </summary>
+        private class ExamFileInfo
+        {
+            public string ExamName { get; set; } = "";
+            public string FilePath { get; set; } = "";
+            public DateTime CreationTime { get; set; }
+            public long FileSize { get; set; }
+            public string TeacherName { get; set; } = "";
+            public int QuestionCount { get; set; }
+            public string ExamType { get; set; } = "";
+            public bool IsMixedExam { get; set; }
+        }
+
+        /// <summary>
+        /// 🚀 新增：增强的试卷列表项
+        /// </summary>
+        private class EnhancedExamListItem : ExamListItem
+        {
+            public string TeacherName { get; set; } = "";
+            public int QuestionCount { get; set; }
+            public string ExamType { get; set; } = "";
+            public long FileSize { get; set; }
+            public bool IsMixedExam { get; set; }
+
+            // 增强的显示属性
+            public string DetailedInfo =>
+                $"{QuestionCount}题 | {ExamType} | {FormatFileSize(FileSize)}";
         }
 
         private ExamContent CollectSelectedQuestions()
@@ -4037,19 +5019,61 @@ namespace DroneSimulator
                 return;
             }
 
-            // 读取试卷文件，检查权限
-            string fileName = Path.Combine(EXAMS_DIRECTORY, $"{selectedExamItem.ExamName}.json");
-            if (!File.Exists(fileName))
+            string examName = selectedExamItem.ExamName;
+
+            // 🔧 修复：检查混合格式和传统格式的试卷文件
+            string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+            string normalFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+
+            string actualFileName = "";
+            bool isMixedFormat = false;
+
+            // 优先检查混合格式
+            if (File.Exists(mixedFileName))
             {
-                MessageBox.Show("试卷文件不存在！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                actualFileName = mixedFileName;
+                isMixedFormat = true;
+            }
+            else if (File.Exists(normalFileName))
+            {
+                actualFileName = normalFileName;
+                isMixedFormat = false;
+            }
+            else
+            {
+                MessageBox.Show($"试卷文件不存在！\n检查路径：\n• {mixedFileName}\n• {normalFileName}",
+                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             try
             {
-                // 读取试卷数据
-                string jsonString = File.ReadAllText(fileName);
-                var examData = JsonSerializer.Deserialize<ExamData>(jsonString);
+                ExamData? examData = null;
+
+                if (isMixedFormat)
+                {
+                    // 🔧 加载混合格式试卷并转换为 ExamData
+                    string mixedJson = File.ReadAllText(actualFileName);
+                    var mixedExam = JsonSerializer.Deserialize<MixedExamData>(mixedJson);
+
+                    if (mixedExam != null)
+                    {
+                        examData = new ExamData
+                        {
+                            ExamName = mixedExam.ExamName,
+                            TeacherName = mixedExam.TeacherName,
+                            TeacherId = mixedExam.TeacherId,
+                            CreationTime = mixedExam.CreationTime,
+                            Questions = mixedExam.Content.GetAllQuestionsAsGeneric()
+                        };
+                    }
+                }
+                else
+                {
+                    // 🔧 加载传统格式试卷
+                    string normalJson = File.ReadAllText(actualFileName);
+                    examData = JsonSerializer.Deserialize<ExamData>(normalJson);
+                }
 
                 if (examData == null)
                 {
@@ -4062,17 +5086,23 @@ namespace DroneSimulator
 
                 if (!canDelete)
                 {
-                    MessageBox.Show($"权限不足！\n\n试卷《{examData.ExamName}》由教师 { examData.TeacherName} 创建，\n您只能删除自己创建的试卷。", 
+                    MessageBox.Show($"权限不足！\n\n试卷《{examData.ExamName}》由教师 {examData.TeacherName} 创建，\n您只能删除自己创建的试卷。",
                            "权限不足", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                // 显示详细的确认信息
+                // 🔧 显示详细的确认信息，包含格式信息
+                string formatInfo = isMixedFormat ? "混合格式试卷" : "传统格式试卷";
+                string questionCountInfo = isMixedFormat
+                    ? $"{((MixedExamData)JsonSerializer.Deserialize<MixedExamData>(File.ReadAllText(actualFileName))).TotalQuestions}"
+                    : $"{examData.Questions?.Count(q => q.IsChecked) ?? 0}";
+
                 string confirmMessage = $"确定要删除选中的试卷吗？\n\n" +
                                        $"试卷名称：{examData.ExamName}\n" +
                                        $"创建教师：{examData.TeacherName}\n" +
                                        $"创建时间：{examData.CreationTime:yyyy-MM-dd HH:mm}\n" +
-                                       $"题目数量：{examData.Questions?.Count(q => q.IsChecked) ?? 0}\n\n" +
+                                       $"题目数量：{questionCountInfo}\n" +
+                                       $"试卷格式：{formatInfo}\n\n" +
                                        $"注意：删除操作不可恢复！";
 
                 var result = MessageBox.Show(confirmMessage, "确认删除",
@@ -4081,8 +5111,28 @@ namespace DroneSimulator
                 if (result != MessageBoxResult.Yes)
                     return;
 
-                // 执行删除
-                File.Delete(fileName);
+                // 🔧 执行删除 - 删除主文件
+                File.Delete(actualFileName);
+
+                // 🔧 如果是混合格式，还需要检查并删除可能的关联文件
+                if (isMixedFormat)
+                {
+                    // 删除可能存在的理论题目文件
+                    string theoryFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}_theory.json");
+                    if (File.Exists(theoryFileName))
+                    {
+                        File.Delete(theoryFileName);
+                        System.Diagnostics.Debug.WriteLine($"同时删除理论题目文件: {theoryFileName}");
+                    }
+
+                    // 删除可能存在的飞控题目文件
+                    string fcFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}_fc.json");
+                    if (File.Exists(fcFileName))
+                    {
+                        File.Delete(fcFileName);
+                        System.Diagnostics.Debug.WriteLine($"同时删除飞控题目文件: {fcFileName}");
+                    }
+                }
 
                 // 如果删除的是考卷，清除考卷状态
                 if (selectedExamItem.IsActive)
@@ -4097,10 +5147,14 @@ namespace DroneSimulator
                 ExamSummaryText.Text = "";
                 selectedExamItem = null;
 
-                MessageBox.Show("试卷删除成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"试卷删除成功！\n删除的文件：{Path.GetFileName(actualFileName)}",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                System.Diagnostics.Debug.WriteLine($"✅ 成功删除试卷: {actualFileName}");
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"❌ 删除试卷失败: {ex.Message}");
                 MessageBox.Show($"删除试卷时发生错误：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -4513,11 +5567,10 @@ namespace DroneSimulator
             File.WriteAllText(fileName, jsonString);
         }
 
-        
+
         /// <summary>
-        /// 根据权限更新删除按钮的状态
+        /// 🔧 修改：根据权限更新删除按钮的状态 - 支持混合试卷
         /// </summary>
-        /// <param name="examData">选中的试卷数据</param>
         private void UpdateDeleteButtonState(ExamData examData)
         {
             if (examData == null)
@@ -4653,5 +5706,212 @@ namespace DroneSimulator
                 return currentTeacher?.Name ?? "";
             }
         }
+
+        #region 🚀 新增：缺失方法的实现
+
+        /// <summary>
+        /// 🔧 修改：创建临时备份 - 优先备份混合格式
+        /// </summary>
+        private async Task<string> CreateTemporaryBackup(string examName)
+        {
+            try
+            {
+                string backupDirectory = Path.Combine(EXAMS_DIRECTORY, "Backups");
+                if (!Directory.Exists(backupDirectory))
+                {
+                    Directory.CreateDirectory(backupDirectory);
+                }
+
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string backupPath = Path.Combine(backupDirectory, $"{examName}_backup_{timestamp}.json");
+
+                // 🔧 优先备份混合格式
+                string mixedPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+                string originalPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+
+                if (File.Exists(mixedPath))
+                {
+                    File.Copy(mixedPath, backupPath, true);
+                }
+                else if (File.Exists(originalPath))
+                {
+                    File.Copy(originalPath, backupPath, true);
+                }
+
+                return backupPath;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"创建临时备份失败: {ex.Message}");
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：验证已保存的试卷 - 检查混合格式文件
+        /// </summary>
+        private bool VerifySavedExam(MixedExamData examData)
+        {
+            try
+            {
+                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_mixed.json");
+                if (!File.Exists(fileName))
+                {
+                    return false;
+                }
+
+                string json = File.ReadAllText(fileName);
+                var savedExam = JsonSerializer.Deserialize<MixedExamData>(json);
+
+                return savedExam != null &&
+                       savedExam.ExamName == examData.ExamName &&
+                       savedExam.TeacherName == examData.TeacherName;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 从备份恢复
+        /// </summary>
+        private async Task RestoreFromBackup(string backupPath, string examName)
+        {
+            try
+            {
+                if (File.Exists(backupPath))
+                {
+                    string targetPath = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+                    await Task.Run(() => File.Copy(backupPath, targetPath, true));
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"从备份恢复失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 获取试卷类型显示名称
+        /// </summary>
+        private string GetExamTypeDisplayName(ExamType examType)
+        {
+            return examType switch
+            {
+                ExamType.TheoryOnly => "理论试卷",
+                ExamType.CircuitOnly => "电路实测",
+                ExamType.FCOnly => "飞控实操",
+                ExamType.Mixed => "混合试卷",
+                ExamType.Comprehensive => "综合试卷",
+                _ => "未知类型"
+            };
+        }
+
+        /// <summary>
+        /// 分析理论题目
+        /// </summary>
+        private string AnalyzeTheoryQuestions(List<TheoryQuestion> questions)
+        {
+            if (!questions.Any()) return "";
+
+            var singleChoice = questions.Count(q => q.Type == TheoryQuestionType.SingleChoice);
+            var multipleChoice = questions.Count(q => q.Type == TheoryQuestionType.MultipleChoice);
+
+            return $"(单选:{singleChoice}, 多选:{multipleChoice})";
+        }
+
+        /// <summary>
+        /// 分析电路题目
+        /// </summary>
+        private string AnalyzeCircuitQuestions(IEnumerable<Question> questions)
+        {
+            if (!questions.Any()) return "";
+
+            var motor = questions.Count(q => q.Name.StartsWith("M"));
+            var esc = questions.Count(q => q.Name.StartsWith("ESC"));
+            var pwm = questions.Count(q => q.Name.StartsWith("S"));
+            var other = questions.Count() - motor - esc - pwm;
+
+            return $"(电机:{motor}, 电调:{esc}, PWM:{pwm}, 其他:{other})";
+        }
+
+        /// <summary>
+        /// 计算预估考试时间
+        /// </summary>
+        private int CalculateEstimatedExamTime(ExamContent examContent)
+        {
+            int totalMinutes = 0;
+
+            // 理论题目：每题约1.5分钟
+            totalMinutes += (int)(examContent.TheoryQuestions.Count * 1.5);
+
+            // 电路题目：每题约2分钟
+            totalMinutes += examContent.CircuitQuestions.Count * 2;
+
+            // 飞控题目：每题约3分钟
+            totalMinutes += examContent.FCQuestions.Count * 3;
+
+            // 最小时间5分钟
+            return Math.Max(5, totalMinutes);
+        }
+
+        /// <summary>
+        /// 刷新试卷列表
+        /// </summary>
+        private async Task RefreshExamListAsync()
+        {
+            // 使用Task.Run确保LoadExistingExams在后台执行，但UI更新在UI线程
+            await Task.Run(() =>
+            {
+                // 在UI线程上调用LoadExistingExams
+                Dispatcher.Invoke(() => LoadExistingExams());
+            });
+        }
+
+        /// <summary>
+        /// 记录试卷创建日志
+        /// </summary>
+        private void LogExamCreation(MixedExamData examData, UserInfo teacher)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"试卷创建日志: {examData.ExamName} by {teacher.Name} at {DateTime.Now}");
+                // 这里可以添加更详细的日志记录逻辑
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"记录日志失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新试卷列表统计
+        /// </summary>
+        private void UpdateExamListStatistics(List<ExamFileInfo> examInfos)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"试卷列表统计: 共 {examInfos.Count} 份试卷");
+                // 这里可以添加更详细的统计逻辑
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新试卷列表统计失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 格式化文件大小
+        /// </summary>
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024:F1} KB";
+            if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024 * 1024):F1} MB";
+            return $"{bytes / (1024 * 1024 * 1024):F1} GB";
+        }
+
+        #endregion
     }
 }

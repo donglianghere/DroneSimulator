@@ -110,102 +110,76 @@ namespace DroneSimulator
     {
         private const string EXAMS_DIRECTORY = "Exams";
 
+        /// <summary>
+        /// 保存试卷
+        /// </summary>
         public static void SaveExam(MixedExamData examData)
         {
             try
             {
-                // 确保目录存在
                 if (!Directory.Exists(EXAMS_DIRECTORY))
+                {
                     Directory.CreateDirectory(EXAMS_DIRECTORY);
+                }
 
-                // 🚀 修正：保存完整的混合试卷数据
-                var compatibleExamData = new ExamData
-                {
-                    ExamName = examData.ExamName,
-                    TeacherName = examData.TeacherName,
-                    TeacherId = examData.TeacherId,
-                    CreationTime = examData.CreationTime,
-                    // 🚀 关键修复：保存所有类型的题目
-                    Questions = examData.Content.GetAllQuestionsAsGeneric()
-                };
-
-                // 保存主试卷文件（向后兼容格式）
-                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}.json");
-                string jsonString = JsonSerializer.Serialize(compatibleExamData, new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                });
-                File.WriteAllText(fileName, jsonString);
-
-                // 🚀 同时保存完整的混合试卷数据（新格式）
+                // 保存混合试卷格式
                 string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_mixed.json");
-                string mixedJsonString = JsonSerializer.Serialize(examData, new JsonSerializerOptions
+                string mixedJson = JsonSerializer.Serialize(examData, new JsonSerializerOptions
                 {
                     WriteIndented = true,
                     Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 });
-                File.WriteAllText(mixedFileName, mixedJsonString);
+                File.WriteAllText(mixedFileName, mixedJson);
 
-                Console.WriteLine($"✅ 混合试卷保存成功：{examData.GetStatistics()}");
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"保存混合试卷失败：{ex.Message}");
-            }
-        }
-
-        // 🚀 新增：加载混合试卷的方法
-        public static MixedExamData? LoadMixedExam(string examName)
-        {
-            try
-            {
-                // 优先加载新格式的混合试卷
-                string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
-                if (File.Exists(mixedFileName))
+                // 为了向后兼容，同时保存传统格式（仅电路题目）
+                if (examData.Content.CircuitQuestions.Any())
                 {
-                    string mixedJson = File.ReadAllText(mixedFileName);
-                    return JsonSerializer.Deserialize<MixedExamData>(mixedJson);
-                }
-
-                // 如果没有新格式，尝试从旧格式转换
-                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
-                if (File.Exists(fileName))
-                {
-                    string json = File.ReadAllText(fileName);
-                    var examData = JsonSerializer.Deserialize<ExamData>(json);
-
-                    if (examData != null)
+                    var compatibleExamData = new ExamData
                     {
-                        // 转换为混合试卷格式
-                        return new MixedExamData
-                        {
-                            ExamName = examData.ExamName,
-                            TeacherName = examData.TeacherName,
-                            TeacherId = examData.TeacherId,
-                            CreationTime = examData.CreationTime,
-                            Content = new ExamContent
-                            {
-                                // 假设旧格式的题目都是电路题目
-                                CircuitQuestions = examData.Questions.Select(q => new CircuitQuestion
-                                {
-                                    Name = q.Name,
-                                    Content = q.Content,
-                                    IsChecked = q.IsChecked,
-                                    CommandString = q.CommandString
-                                }).ToList()
-                            }
-                        };
-                    }
+                        ExamName = examData.ExamName,
+                        TeacherName = examData.TeacherName,
+                        TeacherId = examData.TeacherId,
+                        CreationTime = examData.CreationTime,
+                        Questions = examData.Content.GetAllQuestionsAsGeneric()
+                    };
+
+                    string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}.json");
+                    string json = JsonSerializer.Serialize(compatibleExamData, new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    });
+                    File.WriteAllText(fileName, json);
                 }
 
-                return null;
+                // 单独保存理论题目（如果有）
+                if (examData.Content.TheoryQuestions.Any())
+                {
+                    string theoryFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_theory.json");
+                    string theoryJson = JsonSerializer.Serialize(examData.Content.TheoryQuestions, new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    });
+                    File.WriteAllText(theoryFileName, theoryJson);
+                }
+
+                // 单独保存飞控题目（如果有）
+                if (examData.Content.FCQuestions.Any())
+                {
+                    string fcFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_fc.json");
+                    string fcJson = JsonSerializer.Serialize(examData.Content.FCQuestions, new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                    });
+                    File.WriteAllText(fcFileName, fcJson);
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ 加载混合试卷失败：{ex.Message}");
-                return null;
+                throw new Exception($"保存试卷失败：{ex.Message}");
             }
         }
-    }
+    }    
 }
