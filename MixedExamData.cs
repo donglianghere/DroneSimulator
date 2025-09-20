@@ -5,7 +5,49 @@ using System.Text.Json.Serialization;
 namespace DroneSimulator
 {
     /// <summary>
-    /// 试卷内容模型（只包含选中的题目）
+    /// 统一的混合试卷数据结构
+    /// </summary>
+    public class MixedExamData
+    {
+        public string ExamName { get; set; } = "";
+        public string TeacherName { get; set; } = "";
+        public string TeacherId { get; set; } = "";
+        public DateTime CreationTime { get; set; } = DateTime.Now;
+        public ExamType ExamType { get; set; } = ExamType.Mixed;
+
+        // 🚀 统一的题目内容存储
+        public ExamContent Content { get; set; } = new();
+
+        // 🔧 为了向后兼容，保留这些属性但标记为过时
+        [Obsolete("使用 Content.CircuitQuestions 替代")]
+        public List<CircuitQuestion> CircuitQuestions
+        {
+            get => Content.CircuitQuestions;
+            set => Content.CircuitQuestions = value;
+        }
+
+        [Obsolete("使用 Content.TheoryQuestions 替代")]
+        public List<TheoryQuestion> TheoryQuestions
+        {
+            get => Content.TheoryQuestions;
+            set => Content.TheoryQuestions = value;
+        }
+
+        // 获取总题目数
+        public int TotalQuestions => Content.TotalQuestions;
+
+        // 获取统计信息
+        public string GetStatistics()
+        {
+            return $"电路实测：{Content.CircuitQuestions.Count}题，" +
+                   $"理论题目：{Content.TheoryQuestions.Count}题，" +
+                   $"飞控题目：{Content.FCQuestions.Count}题，" +
+                   $"总计：{TotalQuestions}题";
+        }
+    }
+
+    /// <summary>
+    /// 试卷内容模型（统一存储所有类型题目）
     /// </summary>
     public class ExamContent
     {
@@ -18,38 +60,52 @@ namespace DroneSimulator
 
         public int TotalQuestions =>
             TheoryQuestions.Count + CircuitQuestions.Count + FCQuestions.Count;
-    }
 
-    /// <summary>
-    /// 混合试卷数据（包含电路题和理论题）
-    /// </summary>
-    public class MixedExamData
-    {
-        public string ExamName { get; set; } = "";
-        public string TeacherName { get; set; } = "";
-        public string TeacherId { get; set; } = "";
-        public DateTime CreationTime { get; set; } = DateTime.Now;
-
-        // 电路实测题目
-        public List<CircuitQuestion> CircuitQuestions { get; set; } = new();
-
-        // 理论题目
-        public List<TheoryQuestion> TheoryQuestions { get; set; } = new();
-
-        // 🔧 添加缺少的 Content 属性
-        public ExamContent Content { get; set; } = new();
-
-        // 获取总题目数
-        public int TotalQuestions => CircuitQuestions.Count + TheoryQuestions.Count + (Content?.FCQuestions?.Count ?? 0);
-
-        // 获取统计信息
-        public string GetStatistics()
+        // 🚀 新增：获取所有题目的统一列表（用于MainWindow兼容）
+        public List<Question> GetAllQuestionsAsGeneric()
         {
-            return $"电路实测：{CircuitQuestions.Count}题，理论题目：{TheoryQuestions.Count}题，飞控题目：{Content?.FCQuestions?.Count ?? 0}题，总计：{TotalQuestions}题";
+            var allQuestions = new List<Question>();
+
+            // 转换电路题目
+            allQuestions.AddRange(CircuitQuestions.Select(cq => new Question
+            {
+                Name = cq.Name,
+                Content = cq.Content,
+                IsChecked = cq.IsChecked,
+                CommandString = cq.CommandString
+            }));
+
+            // 🚀 转换理论题目（映射为通用Question格式）
+            allQuestions.AddRange(TheoryQuestions.Select(tq => new Question
+            {
+                Name = tq.Id,
+                Content = tq.QuestionStatement,
+                IsChecked = false, // 理论题目在考试中不需要IsChecked
+                CommandString = "" // 理论题目没有串口指令
+            }));
+
+            // 🚀 转换飞控题目
+            allQuestions.AddRange(FCQuestions.Select(fcq => new Question
+            {
+                Name = fcq.Id,
+                Content = fcq.QuestionStatement,
+                IsChecked = false, // 飞控题目在考试中不需要IsChecked
+                CommandString = ""  // 飞控题目没有串口指令
+            }));
+
+            return allQuestions;
         }
     }
 
-    // 在合适的位置添加 ExamFileManager 类
+    public enum ExamType
+    {
+        Mixed,          // 混合试卷
+        TheoryOnly,     // 纯理论
+        CircuitOnly,    // 纯电路实测
+        FCOnly,         // 纯飞控实操
+        Comprehensive   // 综合试卷
+    }
+
     public static class ExamFileManager
     {
         private const string EXAMS_DIRECTORY = "Exams";
@@ -62,24 +118,18 @@ namespace DroneSimulator
                 if (!Directory.Exists(EXAMS_DIRECTORY))
                     Directory.CreateDirectory(EXAMS_DIRECTORY);
 
-                // 为了兼容现有系统，将混合试卷转换为ExamData格式保存
+                // 🚀 修正：保存完整的混合试卷数据
                 var compatibleExamData = new ExamData
                 {
                     ExamName = examData.ExamName,
                     TeacherName = examData.TeacherName,
                     TeacherId = examData.TeacherId,
                     CreationTime = examData.CreationTime,
-                    // 🔧 修复：显式转换 CircuitQuestion 为 Question
-                    Questions = examData.CircuitQuestions.Select(cq => new Question
-                    {
-                        Name = cq.Name,
-                        Content = cq.Content,
-                        IsChecked = cq.IsChecked,
-                        CommandString = cq.CommandString
-                    }).ToList()
+                    // 🚀 关键修复：保存所有类型的题目
+                    Questions = examData.Content.GetAllQuestionsAsGeneric()
                 };
 
-                // 保存电路题目（保持现有格式）
+                // 保存主试卷文件（向后兼容格式）
                 string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}.json");
                 string jsonString = JsonSerializer.Serialize(compatibleExamData, new JsonSerializerOptions
                 {
@@ -88,33 +138,73 @@ namespace DroneSimulator
                 });
                 File.WriteAllText(fileName, jsonString);
 
-                // 如果有理论题目，单独保存
-                if (examData.TheoryQuestions.Any())
+                // 🚀 同时保存完整的混合试卷数据（新格式）
+                string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_mixed.json");
+                string mixedJsonString = JsonSerializer.Serialize(examData, new JsonSerializerOptions
                 {
-                    string theoryFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_theory.json");
-                    string theoryJsonString = JsonSerializer.Serialize(examData.TheoryQuestions, new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                    });
-                    File.WriteAllText(theoryFileName, theoryJsonString);
-                }
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                });
+                File.WriteAllText(mixedFileName, mixedJsonString);
 
-                // 如果有飞控题目，单独保存
-                if (examData.Content?.FCQuestions?.Any() == true)
-                {
-                    string fcFileName = Path.Combine(EXAMS_DIRECTORY, $"{examData.ExamName}_fc.json");
-                    string fcJsonString = JsonSerializer.Serialize(examData.Content.FCQuestions, new JsonSerializerOptions
-                    {
-                        WriteIndented = true,
-                        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                    });
-                    File.WriteAllText(fcFileName, fcJsonString);
-                }
+                Console.WriteLine($"✅ 混合试卷保存成功：{examData.GetStatistics()}");
             }
             catch (Exception ex)
             {
                 throw new Exception($"保存混合试卷失败：{ex.Message}");
+            }
+        }
+
+        // 🚀 新增：加载混合试卷的方法
+        public static MixedExamData? LoadMixedExam(string examName)
+        {
+            try
+            {
+                // 优先加载新格式的混合试卷
+                string mixedFileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}_mixed.json");
+                if (File.Exists(mixedFileName))
+                {
+                    string mixedJson = File.ReadAllText(mixedFileName);
+                    return JsonSerializer.Deserialize<MixedExamData>(mixedJson);
+                }
+
+                // 如果没有新格式，尝试从旧格式转换
+                string fileName = Path.Combine(EXAMS_DIRECTORY, $"{examName}.json");
+                if (File.Exists(fileName))
+                {
+                    string json = File.ReadAllText(fileName);
+                    var examData = JsonSerializer.Deserialize<ExamData>(json);
+
+                    if (examData != null)
+                    {
+                        // 转换为混合试卷格式
+                        return new MixedExamData
+                        {
+                            ExamName = examData.ExamName,
+                            TeacherName = examData.TeacherName,
+                            TeacherId = examData.TeacherId,
+                            CreationTime = examData.CreationTime,
+                            Content = new ExamContent
+                            {
+                                // 假设旧格式的题目都是电路题目
+                                CircuitQuestions = examData.Questions.Select(q => new CircuitQuestion
+                                {
+                                    Name = q.Name,
+                                    Content = q.Content,
+                                    IsChecked = q.IsChecked,
+                                    CommandString = q.CommandString
+                                }).ToList()
+                            }
+                        };
+                    }
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ 加载混合试卷失败：{ex.Message}");
+                return null;
             }
         }
     }

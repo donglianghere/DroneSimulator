@@ -2822,10 +2822,6 @@ namespace DroneSimulator
             return null;
         }
 
-        // 修改原有的 ExamList_SelectionChanged 方法名，因为我们不再使用 ListBox
-        // 可以删除这个方法，或者重命名为备用
-
-        // 获取学生应该使用的试卷
         public static string GetActiveExamForStudent()
         {
             try
@@ -2837,18 +2833,39 @@ namespace DroneSimulator
                 if (File.Exists(ACTIVE_EXAM_FILE))
                 {
                     string activeExam = File.ReadAllText(ACTIVE_EXAM_FILE).Trim();
-                    string activeExamPath = Path.Combine(EXAMS_DIRECTORY, $"{activeExam}.json");
 
-                    if (!string.IsNullOrEmpty(activeExam) && File.Exists(activeExamPath))
+                    if (!string.IsNullOrEmpty(activeExam))
                     {
-                        return activeExamPath;
+                        // 🚀 优先查找混合试卷格式
+                        string mixedExamPath = Path.Combine(EXAMS_DIRECTORY, $"{activeExam}_mixed.json");
+                        if (File.Exists(mixedExamPath))
+                        {
+                            return mixedExamPath;
+                        }
+
+                        // 如果没有混合格式，使用旧格式
+                        string examPath = Path.Combine(EXAMS_DIRECTORY, $"{activeExam}.json");
+                        if (File.Exists(examPath))
+                        {
+                            return examPath;
+                        }
                     }
                 }
 
-                // 如果没有考卷或考卷不存在，返回最新的试卷为考卷
+                // 如果没有指定考卷，返回最新的试卷
                 if (Directory.Exists(EXAMS_DIRECTORY))
                 {
-                    var files = Directory.GetFiles(EXAMS_DIRECTORY, "*.json");
+                    // 🚀 优先查找混合试卷
+                    var mixedFiles = Directory.GetFiles(EXAMS_DIRECTORY, "*_mixed.json");
+                    if (mixedFiles.Length > 0)
+                    {
+                        return mixedFiles.OrderByDescending(f => File.GetLastWriteTime(f)).First();
+                    }
+
+                    // 没有混合试卷，使用普通试卷
+                    var files = Directory.GetFiles(EXAMS_DIRECTORY, "*.json")
+                                      .Where(f => !f.EndsWith("_mixed.json") && !f.EndsWith("_theory.json") && !f.EndsWith("_fc.json"))
+                                      .ToArray();
                     if (files.Length > 0)
                     {
                         return files.OrderByDescending(f => File.GetLastWriteTime(f)).First();
@@ -2857,8 +2874,9 @@ namespace DroneSimulator
 
                 return "";
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"❌ 获取活跃考卷失败：{ex.Message}");
                 return "";
             }
         }

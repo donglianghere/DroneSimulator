@@ -68,14 +68,7 @@ namespace DroneSimulator
         public DateTime CreatedTime { get; set; }
     }
 
-    public enum ExamType
-    {
-        Mixed,          // 混合试卷
-        TheoryOnly,     // 纯理论
-        CircuitOnly,    // 纯电路实测
-        FCOnly,         // 纯飞控实操
-        Comprehensive   // 综合试卷
-    }
+    
 
     
     // 题目提供者接口（只读）
