@@ -1,8 +1,12 @@
 ﻿<Application x:Class="DroneSimulator.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             >
+             xmlns:local="clr-namespace:DroneSimulator" >
     <Application.Resources>
+        <!-- 🚀 添加全局转换器资源 -->
+        <local:ErrorToBrushConverter x:Key="ErrorToBrushConverter"/>
+        
+
         <Style TargetType="ComboBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="Width" Value="{Binding RelativeSource={RelativeSource AncestorType=ComboBox}, Path=ActualWidth}"/>

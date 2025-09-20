@@ -9,22 +9,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 namespace DroneSimulator
 {
-    public class ErrorToBrushConverter : IValueConverter
-    {
-        public Brush ErrorBrush { get; set; } = Brushes.Red;
-        public Brush NormalBrush { get; set; } = (Brush)new BrushConverter().ConvertFrom("#5EC6FF")!;
-
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return string.IsNullOrEmpty(value as string) ? NormalBrush : ErrorBrush;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
 
     public partial class LoginWindow : Window
     {

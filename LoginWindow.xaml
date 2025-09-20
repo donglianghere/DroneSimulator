@@ -17,8 +17,7 @@
         <!-- <ImageBrush ImageSource="/Resources/aerospace-bg.jpg" Stretch="UniformToFill" Opacity="0.7"/>  -->
     </Window.Background>
 
-    <Window.Resources>
-        <local:ErrorToBrushConverter x:Key="ErrorToBrushConverter"/>
+    <Window.Resources>        
         <!-- 科技感按钮 -->
         <Style x:Key="TechButton" TargetType="Button">
             <Setter Property="Background" Value="#232F3E"/>
@@ -347,6 +346,7 @@
                             FontWeight="Bold"
                             Style="{StaticResource TechButton}"
                             TabIndex="6"
+                            IsDefault="True"
                             Click="LoginButton_Click"/>
                     </StackPanel>
                 </Grid>

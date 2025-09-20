@@ -69,6 +69,70 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- 🎨 新增：账户管理按钮专用样式 -->
+        <Style x:Key="AccountManageButton" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="#2E7D32"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#4CAF50"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="5,0"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#4CAF50" BlurRadius="8" ShadowDepth="0"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="{TemplateBinding BorderThickness}"
+								CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center"
+											  VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#388E3C"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                    <Setter Property="BorderBrush" Value="#66BB6A"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="#FFD700"/>
+                    <Setter Property="BorderThickness" Value="3"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="#FFD700" BlurRadius="12" ShadowDepth="0"/>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 🎨 删除账户按钮专用样式（红色警告色） -->
+        <Style x:Key="DeleteAccountButton" TargetType="{x:Type Button}" BasedOn="{StaticResource AccountManageButton}">
+            <Setter Property="Background" Value="#D32F2F"/>
+            <Setter Property="BorderBrush" Value="#F44336"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#F44336" BlurRadius="8" ShadowDepth="0"/>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#C62828"/>
+                    <Setter Property="BorderBrush" Value="#EF5350"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="ExitButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource TechButton}">
             <Setter Property="Background" Value="#B22222"/>
             <Setter Property="BorderBrush" Value="#B22222"/>
@@ -190,27 +254,41 @@
                     <Button Content="保 存 配 置" TabIndex="6" Width="95" Height="36" Style="{StaticResource TechButton}" 
                             Click="SaveConfig_Click"/>
                     <Button Content="端 口 管 理" TabIndex="7" Width="95" Height="36" Style="{StaticResource TechButton}" 
-                            Click="ManageAllPorts_Click"/>                    
+                            Click="ManageAllPorts_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- 右侧：账户管理 -->
-        <Border Grid.Column="1" Background="#232F3E" CornerRadius="12" Padding="20" HorizontalAlignment="Center" Width="370">
+        <!-- 🎨 右侧：账户管理 - 修改背景色为深绿色主题 -->
+        <Border Grid.Column="1" Background="#1B4332" CornerRadius="12" Padding="20" HorizontalAlignment="Center" Width="370">
             <Grid Margin="0,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <TextBlock Text="账  户  管  理" FontSize="18" Style="{StaticResource TechLabel}" 
+
+                <!-- 🎨 修改标题颜色为浅绿色 -->
+                <TextBlock Text="账  户  管  理" FontSize="18" FontWeight="Bold" Foreground="#81C784"
                            HorizontalAlignment="Center" Margin="0,-4,0,20"/>
-                <!-- 账户列表 -->
-                <ListView x:Name="AccountListView" Margin="0,25,0,25" Background="#232F3E" BorderBrush="#5EC6FF" BorderThickness="2" 
-                          Foreground="#5EC6FF" FontSize="18" SelectionMode="Single" av:ItemsSource="{av:SampleData ItemCount=5}"  HorizontalAlignment="Left" Width="320" Grid.RowSpan="2">
+
+                <!-- 🎨 账户列表 - 修改背景和边框颜色 -->
+                <ListView x:Name="AccountListView" Margin="0,25,0,25" Background="#2E7D32" BorderBrush="#4CAF50" BorderThickness="2" 
+                          Foreground="#E8F5E8" FontSize="18" SelectionMode="Single" av:ItemsSource="{av:SampleData ItemCount=5}"  HorizontalAlignment="Left" Width="320" Grid.RowSpan="2">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Foreground" Value="#E8F5E8"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#388E3C"/>
+                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#43A047"/>
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.View>
@@ -242,10 +320,15 @@
                         </GridView>
                     </ListView.View>
                 </ListView>
+
+                <!-- 🎨 账户管理按钮 - 应用新的样式 -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" >
-                    <Button x:Name="DeleteAccountButton" TabIndex="9" Content="删 除 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="DeleteAccount_Click"/>
-                    <Button x:Name="EditAccountButton" TabIndex="10" Content="编 辑 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="EditAccount_Click"/>
-                    <Button x:Name="AddAccountButton" TabIndex="11" Content="添 加 账 户" Width="95" Height="36" Style="{StaticResource TechButton}" Click="AddAccount_Click"/>
+                    <Button x:Name="DeleteAccountButton" TabIndex="9" Content="删 除 账 户" Width="95" Height="36" 
+                            Style="{StaticResource DeleteAccountButton}" Click="DeleteAccount_Click"/>
+                    <Button x:Name="EditAccountButton" TabIndex="10" Content="编 辑 账 户" Width="95" Height="36" 
+                            Style="{StaticResource AccountManageButton}" Click="EditAccount_Click"/>
+                    <Button x:Name="AddAccountButton" TabIndex="11" Content="添 加 账 户" Width="95" Height="36" 
+                            Style="{StaticResource AccountManageButton}" Click="AddAccount_Click"/>
                 </StackPanel>
             </Grid>
         </Border>

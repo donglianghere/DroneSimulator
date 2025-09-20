@@ -7,12 +7,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <Platforms>AnyCPU;x64</Platforms>
+	  
     <!-- 确保程序集名称唯一 -->
-    <AssemblyName>康鹤多旋翼无人机检修平台</AssemblyName>
+    <AssemblyName>DroneSimulator</AssemblyName>
     <RootNamespace>DroneSimulator</RootNamespace>
+
+	<AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+	  
     <!-- 添加应用程序图标 -->
     <ApplicationIcon>Resources\shortcut_icon.ico</ApplicationIcon>
     <Title>康鹤多旋翼无人机检修平台</Title>
+
+	<GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+	<Deterministic>true</Deterministic>
   </PropertyGroup>
 
   <ItemGroup>
