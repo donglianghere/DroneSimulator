@@ -13,6 +13,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Threading;          
+using System.Threading.Tasks;    
 
 namespace DroneSimulator
 {     
@@ -468,10 +470,13 @@ namespace DroneSimulator
             }
         }
 
-        // 添加收集各类题目的方法
+        /// <summary>
+        /// 🔧 修改：收集选中的理论题目 - 基于实际复选框状态
+        /// </summary>
         private List<TheoryQuestion> CollectSelectedTheoryQuestions()
         {
-            return selectedTheoryQuestions ?? new List<TheoryQuestion>();
+            // 返回基于实际复选框状态的选中题目
+            return GetActualSelectedTheoryQuestions();
         }
 
         private List<CircuitQuestion> CollectSelectedCircuitQuestions()
@@ -487,9 +492,13 @@ namespace DroneSimulator
             return circuitQuestions;
         }
 
+        /// <summary>
+        /// 🔧 修改：收集选中的飞控题目 - 基于实际复选框状态  
+        /// </summary>
         private List<FCQuestion> CollectSelectedFCQuestions()
         {
-            return selectedFCQuestions ?? new List<FCQuestion>();
+            // 返回基于实际复选框状态的选中题目
+            return GetActualSelectedFCQuestions();
         }
 
         private void RefreshTheoryQuestionSelection()
@@ -593,7 +602,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 创建飞控题目显示控件 - 新增方法
+        /// 创建飞控题目显示控件 - 🚀 新增复选框支持
         /// </summary>
         private Border CreateFCQuestionDisplayControl(FCQuestion question, int questionNumber)
         {
@@ -609,11 +618,28 @@ namespace DroneSimulator
 
             var mainPanel = new StackPanel();
 
-            // 题目标题行
-            var headerPanel = new StackPanel
+            // 🚀 新增：题目头部带复选框的面板
+            var headerPanel = new DockPanel
             {
-                Orientation = Orientation.Horizontal,
                 Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            // 🚀 新增：左侧复选框
+            var questionCheckBox = new CheckBox
+            {
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 0, 10, 0),
+                Tag = question.Id, // 将题目ID存储在Tag中
+                ToolTip = "选择此飞控题目"
+            };
+            questionCheckBox.Checked += FCQuestionCheckBox_Changed;
+            questionCheckBox.Unchecked += FCQuestionCheckBox_Changed;
+            DockPanel.SetDock(questionCheckBox, Dock.Left);
+
+            // 题目标题信息面板
+            var titlePanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal
             };
 
             // 题号
@@ -644,9 +670,12 @@ namespace DroneSimulator
                 Margin = new Thickness(0, 2, 0, 0)
             };
 
-            headerPanel.Children.Add(questionNumberText);
-            headerPanel.Children.Add(typeText);
-            headerPanel.Children.Add(idText);
+            titlePanel.Children.Add(questionNumberText);
+            titlePanel.Children.Add(typeText);
+            titlePanel.Children.Add(idText);
+
+            headerPanel.Children.Add(questionCheckBox);
+            headerPanel.Children.Add(titlePanel);
 
             // 题目陈述
             var questionText = new TextBlock
@@ -743,7 +772,7 @@ namespace DroneSimulator
             border.Child = mainPanel;
             return border;
         }
-        
+
 
         private void ShowExamCreationSummary(MixedExamData examData)
         {
@@ -789,6 +818,227 @@ namespace DroneSimulator
                 System.Diagnostics.Debug.WriteLine($"初始化理论题库失败：{ex.Message}");
                 MessageBox.Show($"初始化理论题库失败：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 🚀 改进：理论题目复选框状态改变事件 - 更好的同步逻辑
+        /// </summary>
+        private void TheoryQuestionCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is CheckBox checkBox && checkBox.Tag is string questionId)
+                {
+                    var isChecked = checkBox.IsChecked == true;
+
+                    // 根据复选框状态更新选中的理论题目列表
+                    if (isChecked)
+                    {
+                        // 添加到选中列表（如果不存在）
+                        var existingQuestion = selectedTheoryQuestions.FirstOrDefault(q => q.Id == questionId);
+                        if (existingQuestion == null)
+                        {
+                            // 从当前显示的题目中查找
+                            var questionToAdd = currentDisplayedQuestions.FirstOrDefault(q => q.Id == questionId);
+                            if (questionToAdd != null)
+                            {
+                                selectedTheoryQuestions.Add(questionToAdd);
+                                System.Diagnostics.Debug.WriteLine($"✅ 理论题目已选中: ID={questionId}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 从选中列表中移除
+                        var questionToRemove = selectedTheoryQuestions.FirstOrDefault(q => q.Id == questionId);
+                        if (questionToRemove != null)
+                        {
+                            selectedTheoryQuestions.Remove(questionToRemove);
+                            System.Diagnostics.Debug.WriteLine($"❌ 理论题目已取消选中: ID={questionId}");
+                        }
+                    }
+
+                    // 更新统计信息
+                    UpdateTheorySelectionStats();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"理论题目复选框状态改变处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 改进：飞控题目复选框状态改变事件 - 更好的同步逻辑
+        /// </summary>
+        private void FCQuestionCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is CheckBox checkBox && checkBox.Tag is string questionId)
+                {
+                    var isChecked = checkBox.IsChecked == true;
+
+                    // 根据复选框状态更新内部选中状态标记
+                    // 注意：这里不修改 selectedFCQuestions 列表，只是更新选中状态
+                    var fcQuestion = selectedFCQuestions.FirstOrDefault(q => q.Id == questionId);
+                    if (fcQuestion != null)
+                    {
+                        // 可以添加一个内部属性来跟踪选中状态
+                        System.Diagnostics.Debug.WriteLine($"{(isChecked ? "✅" : "❌")} 飞控题目选中状态: ID={questionId}, 选中={isChecked}");
+                    }
+
+                    // 更新统计信息
+                    UpdateFCSelectionStats();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"飞控题目复选框状态改变处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：获取当前实际选中的理论题目（基于复选框状态）
+        /// </summary>
+        private List<TheoryQuestion> GetActualSelectedTheoryQuestions()
+        {
+            var actualSelected = new List<TheoryQuestion>();
+
+            try
+            {
+                // 遍历当前显示的题目，检查对应的复选框状态
+                foreach (var question in currentDisplayedQuestions)
+                {
+                    if (IsTheoryQuestionCheckBoxChecked(question.Id))
+                    {
+                        actualSelected.Add(question);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"获取实际选中的理论题目失败: {ex.Message}");
+            }
+
+            return actualSelected;
+        }
+
+        /// <summary>
+        /// 🚀 新增：获取当前实际选中的飞控题目（基于复选框状态）
+        /// </summary>
+        private List<FCQuestion> GetActualSelectedFCQuestions()
+        {
+            var actualSelected = new List<FCQuestion>();
+
+            try
+            {
+                // 遍历当前显示的飞控题目，检查对应的复选框状态
+                foreach (var question in selectedFCQuestions)
+                {
+                    if (IsFCQuestionCheckBoxChecked(question.Id))
+                    {
+                        actualSelected.Add(question);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"获取实际选中的飞控题目失败: {ex.Message}");
+            }
+
+            return actualSelected;
+        }
+
+        /// <summary>
+        /// 🚀 新增：检查指定理论题目的复选框是否选中
+        /// </summary>
+        private bool IsTheoryQuestionCheckBoxChecked(string questionId)
+        {
+            try
+            {
+                var checkBox = FindTheoryQuestionCheckBox(questionId);
+                return checkBox?.IsChecked == true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：检查指定飞控题目的复选框是否选中
+        /// </summary>
+        private bool IsFCQuestionCheckBoxChecked(string questionId)
+        {
+            try
+            {
+                var checkBox = FindFCQuestionCheckBox(questionId);
+                return checkBox?.IsChecked == true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：查找指定理论题目的复选框
+        /// </summary>
+        private CheckBox? FindTheoryQuestionCheckBox(string questionId)
+        {
+            try
+            {
+                var checkBoxes = new List<CheckBox>();
+                FindVisualChildren<CheckBox>(TheoryQuestionsPanel, checkBoxes);
+
+                return checkBoxes.FirstOrDefault(cb =>
+                    cb.Tag is string tag && tag == questionId);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：查找指定飞控题目的复选框
+        /// </summary>
+        private CheckBox? FindFCQuestionCheckBox(string questionId)
+        {
+            try
+            {
+                var fcPanel = FindName("FCQuestionsPanel") as Grid;
+                if (fcPanel == null) return null;
+
+                var checkBoxes = new List<CheckBox>();
+                FindVisualChildren<CheckBox>(fcPanel, checkBoxes);
+
+                return checkBoxes.FirstOrDefault(cb =>
+                    cb.Tag is string tag && tag == questionId);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新理论题目选择统计
+        /// </summary>
+        private void UpdateTheorySelectionStats()
+        {
+            try
+            {
+                int selectedCount = selectedTheoryQuestions?.Count ?? 0;
+                System.Diagnostics.Debug.WriteLine($"理论题目选择统计: 已选择 {selectedCount} 道题目");
+
+                // 可以在这里添加UI更新逻辑，比如更新状态文本等
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新理论题目选择统计失败: {ex.Message}");
             }
         }
 
@@ -1057,7 +1307,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 创建单个题目面板
+        /// 创建单个题目面板 - 🚀 新增复选框支持
         /// </summary>
         private Border CreateQuestionPanel(TheoryQuestion question, int questionNumber)
         {
@@ -1073,11 +1323,28 @@ namespace DroneSimulator
 
             var mainPanel = new StackPanel();
 
-            // 题目标题行
-            var headerPanel = new StackPanel
+            // 🚀 新增：题目头部带复选框的面板
+            var headerPanel = new DockPanel
             {
-                Orientation = Orientation.Horizontal,
                 Margin = new Thickness(0, 0, 0, 10)
+            };
+
+            // 🚀 新增：左侧复选框
+            var questionCheckBox = new CheckBox
+            {
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 0, 10, 0),
+                Tag = question.Id, // 将题目ID存储在Tag中
+                ToolTip = "选择此题目"
+            };
+            questionCheckBox.Checked += TheoryQuestionCheckBox_Changed;
+            questionCheckBox.Unchecked += TheoryQuestionCheckBox_Changed;
+            DockPanel.SetDock(questionCheckBox, Dock.Left);
+
+            // 题目标题信息面板
+            var titlePanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal
             };
 
             // 题号
@@ -1109,12 +1376,10 @@ namespace DroneSimulator
             }
             else if (question.Id.Length <= 8)
             {
-                // 如果ID长度不超过8个字符，直接显示完整ID
                 displayId = $"ID: {question.Id}";
             }
             else
             {
-                // 如果ID长度超过8个字符，截取前8个字符并添加省略号
                 displayId = $"ID: {question.Id.Substring(0, 8)}...";
             }
 
@@ -1126,9 +1391,12 @@ namespace DroneSimulator
                 Margin = new Thickness(0, 2, 0, 0)
             };
 
-            headerPanel.Children.Add(questionNumberText);
-            headerPanel.Children.Add(typeText);
-            headerPanel.Children.Add(idText);
+            titlePanel.Children.Add(questionNumberText);
+            titlePanel.Children.Add(typeText);
+            titlePanel.Children.Add(idText);
+
+            headerPanel.Children.Add(questionCheckBox);
+            headerPanel.Children.Add(titlePanel);
 
             // 题目陈述
             var questionText = new TextBlock
@@ -1246,7 +1514,7 @@ namespace DroneSimulator
         #region 理论题库事件处理
 
         /// <summary>
-        /// 理论题库全选事件
+        /// 🔧 修改：理论题库全选事件 - 仅操作当前显示题目的复选框
         /// </summary>
         private void TheorySelectAllRadio_Checked(object sender, RoutedEventArgs e)
         {
@@ -1254,69 +1522,150 @@ namespace DroneSimulator
             {
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine("=== 执行理论题库全选操作 ===");
+                    System.Diagnostics.Debug.WriteLine("=== 执行理论题库全选操作（仅针对当前显示的题目） ===");
 
-                    if (!theoryQuestions.Any())
+                    // 检查当前是否有显示的题目
+                    if (!currentDisplayedQuestions.Any())
                     {
-                        // 尝试重新加载题库
-                        LoadTheoryQuestions();
-                    }
-
-                    if (theoryQuestions.Any())
-                    {
-                        selectedTheoryQuestions = new List<TheoryQuestion>(theoryQuestions);
-                        DisplayTheoryQuestions(selectedTheoryQuestions);
-
-                        MessageBox.Show($"已选择全部 {selectedTheoryQuestions.Count} 道理论题目", "全选完成",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show("理论题库为空，无法执行全选操作！\n\n请点击'题库管理'添加理论题目。", "提示",
+                        MessageBox.Show("当前没有显示的理论题目，请先加载题目！", "提示",
                             MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
                     }
-                }
-                catch (TheoryBankException ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"理论题库全选失败：{ex.Message}");
-                    MessageBox.Show($"理论题库全选失败：\n\n{ex.Message}", "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+
+                    // 仅操作当前显示题目的复选框，不重新从题库加载
+                    UpdateTheoryQuestionCheckBoxes(true);
+
+                    // 同步更新选中的题目列表为当前显示的所有题目
+                    selectedTheoryQuestions = new List<TheoryQuestion>(currentDisplayedQuestions);
+
+                    MessageBox.Show($"已选择当前显示的全部 {currentDisplayedQuestions.Count} 道理论题目", "全选完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    System.Diagnostics.Debug.WriteLine($"✅ 已选择当前显示的 {currentDisplayedQuestions.Count} 道理论题目");
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"理论题库全选时发生未知错误：{ex.Message}");
-                    MessageBox.Show($"执行全选操作时发生错误：\n\n{ex.Message}", "错误",
+                    System.Diagnostics.Debug.WriteLine($"理论题库全选失败：{ex.Message}");
+                    MessageBox.Show($"理论题库全选失败：\n\n{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
 
         /// <summary>
-        /// 理论题库清空事件
+        /// 🔧 修改：理论题库清空事件 - 仅操作当前显示题目的复选框
         /// </summary>
         private void TheoryClearAllRadio_Checked(object sender, RoutedEventArgs e)
         {
             if (sender is RadioButton rb && rb.IsChecked == true)
             {
-                selectedTheoryQuestions.Clear();
-                TheoryQuestionsPanel.Children.Clear();
-
-                var emptyText = new TextBlock
+                try
                 {
-                    Text = "已清空所有理论题目选择",
-                    FontSize = 16,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 50, 0, 0),
-                    Foreground = new SolidColorBrush(Colors.Gray)
-                };
+                    System.Diagnostics.Debug.WriteLine("=== 执行理论题库清空操作（仅针对当前显示的题目） ===");
 
-                TheoryQuestionsPanel.Children.Add(emptyText);
+                    // 检查当前是否有显示的题目
+                    if (!currentDisplayedQuestions.Any())
+                    {
+                        MessageBox.Show("当前没有显示的理论题目！", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
 
-                MessageBox.Show("已清空所有理论题目选择", "清空完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                    // 仅操作当前显示题目的复选框，清空选中状态
+                    UpdateTheoryQuestionCheckBoxes(false);
+
+                    // 清空选中的题目列表
+                    selectedTheoryQuestions.Clear();
+
+                    MessageBox.Show($"已清空当前显示的 {currentDisplayedQuestions.Count} 道理论题目的选择", "清空完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    System.Diagnostics.Debug.WriteLine($"✅ 已清空当前显示的 {currentDisplayedQuestions.Count} 道理论题目的选择");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"理论题库清空失败：{ex.Message}");
+                    MessageBox.Show($"理论题库清空失败：\n\n{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
+        /// <summary>
+        /// 🚀 新增：更新理论题目复选框状态的辅助方法
+        /// </summary>
+        private void UpdateTheoryQuestionCheckBoxes(bool isChecked)
+        {
+            try
+            {
+                // 遍历TheoryQuestionsPanel中的所有复选框并更新状态
+                UpdateCheckBoxesInPanel(TheoryQuestionsPanel, isChecked);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新理论题目复选框状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新飞控题目复选框状态的辅助方法
+        /// </summary>
+        private void UpdateFCQuestionCheckBoxes(bool isChecked)
+        {
+            try
+            {
+                // 遍历FCQuestionsPanel中的所有复选框并更新状态
+                var fcPanel = FindName("FCQuestionsPanel") as Grid;
+                if (fcPanel != null)
+                {
+                    UpdateCheckBoxesInPanel(fcPanel, isChecked);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新飞控题目复选框状态失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：递归更新面板中所有复选框状态的通用方法
+        /// </summary>
+        private void UpdateCheckBoxesInPanel(DependencyObject parent, bool isChecked)
+        {
+            try
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(parent, i);
+
+                    if (child is CheckBox checkBox && checkBox.Tag != null)
+                    {
+                        // 临时移除事件处理，避免循环触发
+                        checkBox.Checked -= TheoryQuestionCheckBox_Changed;
+                        checkBox.Unchecked -= TheoryQuestionCheckBox_Changed;
+                        checkBox.Checked -= FCQuestionCheckBox_Changed;
+                        checkBox.Unchecked -= FCQuestionCheckBox_Changed;
+
+                        checkBox.IsChecked = isChecked;
+
+                        // 重新添加事件处理
+                        checkBox.Checked += TheoryQuestionCheckBox_Changed;
+                        checkBox.Unchecked += TheoryQuestionCheckBox_Changed;
+                        checkBox.Checked += FCQuestionCheckBox_Changed;
+                        checkBox.Unchecked += FCQuestionCheckBox_Changed;
+                    }
+                    else
+                    {
+                        // 递归处理子控件
+                        UpdateCheckBoxesInPanel(child, isChecked);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"递归更新复选框状态失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 理论题库随机选择事件
         /// </summary>
@@ -1710,23 +2059,13 @@ namespace DroneSimulator
             border.Child = stackPanel;
             return border;
         }
-
-        /// <summary>
-        /// 飞控题目选择状态改变事件
-        /// </summary>
-        private void FCQuestionCheckBox_Changed(object sender, RoutedEventArgs e)
-        {
-            // 更新选择统计等
-            UpdateFCSelectionStats();
-        }
-
         #endregion
 
 
         #region 飞控题库事件处理
 
         /// <summary>
-        /// 飞控题库全选事件
+        /// 🔧 修改：飞控题库全选事件 - 仅操作当前显示题目的复选框
         /// </summary>
         private void FCSelectAllRadio_Checked(object sender, RoutedEventArgs e)
         {
@@ -1734,44 +2073,23 @@ namespace DroneSimulator
             {
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine("=== 执行飞控题库全选操作 ===");
+                    System.Diagnostics.Debug.WriteLine("=== 执行飞控题库全选操作（仅针对当前显示的题目） ===");
 
-                    // 🔧 修复：直接从 FlightControlQuestionBankManager 获取数据
-                    var allFCQuestions = FlightControlQuestionBankManager.GetQuestions(isActive: true);
-
-                    System.Diagnostics.Debug.WriteLine($"找到 {allFCQuestions.Count} 道飞控题目");
-
-                    if (allFCQuestions.Any())
+                    // 检查当前是否有显示的飞控题目
+                    if (!selectedFCQuestions.Any())
                     {
-                        // 转换为内部格式并保存选择
-                        selectedFCQuestions = allFCQuestions.Select(q => new FCQuestion
-                        {
-                            Id = q.Id,
-                            QuestionStatement = q.QuestionStatement,
-                            ParameterName = q.ParameterName,
-                            ParameterDescription = q.ParameterDescription,
-                            Type = q.Type.ToString(),
-                            Category = q.Category.ToString(),
-                            Difficulty = q.Difficulty.ToString(),
-                            Points = q.Points,
-                            CorrectValue = q.CorrectValue,
-                            DataType = q.DataType.ToString(),
-                            IsActive = q.IsActive,
-                            CreatedBy = q.CreatedBy,
-                            CreatedTime = q.CreatedTime
-                        }).ToList();
-
-                        // 刷新界面显示
-                        RefreshFCQuestionSelection();
-
-                        MessageBox.Show($"已选择全部 {selectedFCQuestions.Count} 道飞控题目", "全选完成",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                    else
-                    {
-                        MessageBox.Show("飞控题库为空，无法执行全选操作！\n\n请点击'题库管理'添加飞控题目。", "提示",
+                        MessageBox.Show("当前没有显示的飞控题目，请先加载题目！", "提示",
                             MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
                     }
+
+                    // 仅操作当前显示题目的复选框，全部选中
+                    UpdateFCQuestionCheckBoxes(true);
+
+                    MessageBox.Show($"已选择当前显示的全部 {selectedFCQuestions.Count} 道飞控题目", "全选完成",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    System.Diagnostics.Debug.WriteLine($"✅ 已选择当前显示的 {selectedFCQuestions.Count} 道飞控题目");
                 }
                 catch (Exception ex)
                 {
@@ -1783,7 +2101,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 飞控题库清空事件
+        /// 🔧 修改：飞控题库清空事件 - 仅操作当前显示题目的复选框
         /// </summary>
         private void FCClearAllRadio_Checked(object sender, RoutedEventArgs e)
         {
@@ -1791,31 +2109,30 @@ namespace DroneSimulator
             {
                 try
                 {
-                    selectedFCQuestions.Clear();
+                    System.Diagnostics.Debug.WriteLine("=== 执行飞控题库清空操作（仅针对当前显示的题目） ===");
 
-                    // 清空界面显示
-                    var fcPanel = FindName("FCQuestionsPanel") as StackPanel;
-                    if (fcPanel != null)
+                    // 检查当前是否有显示的飞控题目
+                    if (!selectedFCQuestions.Any())
                     {
-                        fcPanel.Children.Clear();
-
-                        var emptyText = new TextBlock
-                        {
-                            Text = "已清空所有飞控题目选择",
-                            FontSize = 16,
-                            HorizontalAlignment = HorizontalAlignment.Center,
-                            Margin = new Thickness(0, 50, 0, 0),
-                            Foreground = new SolidColorBrush(Colors.Gray)
-                        };
-
-                        fcPanel.Children.Add(emptyText);
+                        MessageBox.Show("当前没有显示的飞控题目！", "提示",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
                     }
 
-                    MessageBox.Show("已清空所有飞控题目选择", "清空完成",
+                    // 仅操作当前显示题目的复选框，清空选中状态
+                    UpdateFCQuestionCheckBoxes(false);
+
+                    // 不清空 selectedFCQuestions 列表，只是取消选中状态
+                    // 这样题目仍然显示，但复选框都是未选中状态
+
+                    MessageBox.Show($"已清空当前显示的 {selectedFCQuestions.Count} 道飞控题目的选择", "清空完成",
                         MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    System.Diagnostics.Debug.WriteLine($"✅ 已清空当前显示的 {selectedFCQuestions.Count} 道飞控题目的选择");
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"飞控题库清空失败：{ex.Message}");
                     MessageBox.Show($"飞控题库清空失败：{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }

@@ -27,12 +27,24 @@ namespace DroneSimulator
             IsChecked = isChecked;
             CommandString = commandString;
         }
-    }
+    }   
 
     public class CircuitQuestion : Question
     {
+        public string Name { get; set; } = "";
+        public string Content { get; set; } = "";
+        public bool IsChecked { get; set; }
+        public string CommandString { get; set; } = "";
+
+        public CircuitQuestion(CheckBox checkBox) : base(checkBox)
+        {
+            Name = checkBox.Name ?? "";
+            Content = checkBox.Content?.ToString() ?? "";
+            IsChecked = checkBox.IsChecked == true;
+            CommandString = CheckBoxCommandHelper.GetCommandString(checkBox) ?? "";
+        }
+
         public CircuitQuestion() : base() { }
-        public CircuitQuestion(CheckBox checkBox) : base(checkBox) { }
     }
 
     public class FCQuestion : Question
