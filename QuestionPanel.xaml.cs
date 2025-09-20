@@ -2940,100 +2940,638 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 更新选择统计信息（在题库统计页面显示）
+        /// 🚀 全新重写：更新选择统计信息 - 适应新的三大块统计分析布局
         /// </summary>
         private void UpdateSelectionStats()
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== 开始更新选择统计 ===");
+                System.Diagnostics.Debug.WriteLine("=== 开始更新所有统计分析信息 ===");
 
-                if (SelectionStatsText == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("SelectionStatsText 为 null");
-                    return;
-                }
+                // 🔧 调用新的统计分析方法，覆盖三大块内容
+                UpdateAllStatistics();
 
-                // 获取所有 CheckBox
-                var allCheckboxes = FindAllCheckBoxes().ToList();
-                System.Diagnostics.Debug.WriteLine($"找到的所有 CheckBox 数量: {allCheckboxes.Count}");
-
-                // 获取有效题目（有 CommandString 的 CheckBox）
-                var allValidCheckboxes = allCheckboxes
-                    .Where(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
-                    .ToList();
-                System.Diagnostics.Debug.WriteLine($"有效题目数量: {allValidCheckboxes.Count}");
-
-                // 调试：输出前5个有效题目的信息
-                for (int i = 0; i < Math.Min(5, allValidCheckboxes.Count); i++)
-                {
-                    var cb = allValidCheckboxes[i];
-                    var commandString = CheckBoxCommandHelper.GetCommandString(cb);
-                    System.Diagnostics.Debug.WriteLine($"题目 {i + 1}: 名称={cb.Name}, CommandString={commandString}, 选中={cb.IsChecked}");
-                }
-
-                // 获取选中的题目
-                var selectedCheckboxes = allValidCheckboxes
-                    .Where(cb => cb.IsChecked == true)
-                    .ToList();
-                System.Diagnostics.Debug.WriteLine($"选中题目数量: {selectedCheckboxes.Count}");
-
-                int selectedCount = selectedCheckboxes.Count;
-                int totalCount = allValidCheckboxes.Count;
-
-                // 按分类统计选择情况
-                var motorSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("M"));
-                var escSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
-                var pwmSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("S"));
-                var gpsSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
-                var otherSelected = selectedCheckboxes.Count(cb =>
-                    cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
-
-                System.Diagnostics.Debug.WriteLine($"分类统计 - 电机:{motorSelected}, 电调:{escSelected}, PWM:{pwmSelected}, GPS:{gpsSelected}, 其他:{otherSelected}");
-
-                // 计算百分比，避免除零错误
-                double percentage = totalCount > 0 ? (double)selectedCount / totalCount * 100 : 0;
-
-                // 生成详细的统计信息
-                string statsText = $"📊 当前选择统计：\n\n" +
-                                  $"📈 总体情况：已选择 {selectedCount} / {totalCount} 题（{percentage:F1}%）\n\n" +
-                                  $"📋 分类详情：\n" +
-                                  $"🔧 电机题目：{motorSelected} 题\n" +
-                                  $"⚡ 电调题目：{escSelected} 题\n" +
-                                  $"📡 PWM输出：{pwmSelected} 题\n" +
-                                  $"📍 GPS题目：{gpsSelected} 题\n" +
-                                  $"🔗 其他组件：{otherSelected} 题\n\n";
-
-                // 添加选择状态提示
-                if (selectedCount == 0)
-                {
-                    statsText += "⚠️ 提示：当前未选择任何题目，生成试卷时将无法保存！";
-                }
-                else if (selectedCount == totalCount)
-                {
-                    statsText += "✅ 状态：已选择全部题目！";
-                }
-                else
-                {
-                    statsText += $"✅ 状态：已选择部分题目，可以生成包含 {selectedCount} 道题的试卷。";
-                }
-
-                SelectionStatsText.Text = statsText;
-                System.Diagnostics.Debug.WriteLine("=== 选择统计更新完成 ===");
-                System.Diagnostics.Debug.WriteLine($"显示的文本: {statsText}");
+                System.Diagnostics.Debug.WriteLine("=== 所有统计分析信息更新完成 ===");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"更新选择统计失败: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"更新统计分析失败: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"堆栈跟踪: {ex.StackTrace}");
 
-                if (SelectionStatsText != null)
+                // 显示友好的错误信息，但不中断程序运行
+                try
                 {
-                    SelectionStatsText.Text = $"统计信息更新失败：{ex.Message}";
+                    Dispatcher.Invoke(() =>
+                    {
+                        // 尝试至少更新一些基本信息，避免界面完全空白
+                        UpdateBasicStats();
+                    });
+                }
+                catch (Exception innerEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"备用统计更新也失败: {innerEx.Message}");
                 }
             }
         }
 
+        /// <summary>
+        /// 🚀 新增：更新所有统计分析信息 - 三大块完整实现
+        /// </summary>
+        private void UpdateAllStatistics()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 开始更新三大块统计分析 ===");
+
+                // 1. 题库类型分析（左中右三块）
+                UpdateTheoryBankAnalysis();
+                UpdateCircuitBankAnalysis();
+                UpdateFCBankAnalysis();
+
+                // 2. 当前出题分析（左中右三块）
+                UpdateTheorySelectionAnalysis();
+                UpdateCircuitSelectionAnalysis();
+                UpdateFCSelectionAnalysis();
+
+                // 3. 考试记录分析在其他地方更新，这里不重复调用
+
+                System.Diagnostics.Debug.WriteLine("=== 三大块统计分析更新完成 ===");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新统计分析失败: {ex.Message}");
+                throw; // 重新抛出异常，让上层处理
+            }
+        }
+
+        /// <summary>
+        /// 🚀 增强版：更新理论题库分析 - 包含详细分类统计
+        /// </summary>
+        private void UpdateTheoryBankAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新理论题库分析（增强版） ===");
+
+                var allTheoryQuestions = TheoryQuestionBankManager.GetAllQuestions();
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        // 基础统计
+                        if (TheoryTotalCountText != null)
+                            TheoryTotalCountText.Text = $"{allTheoryQuestions.Count} 题";
+
+                        // 题型分布
+                        var singleChoice = allTheoryQuestions.Count(q => q.Type == TheoryQuestionType.SingleChoice);
+                        var multipleChoice = allTheoryQuestions.Count(q => q.Type == TheoryQuestionType.MultipleChoice);
+
+                        if (TheorySingleChoiceCountText != null)
+                            TheorySingleChoiceCountText.Text = $"{singleChoice} 题 ({GetPercentage(singleChoice, allTheoryQuestions.Count)})";
+                        if (TheoryMultipleChoiceCountText != null)
+                            TheoryMultipleChoiceCountText.Text = $"{multipleChoice} 题 ({GetPercentage(multipleChoice, allTheoryQuestions.Count)})";
+
+                        // 难度分布
+                        var easy = allTheoryQuestions.Count(q => q.Difficulty == QuestionDifficulty.Easy);
+                        var medium = allTheoryQuestions.Count(q => q.Difficulty == QuestionDifficulty.Medium);
+                        var hard = allTheoryQuestions.Count(q => q.Difficulty == QuestionDifficulty.Hard);
+
+                        if (TheoryEasyCountText != null)
+                            TheoryEasyCountText.Text = $"{easy} 题 ({GetPercentage(easy, allTheoryQuestions.Count)})";
+                        if (TheoryMediumCountText != null)
+                            TheoryMediumCountText.Text = $"{medium} 题 ({GetPercentage(medium, allTheoryQuestions.Count)})";
+                        if (TheoryHardCountText != null)
+                            TheoryHardCountText.Text = $"{hard} 题 ({GetPercentage(hard, allTheoryQuestions.Count)})";
+
+                        // 知识分类分布
+                        var flightPrinciples = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.FlightPrinciples);
+                        var structure = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.Structure);
+                        var controlAlgorithm = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.ControlAlgorithm);
+                        var sensorFusion = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.SensorFusion);
+                        var flightSafety = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.FlightSafety);
+                        var lawsRegulations = allTheoryQuestions.Count(q => q.Category == TheoryQuestionCategory.LawsRegulations);
+
+                        if (TheoryFlightPrinciplesCountText != null)
+                            TheoryFlightPrinciplesCountText.Text = $"{flightPrinciples} 题 ({GetPercentage(flightPrinciples, allTheoryQuestions.Count)})";
+                        if (TheoryStructureCountText != null)
+                            TheoryStructureCountText.Text = $"{structure} 题 ({GetPercentage(structure, allTheoryQuestions.Count)})";
+                        if (TheoryControlAlgorithmCountText != null)
+                            TheoryControlAlgorithmCountText.Text = $"{controlAlgorithm} 题 ({GetPercentage(controlAlgorithm, allTheoryQuestions.Count)})";
+                        if (TheorySensorFusionCountText != null)
+                            TheorySensorFusionCountText.Text = $"{sensorFusion} 题 ({GetPercentage(sensorFusion, allTheoryQuestions.Count)})";
+                        if (TheoryFlightSafetyCountText != null)
+                            TheoryFlightSafetyCountText.Text = $"{flightSafety} 题 ({GetPercentage(flightSafety, allTheoryQuestions.Count)})";
+                        if (TheoryLawsRegulationsCountText != null)
+                            TheoryLawsRegulationsCountText.Text = $"{lawsRegulations} 题 ({GetPercentage(lawsRegulations, allTheoryQuestions.Count)})";
+
+                        // 状态分析
+                        var active = allTheoryQuestions.Count(q => q.IsActive);
+                        var inactive = allTheoryQuestions.Count(q => !q.IsActive);
+
+                        if (TheoryActiveCountText != null)
+                            TheoryActiveCountText.Text = $"{active} 题 ({GetPercentage(active, allTheoryQuestions.Count)})";
+                        if (TheoryInactiveCountText != null)
+                            TheoryInactiveCountText.Text = $"{inactive} 题 ({GetPercentage(inactive, allTheoryQuestions.Count)})";
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 理论题库详细分析更新完成: 总计{allTheoryQuestions.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"理论题库分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新理论题库分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (TheoryTotalCountText != null)
+                        TheoryTotalCountText.Text = "获取失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新电路实测题库分析
+        /// </summary>
+        private void UpdateCircuitBankAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新电路实测题库分析 ===");
+
+                // 获取所有有效题目
+                var allCheckboxes = FindAllCheckBoxes()
+                    .Where(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
+                    .ToList();
+
+                // 按分类统计题目数量
+                var motorCount = allCheckboxes.Count(cb => cb.Name.StartsWith("M"));
+                var escCount = allCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
+                var pwmCount = allCheckboxes.Count(cb => cb.Name.StartsWith("S"));
+                var gpsCount = allCheckboxes.Count(cb => cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V"));
+                var otherCount = allCheckboxes.Count(cb =>
+                    cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        if (CircuitMotorCountText != null)
+                            CircuitMotorCountText.Text = $"{motorCount} 题";
+                        if (CircuitEscCountText != null)
+                            CircuitEscCountText.Text = $"{escCount} 题";
+                        if (CircuitPwmCountText != null)
+                            CircuitPwmCountText.Text = $"{pwmCount} 题";
+                        if (CircuitGpsCountText != null)
+                            CircuitGpsCountText.Text = $"{gpsCount} 题";
+                        if (CircuitOtherCountText != null)
+                            CircuitOtherCountText.Text = $"{otherCount} 题";
+                        if (CircuitTotalCountText != null)
+                            CircuitTotalCountText.Text = $"{allCheckboxes.Count} 题";
+                        if (CircuitRealTimeCountText != null)
+                            CircuitRealTimeCountText.Text = $"{allCheckboxes.Count} 题";
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 电路题库分析更新完成: 总计{allCheckboxes.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"电路题库分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新电路题库分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (CircuitTotalCountText != null)
+                        CircuitTotalCountText.Text = "获取失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 增强版：更新飞控题库分析 - 包含详细分类统计
+        /// </summary>
+        private void UpdateFCBankAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新飞控题库分析（增强版） ===");
+
+                var allFCQuestions = FlightControlQuestionBankManager.GetAllQuestions();
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        // 基础统计
+                        if (FCTotalCountText != null)
+                            FCTotalCountText.Text = $"{allFCQuestions.Count} 题";
+
+                        // 题型分布
+                        var parameterSetting = allFCQuestions.Count(q => q.Type == FCQuestionType.ParameterSetting);
+                        var parameterVerify = allFCQuestions.Count(q => q.Type == FCQuestionType.ParameterVerify);
+                        var parameterCalculation = allFCQuestions.Count(q => q.Type == FCQuestionType.ParameterCalculation);
+
+                        if (FCParameterSettingCountText != null)
+                            FCParameterSettingCountText.Text = $"{parameterSetting} 题 ({GetPercentage(parameterSetting, allFCQuestions.Count)})";
+                        if (FCParameterVerifyCountText != null)
+                            FCParameterVerifyCountText.Text = $"{parameterVerify} 题 ({GetPercentage(parameterVerify, allFCQuestions.Count)})";
+                        if (FCParameterCalculationCountText != null)
+                            FCParameterCalculationCountText.Text = $"{parameterCalculation} 题 ({GetPercentage(parameterCalculation, allFCQuestions.Count)})";
+
+                        // 数据类型分布
+                        var floatType = allFCQuestions.Count(q => q.DataType == ParameterDataType.Float);
+                        var integerType = allFCQuestions.Count(q => q.DataType == ParameterDataType.Integer);
+                        var booleanType = allFCQuestions.Count(q => q.DataType == ParameterDataType.Boolean);
+                        var stringType = allFCQuestions.Count(q => q.DataType == ParameterDataType.String);
+
+                        if (FCFloatCountText != null)
+                            FCFloatCountText.Text = $"{floatType} 题 ({GetPercentage(floatType, allFCQuestions.Count)})";
+                        if (FCIntegerCountText != null)
+                            FCIntegerCountText.Text = $"{integerType} 题 ({GetPercentage(integerType, allFCQuestions.Count)})";
+                        if (FCBooleanCountText != null)
+                            FCBooleanCountText.Text = $"{booleanType} 题 ({GetPercentage(booleanType, allFCQuestions.Count)})";
+                        if (FCStringCountText != null)
+                            FCStringCountText.Text = $"{stringType} 题 ({GetPercentage(stringType, allFCQuestions.Count)})";
+
+                        // 功能分类分布
+                        var basicParameters = allFCQuestions.Count(q => q.Category == FCQuestionCategory.BasicParameters);
+                        var pidTuning = allFCQuestions.Count(q => q.Category == FCQuestionCategory.PIDTuning);
+                        var sensorCalibration = allFCQuestions.Count(q => q.Category == FCQuestionCategory.SensorCalibration);
+                        var flightModes = allFCQuestions.Count(q => q.Category == FCQuestionCategory.FlightModes);
+                        var safetySettings = allFCQuestions.Count(q => q.Category == FCQuestionCategory.SafetySettings);
+                        var advancedFeatures = allFCQuestions.Count(q => q.Category == FCQuestionCategory.AdvancedFeatures);
+
+                        if (FCBasicParametersCountText != null)
+                            FCBasicParametersCountText.Text = $"{basicParameters} 题 ({GetPercentage(basicParameters, allFCQuestions.Count)})";
+                        if (FCPIDTuningCountText != null)
+                            FCPIDTuningCountText.Text = $"{pidTuning} 题 ({GetPercentage(pidTuning, allFCQuestions.Count)})";
+                        if (FCSensorCalibrationCountText != null)
+                            FCSensorCalibrationCountText.Text = $"{sensorCalibration} 题 ({GetPercentage(sensorCalibration, allFCQuestions.Count)})";
+                        if (FCFlightModesCountText != null)
+                            FCFlightModesCountText.Text = $"{flightModes} 题 ({GetPercentage(flightModes, allFCQuestions.Count)})";
+                        if (FCSafetySettingsCountText != null)
+                            FCSafetySettingsCountText.Text = $"{safetySettings} 题 ({GetPercentage(safetySettings, allFCQuestions.Count)})";
+                        if (FCAdvancedFeaturesCountText != null)
+                            FCAdvancedFeaturesCountText.Text = $"{advancedFeatures} 题 ({GetPercentage(advancedFeatures, allFCQuestions.Count)})";
+
+                        // 难度分析
+                        var easy = allFCQuestions.Count(q => q.Difficulty == QuestionDifficulty.Easy);
+                        var medium = allFCQuestions.Count(q => q.Difficulty == QuestionDifficulty.Medium);
+                        var hard = allFCQuestions.Count(q => q.Difficulty == QuestionDifficulty.Hard);
+
+                        if (FCEasyCountText != null)
+                            FCEasyCountText.Text = $"{easy} 题 ({GetPercentage(easy, allFCQuestions.Count)})";
+                        if (FCMediumCountText != null)
+                            FCMediumCountText.Text = $"{medium} 题 ({GetPercentage(medium, allFCQuestions.Count)})";
+                        if (FCHardCountText != null)
+                            FCHardCountText.Text = $"{hard} 题 ({GetPercentage(hard, allFCQuestions.Count)})";
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 飞控题库详细分析更新完成: 总计{allFCQuestions.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"飞控题库分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新飞控题库分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (FCTotalCountText != null)
+                        FCTotalCountText.Text = "获取失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：计算百分比的辅助方法
+        /// </summary>
+        /// <param name="count">当前数量</param>
+        /// <param name="total">总数量</param>
+        /// <returns>格式化的百分比字符串</returns>
+        private string GetPercentage(int count, int total)
+        {
+            if (total == 0) return "0%";
+
+            double percentage = (double)count / total * 100;
+            return $"{percentage:F1}%";
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新理论试题选择分析
+        /// </summary>
+        private void UpdateTheorySelectionAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新理论试题选择分析 ===");
+
+                var actualSelected = GetActualSelectedTheoryQuestions();
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        if (TheorySelectedCountText != null)
+                            TheorySelectedCountText.Text = $"{actualSelected.Count} 题";
+
+                        var singleChoice = actualSelected.Count(q => q.Type == TheoryQuestionType.SingleChoice);
+                        var multipleChoice = actualSelected.Count(q => q.Type == TheoryQuestionType.MultipleChoice);
+
+                        if (TheorySelectedSingleText != null)
+                            TheorySelectedSingleText.Text = $"{singleChoice} 题";
+                        if (TheorySelectedMultipleText != null)
+                            TheorySelectedMultipleText.Text = $"{multipleChoice} 题";
+
+                        var easy = actualSelected.Count(q => q.Difficulty == QuestionDifficulty.Easy);
+                        var medium = actualSelected.Count(q => q.Difficulty == QuestionDifficulty.Medium);
+                        var hard = actualSelected.Count(q => q.Difficulty == QuestionDifficulty.Hard);
+
+                        if (TheoryDifficultyDistributionText != null)
+                            TheoryDifficultyDistributionText.Text = $"简单:{easy} 中等:{medium} 困难:{hard}";
+
+                        var totalPoints = actualSelected.Sum(q => q.Points);
+                        if (TheoryTotalPointsText != null)
+                            TheoryTotalPointsText.Text = $"{totalPoints} 分";
+
+                        var allTheoryQuestions = TheoryQuestionBankManager.GetAllQuestions();
+                        var selectionRate = allTheoryQuestions.Count > 0 ? (double)actualSelected.Count / allTheoryQuestions.Count * 100 : 0;
+                        if (TheorySelectionRateText != null)
+                            TheorySelectionRateText.Text = $"{selectionRate:F1} %";
+
+                        if (TheoryLastOperationText != null)
+                            TheoryLastOperationText.Text = GetLastTheoryOperation();
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 理论选择分析更新完成: 已选择{actualSelected.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"理论选择分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新理论选择分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (TheorySelectedCountText != null)
+                        TheorySelectedCountText.Text = "统计失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新电路试题选择分析
+        /// </summary>
+        private void UpdateCircuitSelectionAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新电路试题选择分析 ===");
+
+                var allCheckboxes = FindAllCheckBoxes()
+                    .Where(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)))
+                    .ToList();
+
+                var selectedCheckboxes = allCheckboxes.Where(cb => cb.IsChecked == true).ToList();
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        if (CircuitSelectedCountText != null)
+                            CircuitSelectedCountText.Text = $"{selectedCheckboxes.Count} 题";
+
+                        var motorSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("M"));
+                        var escSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("ESC"));
+                        var pwmSelected = selectedCheckboxes.Count(cb => cb.Name.StartsWith("S"));
+                        var otherSelected = selectedCheckboxes.Count(cb =>
+                            cb.Name.StartsWith("UART") || cb.Name.StartsWith("GPS5V") ||
+                            cb.Name.StartsWith("Receiver") || cb.Name.StartsWith("SERVO") || cb.Name.StartsWith("Battery"));
+
+                        if (CircuitSelectedMotorText != null)
+                            CircuitSelectedMotorText.Text = $"{motorSelected} 题";
+                        if (CircuitSelectedEscText != null)
+                            CircuitSelectedEscText.Text = $"{escSelected} 题";
+                        if (CircuitSelectedPwmText != null)
+                            CircuitSelectedPwmText.Text = $"{pwmSelected} 题";
+                        if (CircuitSelectedOtherText != null)
+                            CircuitSelectedOtherText.Text = $"{otherSelected} 题";
+
+                        var selectionRate = allCheckboxes.Count > 0 ? (double)selectedCheckboxes.Count / allCheckboxes.Count * 100 : 0;
+                        if (CircuitSelectionRateText != null)
+                            CircuitSelectionRateText.Text = $"{selectionRate:F1} %";
+
+                        if (CircuitLastOperationText != null)
+                            CircuitLastOperationText.Text = GetLastCircuitOperation();
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 电路选择分析更新完成: 已选择{selectedCheckboxes.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"电路选择分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新电路选择分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (CircuitSelectedCountText != null)
+                        CircuitSelectedCountText.Text = "统计失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新飞控试题选择分析
+        /// </summary>
+        private void UpdateFCSelectionAnalysis()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 更新飞控试题选择分析 ===");
+
+                var actualSelected = GetActualSelectedFCQuestions();
+
+                // 安全更新UI控件
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        if (FCSelectedCountText != null)
+                            FCSelectedCountText.Text = $"{actualSelected.Count} 题";
+
+                        var parameterType = actualSelected.Count(q => q.Type.Contains("Parameter"));
+                        if (FCSelectedParameterText != null)
+                            FCSelectedParameterText.Text = $"{parameterType} 题";
+
+                        // 解析难度分布
+                        var easy = actualSelected.Count(q => q.Difficulty.Contains("Easy"));
+                        var medium = actualSelected.Count(q => q.Difficulty.Contains("Medium"));
+                        var hard = actualSelected.Count(q => q.Difficulty.Contains("Hard"));
+
+                        if (FCDifficultyDistributionText != null)
+                            FCDifficultyDistributionText.Text = $"简单:{easy} 中等:{medium} 困难:{hard}";
+
+                        // 数据类型分布
+                        var numericType = actualSelected.Count(q => q.DataType.Contains("Numeric"));
+                        var stringType = actualSelected.Count(q => q.DataType.Contains("String"));
+                        var boolType = actualSelected.Count(q => q.DataType.Contains("Bool"));
+
+                        if (FCDataTypeDistributionText != null)
+                            FCDataTypeDistributionText.Text = $"数值:{numericType} 文本:{stringType} 布尔:{boolType}";
+
+                        var totalPoints = actualSelected.Sum(q => q.Points);
+                        if (FCTotalPointsText != null)
+                            FCTotalPointsText.Text = $"{totalPoints} 分";
+
+                        var allFCQuestions = FlightControlQuestionBankManager.GetAllQuestions();
+                        var selectionRate = allFCQuestions.Count > 0 ? (double)actualSelected.Count / allFCQuestions.Count * 100 : 0;
+                        if (FCSelectionRateText != null)
+                            FCSelectionRateText.Text = $"{selectionRate:F1} %";
+
+                        if (FCLastOperationText != null)
+                            FCLastOperationText.Text = GetLastFCOperation();
+
+                        System.Diagnostics.Debug.WriteLine($"✅ 飞控选择分析更新完成: 已选择{actualSelected.Count}题");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"飞控选择分析UI更新失败: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新飞控选择分析失败: {ex.Message}");
+
+                // 失败时显示错误信息
+                Dispatcher.Invoke(() =>
+                {
+                    if (FCSelectedCountText != null)
+                        FCSelectedCountText.Text = "统计失败";
+                });
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：获取最近的理论题操作记录
+        /// </summary>
+        private string GetLastTheoryOperation()
+        {
+            try
+            {
+                if (currentDisplayedQuestions?.Any() == true)
+                {
+                    return $"当前显示 {currentDisplayedQuestions.Count} 题";
+                }
+                return "暂无操作";
+            }
+            catch
+            {
+                return "暂无操作";
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：获取最近的电路题操作记录
+        /// </summary>
+        private string GetLastCircuitOperation()
+        {
+            try
+            {
+                var selectedCount = FindAllCheckBoxes()
+                    .Count(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)) && cb.IsChecked == true);
+
+                if (selectedCount > 0)
+                {
+                    return $"已选择 {selectedCount} 道题目";
+                }
+                return "暂无选择";
+            }
+            catch
+            {
+                return "暂无选择";
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：获取最近的飞控题操作记录
+        /// </summary>
+        private string GetLastFCOperation()
+        {
+            try
+            {
+                if (selectedFCQuestions?.Any() == true)
+                {
+                    return $"当前显示 {selectedFCQuestions.Count} 题";
+                }
+                return "暂无操作";
+            }
+            catch
+            {
+                return "暂无操作";
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：备用的基本统计更新方法（错误恢复用）
+        /// </summary>
+        private void UpdateBasicStats()
+        {
+            try
+            {
+                // 尝试至少更新一些基本信息
+                var circuitSelected = FindAllCheckBoxes()
+                    .Count(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)) && cb.IsChecked == true);
+
+                var basicMessage = $"📊 基本统计：\n" +
+                                  $"电路实测已选择：{circuitSelected} 题\n" +
+                                  $"理论题目已选择：{selectedTheoryQuestions?.Count ?? 0} 题\n" +
+                                  $"飞控题目已选择：{selectedFCQuestions?.Count ?? 0} 题\n\n" +
+                                  $"⚠️ 详细统计暂时不可用，请稍后重试。";
+
+                // 尝试更新某个基本的文本控件
+                if (TheorySelectedCountText != null)
+                    TheorySelectedCountText.Text = $"{selectedTheoryQuestions?.Count ?? 0} 题";
+                if (CircuitSelectedCountText != null)
+                    CircuitSelectedCountText.Text = $"{circuitSelected} 题";
+                if (FCSelectedCountText != null)
+                    FCSelectedCountText.Text = $"{selectedFCQuestions?.Count ?? 0} 题";
+
+                System.Diagnostics.Debug.WriteLine("✅ 备用基本统计更新完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"备用基本统计更新失败: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 动态生成并验证题目分类统计
         /// </summary>
