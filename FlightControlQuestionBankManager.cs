@@ -944,9 +944,9 @@ namespace DroneSimulator
         {
             var openFileDialog = new OpenFileDialog
             {
-                Title = "导入飞控题库",
-                Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
-                DefaultExt = "csv",
+                Title = "导入飞控实操题库",
+                Filter = "所有支持格式|*.json;*.csv|JSON文件 (*.json)|*.json|CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+                DefaultExt = "json",
                 Multiselect = false
             };
 
@@ -954,13 +954,14 @@ namespace DroneSimulator
             {
                 try
                 {
+                    // 🔧 修改：不论是 JSON 还是 CSV，都使用进度窗口
                     var importWindow = new FCImportProgressWindow();
                     importWindow.StartImport(openFileDialog.FileName);
                     importWindow.ShowDialog();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"打开导入窗口失败：{ex.Message}", "错误",
+                    MessageBox.Show($"打开导入失败：{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -973,28 +974,92 @@ namespace DroneSimulator
         {
             var saveFileDialog = new SaveFileDialog
             {
-                Title = "导出飞控题库",
-                Filter = "CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
-                DefaultExt = "csv",
-                FileName = $"飞控题库_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+                Title = "导出飞控实操题库",
+                Filter = "JSON文件 (*.json)|*.json|CSV文件 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+                DefaultExt = "json",
+                FileName = $"飞控题库_{DateTime.Now:yyyyMMdd_HHmmss}.json"
             };
 
             if (saveFileDialog.ShowDialog() == true)
             {
-                var result = ExportToCSV(saveFileDialog.FileName, selectedQuestions);
+                try
+                {
+                    string fileExtension = Path.GetExtension(saveFileDialog.FileName).ToLower();
+                    FCImportExportResult result;
 
-                if (result.Success)
-                {
-                    MessageBox.Show(result.Message, "导出成功",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    if (fileExtension == ".json")
+                    {
+                        result = ExportToJSON(saveFileDialog.FileName, selectedQuestions);
+                    }
+                    else if (fileExtension == ".csv")
+                    {
+                        result = ExportToCSV(saveFileDialog.FileName, selectedQuestions);
+                    }
+                    else
+                    {
+                        // 默认使用JSON格式
+                        string jsonFileName = Path.ChangeExtension(saveFileDialog.FileName, ".json");
+                        result = ExportToJSON(jsonFileName, selectedQuestions);
+                    }
+
+                    if (result.Success)
+                    {
+                        MessageBox.Show(result.Message, "导出成功",
+                            MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"导出失败：\n{result.Message}", "导出失败",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    MessageBox.Show($"导出失败：\n{result.Message}", "导出失败",
+                    MessageBox.Show($"导出操作失败：{ex.Message}", "错误",
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
+
+        #region 🚀 新增：飞控题库JSON导出数据结构
+
+        /// <summary>
+        /// 飞控实操题库导出数据格式
+        /// </summary>
+        public class FlightControlQuestionExportData
+        {
+            /// <summary>
+            /// 导出时间
+            /// </summary>
+            public DateTime ExportTime { get; set; } = DateTime.Now;
+
+            /// <summary>
+            /// 导出版本
+            /// </summary>
+            public string ExportVersion { get; set; } = "1.0";
+
+            /// <summary>
+            /// 题目总数
+            /// </summary>
+            public int TotalQuestions { get; set; }
+
+            /// <summary>
+            /// 导出者
+            /// </summary>
+            public string ExportedBy { get; set; } = "";
+
+            /// <summary>
+            /// 描述信息
+            /// </summary>
+            public string Description { get; set; } = "DroneSimulator飞控实操题库导出";
+
+            /// <summary>
+            /// 题目列表
+            /// </summary>
+            public List<FlightControlQuestion> Questions { get; set; } = new();
+        }
+
+        #endregion
 
         /// <summary>
         /// 公共的CSV行解析方法（供导入窗口使用）
@@ -1020,8 +1085,440 @@ namespace DroneSimulator
             return IsValidCSVHeader(header);
         }
 
+        /// <summary>
+        /// 🚀 新增：导出题库到JSON文件
+        /// </summary>
+        /// <param name="filePath">导出文件路径</param>
+        /// <param name="questions">要导出的题目列表，为空则导出所有题目</param>
+        /// <returns>导出结果</returns>
+        public static FCImportExportResult ExportToJSON(string filePath, List<FlightControlQuestion>? questions = null)
+        {
+            var result = new FCImportExportResult();
+
+            try
+            {
+                if (!_cacheLoaded) LoadQuestions();
+
+                var questionsToExport = questions ?? _questionCache;
+
+                if (!questionsToExport.Any())
+                {
+                    result.Success = false;
+                    result.Message = "没有题目可导出";
+                    return result;
+                }
+
+                // 创建备份
+                CreateBackup($"before_json_export_{questionsToExport.Count}_questions");
+
+                // 创建导出数据结构
+                var exportData = new FlightControlQuestionExportData
+                {
+                    ExportTime = DateTime.Now,
+                    ExportVersion = "1.0",
+                    TotalQuestions = questionsToExport.Count,
+                    ExportedBy = Environment.UserName,
+                    Description = "DroneSimulator飞控实操题库导出",
+                    Questions = questionsToExport
+                };
+
+                // JSON序列化选项
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    PropertyNamingPolicy = null // 保持原有属性名称
+                };
+
+                // 序列化并写入文件
+                string json = JsonSerializer.Serialize(exportData, options);
+                File.WriteAllText(filePath, json, Encoding.UTF8);
+
+                result.Success = true;
+                result.SuccessCount = questionsToExport.Count;
+                result.Message = $"成功导出 {questionsToExport.Count} 道飞控题目到 {Path.GetFileName(filePath)}\n\n" +
+                                $"导出格式：JSON (结构化数据)\n" +
+                                $"导出时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
+                                $"文件大小：{new FileInfo(filePath).Length / 1024.0:F1} KB";
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $"JSON导出失败: {ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：从JSON文件导入题库
+        /// </summary>
+        /// <param name="filePath">导入文件路径</param>
+        /// <param name="overwriteExisting">是否覆盖现有题目</param>
+        /// <returns>导入结果</returns>
+        public static FCImportExportResult ImportFromJSON(string filePath, bool overwriteExisting = false)
+        {
+            var result = new FCImportExportResult();
+
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    result.Success = false;
+                    result.Message = "导入文件不存在";
+                    return result;
+                }
+
+                if (!_cacheLoaded) LoadQuestions();
+
+                // 创建导入前备份
+                CreateBackup($"before_json_import_{Path.GetFileNameWithoutExtension(filePath)}");
+
+                // 读取JSON文件
+                string json = File.ReadAllText(filePath, Encoding.UTF8);
+
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    result.Success = false;
+                    result.Message = "JSON文件为空";
+                    return result;
+                }
+
+                List<FlightControlQuestion>? questions = null;
+
+                // 尝试解析为导出数据格式
+                try
+                {
+                    var exportData = JsonSerializer.Deserialize<FlightControlQuestionExportData>(json);
+                    questions = exportData?.Questions;
+                }
+                catch
+                {
+                    // 如果解析导出格式失败，尝试直接解析为题目列表
+                    try
+                    {
+                        questions = JsonSerializer.Deserialize<List<FlightControlQuestion>>(json);
+                    }
+                    catch (JsonException ex)
+                    {
+                        result.Success = false;
+                        result.Message = $"JSON文件格式错误：{ex.Message}";
+                        return result;
+                    }
+                }
+
+                if (questions == null || !questions.Any())
+                {
+                    result.Success = false;
+                    result.Message = "JSON文件中没有找到有效的题目数据";
+                    return result;
+                }
+
+                // 验证和导入题目
+                foreach (var question in questions)
+                {
+                    try
+                    {
+                        // 验证题目数据
+                        if (!question.IsValid())
+                        {
+                            result.FailCount++;
+                            result.Errors.Add($"题目 '{question.QuestionStatement}' 数据不完整，已跳过");
+                            continue;
+                        }
+
+                        // 检查是否有相同题目陈述的题目
+                        var duplicateQuestion = _questionCache.FirstOrDefault(q =>
+                            q.QuestionStatement.Trim().Equals(question.QuestionStatement.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                        if (duplicateQuestion != null)
+                        {
+                            if (overwriteExisting)
+                            {
+                                // 覆盖现有题目（保持原ID）
+                                question.Id = duplicateQuestion.Id;
+                                question.LastModified = DateTime.Now;
+                                question.LastModifiedBy = "JSON导入";
+
+                                var index = _questionCache.IndexOf(duplicateQuestion);
+                                _questionCache[index] = question;
+                                result.OverwriteCount++;
+                            }
+                            else
+                            {
+                                // 跳过重复题目
+                                result.SkipCount++;
+                                result.Warnings.Add($"题目 '{question.QuestionStatement.Substring(0, Math.Min(50, question.QuestionStatement.Length))}...' 已存在，已跳过");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            // 添加新题目（系统自动分配新ID）
+                            question.Id = GetNextQuestionId();
+                            question.LastModified = DateTime.Now;
+                            question.LastModifiedBy = "JSON导入";
+
+                            _questionCache.Add(question);
+                            result.SuccessCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        result.FailCount++;
+                        result.Errors.Add($"处理题目 '{question.QuestionStatement}' 时出错：{ex.Message}");
+                    }
+                }
+
+                // 保存导入结果
+                if (result.SuccessCount > 0 || result.OverwriteCount > 0)
+                {
+                    if (SaveQuestions())
+                    {
+                        result.Success = true;
+                        var message = $"JSON导入完成：\n" +
+                                     $"新增：{result.SuccessCount} 题\n" +
+                                     $"覆盖：{result.OverwriteCount} 题\n" +
+                                     $"跳过：{result.SkipCount} 题\n" +
+                                     $"失败：{result.FailCount} 题\n\n" +
+                                     $"💡 说明：所有新题目已由系统自动分配新的ID";
+
+                        if (result.Warnings.Any())
+                        {
+                            message += $"\n\n⚠️ 警告信息：\n{string.Join("\n", result.Warnings.Take(5))}";
+                            if (result.Warnings.Count > 5)
+                            {
+                                message += $"\n... 还有 {result.Warnings.Count - 5} 条警告";
+                            }
+                        }
+
+                        result.Message = message;
+                    }
+                    else
+                    {
+                        result.Success = false;
+                        result.Message = "题目解析成功但保存失败";
+                    }
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = "没有成功导入任何题目";
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Message = $"JSON导入失败: {ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：从JSON文件导入题库 - 支持进度回调
+        /// </summary>
+        /// <param name="filePath">导入文件路径</param>
+        /// <param name="overwriteExisting">是否覆盖现有题目</param>
+        /// <param name="progressCallback">进度回调</param>
+        /// <param name="cancellationToken">取消令牌</param>
+        /// <returns>导入结果</returns>
+        public static FCImportExportResult ImportFromJSONWithProgress(
+            string filePath,
+            bool overwriteExisting,
+            Action<double, string, string> progressCallback,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new FCImportExportResult();
+
+            try
+            {
+                progressCallback?.Invoke(5, "正在读取JSON文件...", "开始读取文件");
+
+                if (!File.Exists(filePath))
+                {
+                    result.Success = false;
+                    result.Message = "导入文件不存在";
+                    return result;
+                }
+
+                if (!_cacheLoaded) LoadQuestions();
+
+                // 创建导入前备份
+                progressCallback?.Invoke(10, "正在创建备份...", "创建导入前备份");
+                CreateBackup($"before_json_import_{Path.GetFileNameWithoutExtension(filePath)}");
+
+                // 读取JSON文件
+                progressCallback?.Invoke(15, "正在解析JSON内容...", "读取并解析JSON文件");
+                string json = File.ReadAllText(filePath, Encoding.UTF8);
+
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    result.Success = false;
+                    result.Message = "JSON文件为空";
+                    return result;
+                }
+
+                List<FlightControlQuestion>? questions = null;
+
+                // 尝试解析为导出数据格式
+                progressCallback?.Invoke(20, "正在解析题目数据...", "解析JSON结构");
+                try
+                {
+                    var exportData = JsonSerializer.Deserialize<FlightControlQuestionExportData>(json);
+                    questions = exportData?.Questions;
+                }
+                catch
+                {
+                    // 如果解析导出格式失败，尝试直接解析为题目列表
+                    try
+                    {
+                        questions = JsonSerializer.Deserialize<List<FlightControlQuestion>>(json);
+                    }
+                    catch (JsonException ex)
+                    {
+                        result.Success = false;
+                        result.Message = $"JSON文件格式错误：{ex.Message}";
+                        return result;
+                    }
+                }
+
+                if (questions == null || !questions.Any())
+                {
+                    result.Success = false;
+                    result.Message = "JSON文件中没有找到有效的题目数据";
+                    return result;
+                }
+
+                progressCallback?.Invoke(30, "正在验证和导入题目...", $"共找到 {questions.Count} 道题目");
+
+                // 验证和导入题目
+                int totalQuestions = questions.Count;
+                for (int i = 0; i < questions.Count; i++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var question = questions[i];
+
+                    // 更新进度 (30% + 60% * 处理进度)
+                    double currentProgress = 30 + (60.0 * i / totalQuestions);
+                    progressCallback?.Invoke(currentProgress, "正在导入题目...",
+                        $"正在处理第 {i + 1}/{totalQuestions} 道题目");
+
+                    try
+                    {
+                        // 验证题目数据
+                        if (!question.IsValid())
+                        {
+                            result.FailCount++;
+                            result.Errors.Add($"题目 '{question.QuestionStatement}' 数据不完整，已跳过");
+                            continue;
+                        }
+
+                        // 检查是否有相同题目陈述的题目
+                        var duplicateQuestion = _questionCache.FirstOrDefault(q =>
+                            q.QuestionStatement.Trim().Equals(question.QuestionStatement.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                        if (duplicateQuestion != null)
+                        {
+                            if (overwriteExisting)
+                            {
+                                // 覆盖现有题目（保持原ID）
+                                question.Id = duplicateQuestion.Id;
+                                question.LastModified = DateTime.Now;
+                                question.LastModifiedBy = "JSON导入";
+
+                                var index = _questionCache.IndexOf(duplicateQuestion);
+                                _questionCache[index] = question;
+                                result.OverwriteCount++;
+                            }
+                            else
+                            {
+                                // 跳过重复题目
+                                result.SkipCount++;
+                                result.Warnings.Add($"题目 '{question.QuestionStatement.Substring(0, Math.Min(50, question.QuestionStatement.Length))}...' 已存在，已跳过");
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            // 添加新题目（系统自动分配新ID）
+                            question.Id = GetNextQuestionId();
+                            question.LastModified = DateTime.Now;
+                            question.LastModifiedBy = "JSON导入";
+
+                            _questionCache.Add(question);
+                            result.SuccessCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        result.FailCount++;
+                        result.Errors.Add($"处理题目 '{question.QuestionStatement}' 时出错：{ex.Message}");
+                    }
+                }
+
+                progressCallback?.Invoke(95, "正在保存导入结果...", "保存题目到数据库");
+
+                // 保存导入结果
+                if (result.SuccessCount > 0 || result.OverwriteCount > 0)
+                {
+                    if (SaveQuestions())
+                    {
+                        result.Success = true;
+                        var message = $"JSON导入完成：\n" +
+                                     $"新增：{result.SuccessCount} 题\n" +
+                                     $"覆盖：{result.OverwriteCount} 题\n" +
+                                     $"跳过：{result.SkipCount} 题\n" +
+                                     $"失败：{result.FailCount} 题\n\n" +
+                                     $"💡 说明：所有新题目已由系统自动分配新的ID";
+
+                        if (result.Warnings.Any())
+                        {
+                            message += $"\n\n⚠️ 警告信息：\n{string.Join("\n", result.Warnings.Take(5))}";
+                            if (result.Warnings.Count > 5)
+                            {
+                                message += $"\n... 还有 {result.Warnings.Count - 5} 条警告";
+                            }
+                        }
+
+                        result.Message = message;
+                        progressCallback?.Invoke(100, "JSON导入完成", $"成功导入 {result.SuccessCount} 道题目");
+                    }
+                    else
+                    {
+                        result.Success = false;
+                        result.Message = "题目解析成功但保存失败";
+                    }
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Message = "没有成功导入任何题目";
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                progressCallback?.Invoke(0, "导入已取消", "用户取消了导入操作");
+                result.Success = false;
+                result.Message = "用户取消了导入操作";
+                return result;
+            }
+            catch (Exception ex)
+            {
+                progressCallback?.Invoke(0, "导入失败", ex.Message);
+                result.Success = false;
+                result.Message = $"JSON导入失败: {ex.Message}";
+                return result;
+            }
+        }
         #endregion
     }
+
 
     #region 辅助类定义（重命名避免冲突）
 

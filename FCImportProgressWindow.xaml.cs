@@ -172,7 +172,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 执行导入操作
+        /// 🔧 修改：执行导入操作 - 支持JSON和CSV格式
         /// </summary>
         private async Task<FCImportExportResult> ImportWithProgressAsync(CancellationToken cancellationToken)
         {
@@ -186,28 +186,66 @@ namespace DroneSimulator
                         overwriteExisting = OverwriteExistingCheckBox.IsChecked == true;
                     });
 
-                    // 🔧 修改：在后台线程中记录日志，需要通过Dispatcher调用
-                    await AddLogAsync("🔄 开始解析CSV文件...", LogLevel.Info);
-                    await AddLogAsync("📋 系统将自动为每道题目分配新的ID", LogLevel.Info);
+                    // 🔧 新增：检测文件格式
+                    string fileExtension = Path.GetExtension(_importFilePath).ToLower();
 
-                    // 使用 FlightControlQuestionBankManager 的导入方法
-                    var result = FlightControlQuestionBankManager.ImportFromCSV(_importFilePath, overwriteExisting);
-
-                    // 更新UI进度
-                    await Dispatcher.InvokeAsync(() =>
+                    if (fileExtension == ".json")
                     {
-                        OverallProgressBar.Value = 100;
-                        OverallProgressText.Text = "100%";
+                        // JSON 导入
+                        await AddLogAsync("🔄 开始解析JSON文件...", LogLevel.Info);
+                        await AddLogAsync("📋 系统将自动为每道题目分配新的ID", LogLevel.Info);
 
-                        if (result.Success)
+                        // 🚀 使用带进度回调的JSON导入方法
+                        var result = await ImportFromJSONWithProgress(_importFilePath, overwriteExisting, cancellationToken);
+
+                        // 更新UI进度
+                        await Dispatcher.InvokeAsync(() =>
                         {
-                            SuccessCountText.Text = result.SuccessCount.ToString();
-                            SkipOverwriteCountText.Text = (result.OverwriteCount + result.SkipCount).ToString();
-                            FailCountText.Text = result.FailCount.ToString();
-                        }
-                    });
+                            OverallProgressBar.Value = 100;
+                            OverallProgressText.Text = "100%";
 
-                    return result;
+                            if (result.Success)
+                            {
+                                SuccessCountText.Text = result.SuccessCount.ToString();
+                                SkipOverwriteCountText.Text = (result.OverwriteCount + result.SkipCount).ToString();
+                                FailCountText.Text = result.FailCount.ToString();
+                            }
+                        });
+
+                        return result;
+                    }
+                    else if (fileExtension == ".csv")
+                    {
+                        // CSV 导入（保持原有逻辑）
+                        await AddLogAsync("🔄 开始解析CSV文件...", LogLevel.Info);
+                        await AddLogAsync("📋 系统将自动为每道题目分配新的ID", LogLevel.Info);
+
+                        var result = FlightControlQuestionBankManager.ImportFromCSV(_importFilePath, overwriteExisting);
+
+                        // 更新UI进度
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            OverallProgressBar.Value = 100;
+                            OverallProgressText.Text = "100%";
+
+                            if (result.Success)
+                            {
+                                SuccessCountText.Text = result.SuccessCount.ToString();
+                                SkipOverwriteCountText.Text = (result.OverwriteCount + result.SkipCount).ToString();
+                                FailCountText.Text = result.FailCount.ToString();
+                            }
+                        });
+
+                        return result;
+                    }
+                    else
+                    {
+                        return new FCImportExportResult
+                        {
+                            Success = false,
+                            Message = "不支持的文件格式。请选择 JSON 或 CSV 文件。"
+                        };
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -218,6 +256,31 @@ namespace DroneSimulator
                     };
                 }
             });
+        }
+        /// <summary>
+        /// 🚀 新增：带进度回调的JSON导入方法
+        /// </summary>
+        private async Task<FCImportExportResult> ImportFromJSONWithProgress(string filePath, bool overwriteExisting, CancellationToken cancellationToken)
+        {
+            // 进度回调委托
+            Action<double, string, string> progressCallback = (progress, message, detail) =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    OverallProgressBar.Value = progress;
+                    OverallProgressText.Text = $"{progress:F1}%";
+                    CurrentStatusText.Text = message;
+
+                    if (!string.IsNullOrEmpty(detail))
+                    {
+                        AddLog(detail, LogLevel.Info);
+                    }
+                });
+            };
+
+            // 调用带进度回调的导入方法
+            return await Task.Run(() =>
+                FlightControlQuestionBankManager.ImportFromJSONWithProgress(filePath, overwriteExisting, progressCallback, cancellationToken));
         }
 
         private enum LogLevel
