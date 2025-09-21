@@ -762,12 +762,101 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 电路检测子选项卡选择变化时自动缩放对应的Canvas
+        /// </summary>
+        private void CircuitSubTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.Source == CircuitSubTabControl)
+            {
+                // 延迟执行，确保子TabItem切换完成
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FitSubCanvasToView();
+                }), DispatcherPriority.Loaded);
+            }
+        }
+
+        /// <summary>
+        /// 自动缩放电路检测子页面的Canvas到视窗大小并居中
+        /// </summary>
+        private void FitSubCanvasToView()
+        {
+            var selectedSubTabItem = CircuitSubTabControl.SelectedItem as TabItem;
+            if (selectedSubTabItem == null) return;
+
+            ScrollViewer? scrollViewer = null;
+            Canvas? canvas = null;
+            ScaleTransform? scaleTransform = null;
+
+            // 根据选中的子TabItem确定对应的ScrollViewer、Canvas和ScaleTransform
+            if (selectedSubTabItem.Header.ToString() == "电机-电调-飞控")
+            {
+                scrollViewer = MotorScrollViewer;
+                canvas = MotorCanvas;
+                scaleTransform = MotorCanvasScale;
+            }
+            else if (selectedSubTabItem.Header.ToString() == "GPS-飞控-接收机")
+            {
+                scrollViewer = MainScrollViewer;
+                canvas = ZoomCanvas;
+                scaleTransform = CanvasScale;
+            }
+            else if (selectedSubTabItem.Header.ToString() == "扩展-飞控-电源")
+            {
+                scrollViewer = ExtensionScrollViewer;
+                canvas = ExtensionCanvas;
+                scaleTransform = ExtensionCanvasScale;
+            }
+
+            if (scrollViewer == null || canvas == null || scaleTransform == null) return;
+
+            // 获取ScrollViewer的可视区域大小
+            double viewportWidth = scrollViewer.ViewportWidth;
+            double viewportHeight = scrollViewer.ViewportHeight;
+
+            // 如果ViewportWidth/Height为0，使用ActualWidth/Height
+            if (viewportWidth == 0) viewportWidth = scrollViewer.ActualWidth;
+            if (viewportHeight == 0) viewportHeight = scrollViewer.ActualHeight;
+
+            // 如果仍然为0，说明控件还没有完全渲染，退出
+            if (viewportWidth <= 0 || viewportHeight <= 0) return;
+
+            // 计算缩放比例，保持宽高比
+            double scaleX = viewportWidth / canvas.Width;
+            double scaleY = viewportHeight / canvas.Height;
+            double scale = Math.Min(scaleX, scaleY) * 0.9; // 留10%边距
+
+            // 确保缩放比例不小于0.1
+            scale = Math.Max(0.1, scale);
+
+            // 应用缩放
+            scaleTransform.ScaleX = scale;
+            scaleTransform.ScaleY = scale;
+
+            // 重置ScrollViewer滚动位置到中心
+            scrollViewer.ScrollToHorizontalOffset((scrollViewer.ExtentWidth - scrollViewer.ViewportWidth) / 2);
+            scrollViewer.ScrollToVerticalOffset((scrollViewer.ExtentHeight - scrollViewer.ViewportHeight) / 2);
+        }
+
         // 自动缩放Canvas到视窗大小并居中
         private void FitCanvasToView()
         {
             var selectedTabItem = MainTabControl.SelectedItem as TabItem;
             if (selectedTabItem == null) return;
 
+            // 如果选中的是电路检测页面，则缩放当前子页面
+            if (selectedTabItem.Header.ToString() == "电路检测")
+            {
+                // 延迟执行子页面缩放，确保电路检测页面已经完全加载
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    FitSubCanvasToView();
+                }), DispatcherPriority.Background);
+                return;
+            }
+
+            // 原有的其他页面缩放逻辑保持不变
             ScrollViewer? scrollViewer = null;
             Canvas? canvas = null;
             ScaleTransform? scaleTransform = null;
@@ -820,6 +909,14 @@ namespace DroneSimulator
             // 重置ScrollViewer滚动位置到中心
             scrollViewer.ScrollToHorizontalOffset((scrollViewer.ExtentWidth - scrollViewer.ViewportWidth) / 2);
             scrollViewer.ScrollToVerticalOffset((scrollViewer.ExtentHeight - scrollViewer.ViewportHeight) / 2);
+        }
+
+        /// <summary>
+        /// 添加公共方法，允许手动调用子页面缩放
+        /// </summary>
+        public void ResetSubCanvasScale()
+        {
+            FitSubCanvasToView();
         }
 
         // 添加公共方法，允许手动调用缩放

@@ -168,7 +168,7 @@
                 </TabItem>
 
                 <!-- 电路检测页面（合并原来的三个页面） -->
-                <TabItem Header="电路检测" x:Name="CircuitTab">
+                <TabItem Header="电路检测" x:Name="CircuitTab" Height="19" VerticalAlignment="Bottom">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -176,7 +176,8 @@
                         </Grid.RowDefinitions>
 
                         <!-- 电路检测子选项卡 -->
-                        <TabControl x:Name="CircuitSubTabControl" Grid.Row="1" Margin="5">
+                        <TabControl x:Name="CircuitSubTabControl" Grid.Row="1" Margin="5"
+                                    SelectionChanged="CircuitSubTabControl_SelectionChanged">
 
                             <!-- 电机-电调-飞控 -->
                             <TabItem Header="电机-电调-飞控">
@@ -193,11 +194,11 @@
                                               Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
 
                                         <!-- 电机测试按钮区域 -->
-                                        <Border Canvas.Left="541" Width="580" Height="246" 
+                                        <Border Canvas.Left="543" Width="580" Height="246" 
                                                Background="#CCFFFFFF" CornerRadius="12" 
                                                BorderBrush="#888" BorderThickness="1" Padding="10" 
-                                               Panel.ZIndex="20" HorizontalAlignment="Center" 
-                                               VerticalAlignment="Top" Canvas.Top="-240">
+                                               Panel.ZIndex="20" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Top="-194">
                                             <StackPanel Margin="6,0,-6,0">
                                                 <TextBlock Text="电机测试" FontSize="30" FontWeight="Bold" 
                                                           HorizontalAlignment="Center" Margin="0,0,0,6" 
@@ -246,8 +247,8 @@
                                                VerticalAlignment="Top" Canvas.Top="98"/>
                                         <Button Content="修  复" Tag="M1_1" Panel.ZIndex="1" FontSize="25" 
                                                Background="Goldenrod" Width="78" Height="45" Canvas.Left="1130" 
-                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
-                                               VerticalAlignment="Center" Canvas.Top="-6"/>
+                                               Click="RepairButton_Click" HorizontalAlignment="Center" 
+                                               VerticalAlignment="Top" Canvas.Top="6"/>
                                         <Button Content="修  复" Tag="M1_2" Panel.ZIndex="1" FontSize="25" 
                                                Background="Goldenrod" Width="78" Height="45" Canvas.Left="1246" 
                                                Click="RepairButton_Click" HorizontalAlignment="Left" 
@@ -365,7 +366,8 @@
                             <!-- GPS-飞控-接收机 -->
                             <TabItem Header="GPS-飞控-接收机">
                                 <ScrollViewer x:Name="MainScrollViewer" HorizontalScrollBarVisibility="Auto" 
-                                             VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
+                                              VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0"
+                                              PreviewMouseWheel="ScrollViewer_PreviewMouseWheel">
                                     <Canvas x:Name="ZoomCanvas" Background="White" Width="1798" Height="900" 
                                            HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <Canvas.LayoutTransform>
@@ -507,7 +509,8 @@
                             <!-- 扩展-飞控-电源 -->
                             <TabItem Header="扩展-飞控-电源">
                                 <ScrollViewer x:Name="ExtensionScrollViewer" HorizontalScrollBarVisibility="Auto" 
-                                             VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
+                                              VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0"
+                                              PreviewMouseWheel="ScrollViewer_PreviewMouseWheel">
                                     <Canvas x:Name="ExtensionCanvas" Background="White" Width="1500" Height="900" 
                                            Margin="150,0,-10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <Canvas.LayoutTransform>
