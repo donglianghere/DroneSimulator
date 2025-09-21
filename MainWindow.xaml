@@ -1,7 +1,11 @@
 ﻿<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="av" x:Class="DroneSimulator.MainWindow"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" 
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+        xmlns:local="clr-namespace:DroneSimulator"
+        mc:Ignorable="av" 
+        x:Class="DroneSimulator.MainWindow"
         Title="康鹤多旋翼无人机检修平台-V2.0" Height="1280" Width="1920"
         Background="#FF667EEA"
         ResizeMode="CanMinimize"
@@ -49,7 +53,58 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="DarkSlateGray"/>
         </Style>
+
+        <!-- 理论题选项按钮样式 -->
+        <Style x:Key="TheoryOptionButtonStyle" TargetType="{x:Type RadioButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RadioButton}">
+                        <Border x:Name="OptionBorder" 
+                                Background="LightGray" 
+                                BorderBrush="DarkGray" 
+                                BorderThickness="2" 
+                                CornerRadius="5" 
+                                Padding="10,5" 
+                                Margin="5,2">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="OptionBorder" Property="Background" Value="LightBlue"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="OptionBorder" Property="Background" Value="LightGreen"/>
+                                <Setter TargetName="OptionBorder" Property="BorderBrush" Value="Green"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 飞控参数输入框样式 -->
+        <Style x:Key="FCParameterTextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="Gray"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="30"/>
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="Blue"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 🚀 新增：缺失的转换器 -->
+        <!-- 飞控题目类型到可见性转换器 -->
+        <local:FCQuestionTypeToVisibilityConverter x:Key="FCQuestionTypeToVisibilityConverter"/>
+        <!-- 字符串到可见性转换器 -->
+        <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+
     </Window.Resources>
+
     <Grid Margin="0,0,0,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -65,171 +120,550 @@
                 <ColumnDefinition Width="350"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 右侧 - 控制面板 -->
             <!-- 左侧 - TabControl -->
             <TabControl x:Name="MainTabControl" Grid.Column="0" Margin="0">
-                <!-- 第一个页面 -->
-                <TabItem Header="电机～电调～飞控" Height="19" VerticalAlignment="Bottom">
-                    <ScrollViewer x:Name="MotorScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
-                        <Canvas x:Name="MotorCanvas" Background="White" Width="1798" Height="900" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Canvas.LayoutTransform>
-                                <ScaleTransform x:Name="MotorCanvasScale" ScaleX="1" ScaleY="1"/>
-                            </Canvas.LayoutTransform>
-                            <!-- 底图 -->
-                            <Image Source="/Resources/飞控-电调-电机.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
 
-                            <!--  ========= 新增 电机测试 按钮区域 ========= -->
-                            <Border Canvas.Left="541" Width="580" Height="246" Background="#CCFFFFFF" CornerRadius="12" BorderBrush="#888" BorderThickness="1" Padding="10" Panel.ZIndex="20" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="-240">
-                                <StackPanel Margin="6,0,-6,0">
-                                    <TextBlock Text="电机测试" FontSize="30" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,6" Foreground="#2D3A4A"/>
-                                    <WrapPanel Margin="0,4,0,0">
-                                        <Button x:Name="BtnMotor1" FontSize="25"  Content="M1 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="1"/>
-                                        <Button x:Name="BtnMotor3" FontSize="25"  Content="M2 ⟲" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="3"/>
-                                        <Button x:Name="BtnMotor4" FontSize="25"  Content="M3 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Foreground="Red" Click="MotorTestButton_Click" Tag="4"/>
-                                        <Button x:Name="BtnMotor2" FontSize="25"  Content="M4 ⟳" Width="115" Height="42" Margin="12" Background="#5EC6FF" Click="MotorTestButton_Click" Tag="2"/>
-                                        <Button x:Name="BtnAllMotors" FontSize="25"  Content="全 部 电 机" Width="544" Height="46" Background="Orange" Click="MotorTestAllButton_Click" Tag="ALL"/>
-                                    </WrapPanel>
-                                    <TextBlock x:Name="MotorTestStatusText" Text="状态：未测试" FontSize="20" Margin="4,10,0,0" Foreground="DarkSlateGray"/>
-                                    <TextBlock Text="提示：确保已拆除桨叶再测试。" FontSize="20" Foreground="Crimson" Margin="4,2,0,0"/>
+                <!-- 理论试卷页面 -->
+                <TabItem Header="理论试卷" x:Name="TheoryTab">
+                    <ScrollViewer x:Name="TheoryScrollViewer" VerticalScrollBarVisibility="Auto" Margin="10">
+                        <StackPanel x:Name="TheoryQuestionsPanel" Margin="20">
+                            <TextBlock Text="理论知识考试" FontSize="28" FontWeight="Bold" 
+                                      HorizontalAlignment="Center" Margin="0,0,0,20" 
+                                      Foreground="#2D3A4A"/>
+
+                            <TextBlock Text="请仔细阅读题目，选择正确答案。每题只能选择一个选项。" 
+                                      FontSize="16" Margin="0,0,0,20" 
+                                      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
+
+                            <!-- 理论题目将动态加载到这里 -->
+                            <ItemsControl x:Name="TheoryQuestionsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" CornerRadius="8" Margin="0,10" 
+                                               Padding="15" BorderBrush="LightGray" BorderThickness="1"
+                                               Effect="{StaticResource DropShadowEffect}">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding QuestionText}" 
+                                                          FontSize="16" FontWeight="Bold" 
+                                                          Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                                <ItemsControl ItemsSource="{Binding Options}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <RadioButton Content="{Binding}" 
+                                                                        Style="{StaticResource TheoryOptionButtonStyle}"
+                                                                        GroupName="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=DataContext.Id}"
+                                                                        Tag="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=DataContext}"
+                                                                        Click="TheoryOption_Click"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- 电路检测页面（合并原来的三个页面） -->
+                <TabItem Header="电路检测" x:Name="CircuitTab">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 电路检测子选项卡 -->
+                        <TabControl x:Name="CircuitSubTabControl" Grid.Row="1" Margin="5">
+
+                            <!-- 电机-电调-飞控 -->
+                            <TabItem Header="电机-电调-飞控">
+                                <ScrollViewer x:Name="MotorScrollViewer" HorizontalScrollBarVisibility="Auto" 
+                                             VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
+                                    <Canvas x:Name="MotorCanvas" Background="White" Width="1798" Height="900" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Canvas.LayoutTransform>
+                                            <ScaleTransform x:Name="MotorCanvasScale" ScaleX="1" ScaleY="1"/>
+                                        </Canvas.LayoutTransform>
+
+                                        <!-- 底图 -->
+                                        <Image Source="/Resources/飞控-电调-电机.jpg" Stretch="Fill" 
+                                              Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
+
+                                        <!-- 电机测试按钮区域 -->
+                                        <Border Canvas.Left="541" Width="580" Height="246" 
+                                               Background="#CCFFFFFF" CornerRadius="12" 
+                                               BorderBrush="#888" BorderThickness="1" Padding="10" 
+                                               Panel.ZIndex="20" HorizontalAlignment="Center" 
+                                               VerticalAlignment="Top" Canvas.Top="-240">
+                                            <StackPanel Margin="6,0,-6,0">
+                                                <TextBlock Text="电机测试" FontSize="30" FontWeight="Bold" 
+                                                          HorizontalAlignment="Center" Margin="0,0,0,6" 
+                                                          Foreground="#2D3A4A"/>
+                                                <WrapPanel Margin="0,4,0,0">
+                                                    <Button x:Name="BtnMotor1" FontSize="25" Content="M1 ⟲" 
+                                                           Width="115" Height="42" Margin="12" 
+                                                           Background="#5EC6FF" Foreground="Red" 
+                                                           Click="MotorTestButton_Click" Tag="1"/>
+                                                    <Button x:Name="BtnMotor3" FontSize="25" Content="M2 ⟲" 
+                                                           Width="115" Height="42" Margin="12" 
+                                                           Background="#5EC6FF" 
+                                                           Click="MotorTestButton_Click" Tag="3"/>
+                                                    <Button x:Name="BtnMotor4" FontSize="25" Content="M3 ⟳" 
+                                                           Width="115" Height="42" Margin="12" 
+                                                           Background="#5EC6FF" Foreground="Red" 
+                                                           Click="MotorTestButton_Click" Tag="4"/>
+                                                    <Button x:Name="BtnMotor2" FontSize="25" Content="M4 ⟳" 
+                                                           Width="115" Height="42" Margin="12" 
+                                                           Background="#5EC6FF" 
+                                                           Click="MotorTestButton_Click" Tag="2"/>
+                                                    <Button x:Name="BtnAllMotors" FontSize="25" Content="全 部 电 机" 
+                                                           Width="544" Height="46" Background="Orange" 
+                                                           Click="MotorTestAllButton_Click" Tag="ALL"/>
+                                                </WrapPanel>
+                                                <TextBlock x:Name="MotorTestStatusText" Text="状态：未测试" 
+                                                          FontSize="20" Margin="4,10,0,0" 
+                                                          Foreground="DarkSlateGray"/>
+                                                <TextBlock Text="提示：确保已拆除桨叶再测试。" 
+                                                          FontSize="20" Foreground="Crimson" Margin="4,2,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 修复按钮 -->
+                                        <Button Content="修  复" Tag="M3_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="458" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Top="8"/>
+                                        <Button Content="修  复" Tag="M3_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="324" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Top="52"/>
+                                        <Button Content="修  复" Tag="M3_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="212" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Center" 
+                                               VerticalAlignment="Top" Canvas.Top="98"/>
+                                        <Button Content="修  复" Tag="M1_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1130" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Top="-6"/>
+                                        <Button Content="修  复" Tag="M1_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1246" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Top="50"/>
+                                        <Button Content="修  复" Tag="M1_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1354" 
+                                               Click="RepairButton_Click" Canvas.Top="94" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="ESC1_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1024" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Center" 
+                                               VerticalAlignment="Top" Canvas.Top="400"/>
+                                        <Button Content="修  复" Tag="ESC4_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1024" 
+                                               Click="RepairButton_Click" Canvas.Top="552" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC2_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="572" 
+                                               Click="RepairButton_Click" Canvas.Top="552" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="ESC3_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="572" 
+                                               Click="RepairButton_Click" Canvas.Top="398" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M4_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1130" 
+                                               Click="RepairButton_Click" Canvas.Top="952" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M4_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1246" 
+                                               Click="RepairButton_Click" Canvas.Top="910" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M4_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1356" 
+                                               Click="RepairButton_Click" Canvas.Top="862" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M2_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="450" 
+                                               Click="RepairButton_Click" Canvas.Top="956" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M2_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="318" 
+                                               Click="RepairButton_Click" Canvas.Top="910" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="M2_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="216" 
+                                               Click="RepairButton_Click" Canvas.Top="864" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC3_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="282" 
+                                               Click="RepairButton_Click" Canvas.Top="396" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC3_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="148" 
+                                               Click="RepairButton_Click" Canvas.Top="442" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="ESC2_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="148" 
+                                               Click="RepairButton_Click" Canvas.Top="510" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="ESC2_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="282" 
+                                               Click="RepairButton_Click" Canvas.Top="552" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC1_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1308" 
+                                               Click="RepairButton_Click" Canvas.Top="398" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="ESC1_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1432" 
+                                               Click="RepairButton_Click" Canvas.Top="438" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC4_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1432" 
+                                               Click="RepairButton_Click" Canvas.Top="504" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="ESC4_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1304" 
+                                               Click="RepairButton_Click" Canvas.Top="556" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                        <!-- 圆形修复按钮 -->
+                                        <Button Content="修  复" Tag="M3_4" 
+                                               Style="{StaticResource CircularRepairButtonStyle}"
+                                               Panel.ZIndex="1" Width="150" Height="150" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" Canvas.Left="2"/>
+                                        <Button Content="修  复" Tag="M2_4" 
+                                               Style="{StaticResource CircularRepairButtonStyle}"
+                                               Panel.ZIndex="1" Width="150" Height="150" 
+                                               Click="RepairButton_Click" HorizontalAlignment="Center" 
+                                               VerticalAlignment="Top" Canvas.Top="858" Canvas.Left="-1"/>
+                                        <Button Content="修  复" Tag="M4_4" 
+                                               Style="{StaticResource CircularRepairButtonStyle}"
+                                               Panel.ZIndex="1" Width="150" Height="150" 
+                                               Click="RepairButton_Click" Canvas.Top="862" 
+                                               Canvas.Left="1506" HorizontalAlignment="Left" 
+                                               VerticalAlignment="Center" RenderTransformOrigin="0.572,0.546"/>
+                                        <Button Content="修  复" Tag="M1_4" 
+                                               Style="{StaticResource CircularRepairButtonStyle}"
+                                               Panel.ZIndex="1" Width="150" Height="150" 
+                                               Click="RepairButton_Click" Canvas.Top="-1" 
+                                               Canvas.Left="1504" RenderTransformOrigin="0.572,0.546" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                        <!-- 飞控区域标识 -->
+                                        <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" 
+                                                  StrokeThickness="5" Height="258" Stroke="BlueViolet" 
+                                                  Width="279" Canvas.Left="699" Canvas.Top="357" 
+                                                  HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                    </Canvas>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- GPS-飞控-接收机 -->
+                            <TabItem Header="GPS-飞控-接收机">
+                                <ScrollViewer x:Name="MainScrollViewer" HorizontalScrollBarVisibility="Auto" 
+                                             VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
+                                    <Canvas x:Name="ZoomCanvas" Background="White" Width="1798" Height="900" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Canvas.LayoutTransform>
+                                            <ScaleTransform x:Name="CanvasScale" ScaleX="1" ScaleY="1"/>
+                                        </Canvas.LayoutTransform>
+
+                                        <!-- 修复按钮 -->
+                                        <Button Content="修  复" Tag="GPS5V_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" 
+                                               Canvas.Top="232" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="UART_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" 
+                                               Canvas.Top="322" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="UART_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" 
+                                               Canvas.Top="412" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="GPS5V_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" 
+                                               Canvas.Top="502" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="Receiver_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" 
+                                               Canvas.Top="287" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="Receiver_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" 
+                                               Canvas.Top="363" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+                                        <Button Content="修  复" Tag="Receiver_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" 
+                                               Canvas.Top="444" HorizontalAlignment="Left" VerticalAlignment="Center" 
+                                               Click="RepairButton_Click"/>
+
+                                        <!-- 设备图像 -->
+                                        <Image Panel.ZIndex="1" Height="350" Source="/Resources/Image3.png" 
+                                              Stretch="Fill" Width="148" Canvas.Left="1381" Canvas.Top="167" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Image Panel.ZIndex="1" Height="308" Source="/Resources/Image4.png" 
+                                              Stretch="Fill" Width="301" Canvas.Left="34" Canvas.Top="248" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Image x:Name="V5" Panel.ZIndex="1" Height="402" Source="/Resources/Image5.png" 
+                                              Stretch="Fill" Width="246" Canvas.Left="699" Canvas.Top="187" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                        <!-- 连接线 -->
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" 
+                                                  Stroke="Black" Canvas.Top="254" Width="235" 
+                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" 
+                                                  Stroke="Black" Canvas.Top="344" Width="235" 
+                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" 
+                                                  Stroke="Black" Canvas.Top="436" Width="235" 
+                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" 
+                                                  Stroke="Black" Canvas.Top="524" Width="235" 
+                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" 
+                                                  Stroke="Black" Canvas.Top="462" Width="260" 
+                                                  HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" 
+                                                  Stroke="Black" Canvas.Top="387" Width="260" 
+                                                  HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" 
+                                                  Stroke="Black" Canvas.Top="312" Width="260" 
+                                                  HorizontalAlignment="Center" VerticalAlignment="Top"/>
+
+                                        <!-- 标签 -->
+                                        <Label Panel.ZIndex="1" Content="RX" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="331" Canvas.Top="334" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Label Panel.ZIndex="1" Content="TX" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="331" Canvas.Top="424" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="331" Canvas.Top="514" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="971" Canvas.Top="297" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Label Panel.ZIndex="1" Content="TX" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="659" Canvas.Top="334" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="RX" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="659" Canvas.Top="424" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="659" Canvas.Top="514" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="659" Canvas.Top="245" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="331" Canvas.Top="245" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="965" Canvas.Top="378" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="1325" Canvas.Top="297" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="1319" Canvas.Top="378" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Panel.ZIndex="1" Content="  SBUS" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="931" Canvas.Top="453" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center" Width="87"/>
+                                        <Label Panel.ZIndex="1" Content="SBUS" FontSize="20" FontWeight="Bold" 
+                                              Canvas.Left="1317" Canvas.Top="453" RenderTransformOrigin="1.899,0.523" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                        <!-- 区域标识 -->
+                                        <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" HorizontalAlignment="Left" 
+                                                  StrokeThickness="5" Height="558" Grid.Row="1" Stroke="BlueViolet" 
+                                                  VerticalAlignment="Center" Width="408" Grid.RowSpan="2" 
+                                                  Canvas.Left="625" Canvas.Top="142"/>
+                                        <Label Content="飞  控" FontSize="40" FontWeight="Bold" 
+                                              HorizontalAlignment="Left" Grid.Row="2" VerticalAlignment="Center" 
+                                              RenderTransformOrigin="0.097,0.449" Canvas.Left="778" Canvas.Top="600"/>
+                                        <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" 
+                                                  Height="558" Stroke="Blue" Width="384" Canvas.Left="11" 
+                                                  Canvas.Top="142" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Content="GPS" FontSize="40" FontWeight="Bold" 
+                                              RenderTransformOrigin="0.097,0.449" Canvas.Left="140" Canvas.Top="600" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" 
+                                                  Height="558" Stroke="LawnGreen" Width="285" Canvas.Left="1289" 
+                                                  Canvas.Top="142" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Label Content="接收机" FontSize="40" FontWeight="Bold" 
+                                              RenderTransformOrigin="0.097,0.449" Canvas.Left="1370" Canvas.Top="600" 
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                    </Canvas>
+                                </ScrollViewer>
+                            </TabItem>
+
+                            <!-- 扩展-飞控-电源 -->
+                            <TabItem Header="扩展-飞控-电源">
+                                <ScrollViewer x:Name="ExtensionScrollViewer" HorizontalScrollBarVisibility="Auto" 
+                                             VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
+                                    <Canvas x:Name="ExtensionCanvas" Background="White" Width="1500" Height="900" 
+                                           Margin="150,0,-10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Canvas.LayoutTransform>
+                                            <ScaleTransform x:Name="ExtensionCanvasScale" ScaleX="1" ScaleY="1"/>
+                                        </Canvas.LayoutTransform>
+
+                                        <!-- 底图 -->
+                                        <Image Source="/Resources/扩展-飞控-电源.jpg" Stretch="Fill" 
+                                              Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
+
+                                        <!-- 修复按钮 -->
+                                        <Button Content="修  复" Tag="S7_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" 
+                                               Click="RepairButton_Click" Canvas.Top="565" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S8_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" 
+                                               Click="RepairButton_Click" Canvas.Top="498" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S8_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="124" 
+                                               Click="RepairButton_Click" Canvas.Top="452" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S7_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="124" 
+                                               Click="RepairButton_Click" Canvas.Top="606" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S7_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="432" 
+                                               Click="RepairButton_Click" Canvas.Top="608" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="S8_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="432" 
+                                               Click="RepairButton_Click" Canvas.Top="450" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="S5_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="871" 
+                                               Click="RepairButton_Click" Canvas.Top="452" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="S6_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="871" 
+                                               Click="RepairButton_Click" Canvas.Top="604" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="S5_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1167" 
+                                               Click="RepairButton_Click" Canvas.Top="450" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S6_3" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1167" 
+                                               Click="RepairButton_Click" Canvas.Top="604" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S5_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1271" 
+                                               Click="RepairButton_Click" Canvas.Top="492" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="S6_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1271" 
+                                               Click="RepairButton_Click" Canvas.Top="558" 
+                                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <Button Content="修  复" Tag="SERVO_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="258" 
+                                               Click="RepairButton_Click" Canvas.Top="10" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="SERVO_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="258" 
+                                               Click="RepairButton_Click" Canvas.Top="68" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="Battery_2" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1013" 
+                                               Click="RepairButton_Click" Canvas.Top="10" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                        <Button Content="修  复" Tag="Battery_1" Panel.ZIndex="1" FontSize="25" 
+                                               Background="Goldenrod" Width="78" Height="45" Canvas.Left="1013" 
+                                               Click="RepairButton_Click" Canvas.Top="68" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Top"/>
+
+                                        <!-- 飞控区域标识 -->
+                                        <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" 
+                                                  Height="261" Stroke="BlueViolet" Width="292" Canvas.Left="546" 
+                                                  Canvas.Top="414" HorizontalAlignment="Center" VerticalAlignment="Top"/>
+                                    </Canvas>
+                                </ScrollViewer>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
+                </TabItem>
+
+                <!-- 飞控实操页面 -->
+                <!-- 飞控实操页面 - 简化版本 -->
+                <TabItem Header="飞控实操" x:Name="FlightControlTab">
+                    <ScrollViewer x:Name="FCScrollViewer" VerticalScrollBarVisibility="Auto" Margin="10">
+                        <StackPanel x:Name="FCQuestionsPanel" Margin="20">
+                            <TextBlock Text="飞控参数设置实操" FontSize="28" FontWeight="Bold" 
+                      HorizontalAlignment="Center" Margin="0,0,0,20" 
+                      Foreground="#2D3A4A"/>
+
+                            <TextBlock Text="请根据题目要求，设置或查看飞控参数值。操作完成后点击“验证”按钮。" 
+                      FontSize="16" Margin="0,0,0,20" 
+                      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
+
+                            <!-- 飞控连接状态 -->
+                            <Border Background="LightYellow" CornerRadius="5" Padding="10" Margin="0,0,0,15">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="飞控连接状态：" FontSize="14" FontWeight="Bold"/>
+                                    <TextBlock x:Name="FCConnectionStatusText" Text="未连接" FontSize="14" 
+                              Foreground="Red" Margin="5,0,0,0"/>
+                                    <Button x:Name="BtnConnectFC" Content="连接飞控" FontSize="12" 
+                           Width="80" Height="25" Margin="20,0,0,0" 
+                           Click="ConnectFC_Click"/>
                                 </StackPanel>
                             </Border>
 
-                            <Button Content="修  复" Tag="M3_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="458" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="8"/>
-                            <Button Content="修  复" Tag="M3_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="324" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="52"/>
-                            <Button Content="修  复" Tag="M3_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="212" Click="RepairButton_Click" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="98"/>
-                            <Button Content="修  复" Tag="M1_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1130" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="-6"/>
-                            <Button Content="修  复" Tag="M1_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1246" Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Top="50"/>
-                            <Button Content="修  复" Tag="M1_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1354" Click="RepairButton_Click" Canvas.Top="94" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="ESC1_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1024" Click="RepairButton_Click" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="400"/>
-                            <Button Content="修  复" Tag="ESC4_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1024" Click="RepairButton_Click" Canvas.Top="552" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC2_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="572" Click="RepairButton_Click" Canvas.Top="552" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="ESC3_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="572" Click="RepairButton_Click" Canvas.Top="398" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M4_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1130" Click="RepairButton_Click" Canvas.Top="952" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M4_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1246" Click="RepairButton_Click" Canvas.Top="910" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M4_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1356" Click="RepairButton_Click" Canvas.Top="862" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M2_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="450" Click="RepairButton_Click" Canvas.Top="956" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M2_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="318" Click="RepairButton_Click" Canvas.Top="910" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="M2_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="216" Click="RepairButton_Click" Canvas.Top="864" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC3_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="282" Click="RepairButton_Click" Canvas.Top="396" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC3_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="148" Click="RepairButton_Click" Canvas.Top="442" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="ESC2_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="148" Click="RepairButton_Click" Canvas.Top="510" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="ESC2_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="282" Click="RepairButton_Click" Canvas.Top="552" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC1_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1308" Click="RepairButton_Click" Canvas.Top="398" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="ESC1_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1432" Click="RepairButton_Click" Canvas.Top="438" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC4_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1432" Click="RepairButton_Click" Canvas.Top="504" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="ESC4_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1304" Click="RepairButton_Click" Canvas.Top="556" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <!-- 🔧 简化：使用基本的ItemsControl，减少复杂的数据绑定 -->
+                            <ItemsControl x:Name="FCQuestionsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="White" CornerRadius="8" Margin="0,10" 
+                               Padding="15" BorderBrush="LightGray" BorderThickness="1">
+                                            <StackPanel>
+                                                <!-- 题目描述 -->
+                                                <TextBlock Text="{Binding QuestionStatement}" 
+                                          FontSize="16" FontWeight="Bold" 
+                                          Margin="0,0,0,10" TextWrapping="Wrap"/>
 
-                            <Button Content="修  复" 
-                                    Tag="M3_4" 
-                                    Style="{StaticResource CircularRepairButtonStyle}"
-                                    Panel.ZIndex="1" 
-                                    Width="150" 
-                                    Height="150" 
-                                    Click="RepairButton_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Canvas.Left="2"/>
-                            <Button Content="修  复" 
-                                    Tag="M2_4" 
-                                    Style="{StaticResource CircularRepairButtonStyle}"
-                                    Panel.ZIndex="1" 
-                                    Width="150" 
-                                    Height="150" 
-                                    Click="RepairButton_Click" HorizontalAlignment="Center" VerticalAlignment="Top" Canvas.Top="858" Canvas.Left="-1"/>
-                            <Button Content="修  复" 
-                                    Tag="M4_4" 
-                                    Style="{StaticResource CircularRepairButtonStyle}"
-                                    Panel.ZIndex="1" 
-                                    Width="150" 
-                                    Height="150" 
-                                    Click="RepairButton_Click" Canvas.Top="862" Canvas.Left="1506" HorizontalAlignment="Left" VerticalAlignment="Center" RenderTransformOrigin="0.572,0.546"/>
-                            <Button Content="修  复" 
-                                    Tag="M1_4" 
-                                    Style="{StaticResource CircularRepairButtonStyle}"
-                                    Panel.ZIndex="1" 
-                                    Width="150" 
-                                    Height="150" 
-                                    Click="RepairButton_Click" Canvas.Top="-1" Canvas.Left="1504" RenderTransformOrigin="0.572,0.546" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" Height="258" Stroke="BlueViolet" Width="279" Canvas.Left="699" Canvas.Top="357" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                        </Canvas>
-                    </ScrollViewer>
-                </TabItem>
+                                                <!-- 参数信息 -->
+                                                <StackPanel Orientation="Horizontal" Margin="0,5">
+                                                    <TextBlock Text="参数名：" FontSize="14" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ParameterName}" 
+                                              FontSize="14" FontWeight="Bold" 
+                                              VerticalAlignment="Center" Margin="5,0"/>
+                                                </StackPanel>
 
-                <!-- 第二个页面 -->
-                <TabItem Header="GPS～飞控～接收机">
-                    <ScrollViewer x:Name="MainScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
-                        <Canvas x:Name="ZoomCanvas" Background="White" Width="1798" Height="900" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Canvas.LayoutTransform>
-                                <ScaleTransform x:Name="CanvasScale" ScaleX="1" ScaleY="1"/>
-                            </Canvas.LayoutTransform>
-                            <Button Content="修  复" Tag="GPS5V_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" Canvas.Top="232" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="UART_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" Canvas.Top="322" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="UART_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" Canvas.Top="412" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="GPS5V_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="462" Canvas.Top="502" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="Receiver_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="287" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="Receiver_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="363" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Button Content="修  复" Tag="Receiver_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="80" Height="45" Canvas.Left="1110" Canvas.Top="444" HorizontalAlignment="Left" VerticalAlignment="Center" Click="RepairButton_Click"/>
-                            <Image Panel.ZIndex="1" Height="350" Source="/Resources/Image3.png" Stretch="Fill" Width="148" Canvas.Left="1381" Canvas.Top="167" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Image Panel.ZIndex="1" Height="308" Source="/Resources/Image4.png" Stretch="Fill" Width="301" Canvas.Left="34" Canvas.Top="248" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Image x:Name="V5" Panel.ZIndex="1" Height="402" Source="/Resources/Image5.png" Stretch="Fill" Width="246" Canvas.Left="699" Canvas.Top="187" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" Stroke="Black" Canvas.Top="254" Width="235" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="RX" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="334" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Label Panel.ZIndex="1" Content="TX" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="424" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="514" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" Canvas.Left="971" Canvas.Top="297" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Label Panel.ZIndex="1" Content="TX" FontSize="20" FontWeight="Bold" Canvas.Left="659" Canvas.Top="334" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="RX" FontSize="20" FontWeight="Bold" Canvas.Left="659" Canvas.Top="424" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" Canvas.Left="659" Canvas.Top="514" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" Canvas.Left="659" Canvas.Top="245" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" Stroke="Black" Canvas.Top="344" Width="235" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" Stroke="Black" Canvas.Top="436" Width="235" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="395" Stroke="Black" Canvas.Top="524" Width="235" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" Stroke="Black" Canvas.Top="462" Width="260" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" Stroke="Black" Canvas.Top="387" Width="260" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Rectangle Panel.ZIndex="0" Height="8" Fill="Gray" Canvas.Left="1033" Stroke="Black" Canvas.Top="312" Width="260" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" HorizontalAlignment="Left" StrokeThickness="5" Height="558" Grid.Row="1" Stroke="BlueViolet" VerticalAlignment="Center" Width="408" Grid.RowSpan="2" Canvas.Left="625" Canvas.Top="142"/>
-                            <Label Content="飞  控" FontSize="40" FontWeight="Bold" HorizontalAlignment="Left" Grid.Row="2" VerticalAlignment="Center" RenderTransformOrigin="0.097,0.449" Canvas.Left="778" Canvas.Top="600"/>
-                            <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" Height="558" Stroke="Blue" Width="384" Canvas.Left="11" Canvas.Top="142" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Content="GPS" FontSize="40" FontWeight="Bold" RenderTransformOrigin="0.097,0.449" Canvas.Left="140" Canvas.Top="600" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" Height="558" Stroke="LawnGreen" Width="285" Canvas.Left="1289" Canvas.Top="142" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Content="接收机" FontSize="40" FontWeight="Bold" RenderTransformOrigin="0.097,0.449" Canvas.Left="1370" Canvas.Top="600" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" Canvas.Left="331" Canvas.Top="245" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" Canvas.Left="965" Canvas.Top="378" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="—" FontSize="20" FontWeight="Bold" Canvas.Left="1325" Canvas.Top="297" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="5V" FontSize="20" FontWeight="Bold" Canvas.Left="1319" Canvas.Top="378" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Label Panel.ZIndex="1" Content="  SBUS" FontSize="20" FontWeight="Bold" Canvas.Left="931" Canvas.Top="453" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center" Width="87"/>
-                            <Label Panel.ZIndex="1" Content="SBUS" FontSize="20" FontWeight="Bold" Canvas.Left="1317" Canvas.Top="453" RenderTransformOrigin="1.899,0.523" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                        </Canvas>
-                    </ScrollViewer>
-                </TabItem>
-                <!-- 第三个页面 -->
-                <TabItem Header="扩展～飞控～电源">
-                    <ScrollViewer x:Name="ExtensionScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="10,0,-10,0">
-                        <Canvas x:Name="ExtensionCanvas" Background="White" Width="1500" Height="900" Margin="150,0,-10,0" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Canvas.LayoutTransform>
-                                <ScaleTransform x:Name="ExtensionCanvasScale" ScaleX="1" ScaleY="1"/>
-                            </Canvas.LayoutTransform>
-                            <!-- 这里放置第三个页面的内容 -->
-                            <!-- 底图 -->
-                            <Image Source="/Resources/扩展-飞控-电源.jpg" Stretch="Fill" Canvas.Left="0" Canvas.Top="0" Panel.ZIndex="0"/>
-                            <Button Content="修  复" Tag="S7_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" Click="RepairButton_Click" Canvas.Top="565" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S8_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="12" Click="RepairButton_Click" Canvas.Top="498" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S8_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="124" Click="RepairButton_Click" Canvas.Top="452" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S7_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="124" Click="RepairButton_Click" Canvas.Top="606" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S7_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="432" Click="RepairButton_Click" Canvas.Top="608" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="S8_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="432" Click="RepairButton_Click" Canvas.Top="450" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="S5_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="871" Click="RepairButton_Click" Canvas.Top="452" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="S6_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="871" Click="RepairButton_Click" Canvas.Top="604" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="S5_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1167" Click="RepairButton_Click" Canvas.Top="450" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S6_3" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1167" Click="RepairButton_Click" Canvas.Top="604" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S5_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1271" Click="RepairButton_Click" Canvas.Top="492" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="S6_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1271" Click="RepairButton_Click" Canvas.Top="558" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                            <Button Content="修  复" Tag="SERVO_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="258" Click="RepairButton_Click" Canvas.Top="10" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="SERVO_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="258" Click="RepairButton_Click" Canvas.Top="68" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="Battery_2" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1013" Click="RepairButton_Click" Canvas.Top="10" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Button Content="修  复" Tag="Battery_1" Panel.ZIndex="1" FontSize="25" Background="Goldenrod" Width="78" Height="45" Canvas.Left="1013" Click="RepairButton_Click" Canvas.Top="68" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                            <Rectangle RadiusX="30" RadiusY="30" Panel.ZIndex="0" StrokeThickness="5" Height="261" Stroke="BlueViolet" Width="292" Canvas.Left="546" Canvas.Top="414" HorizontalAlignment="Center" VerticalAlignment="Top"/>
-                        </Canvas>
+                                                <!-- 输入和验证区域 -->
+                                                <StackPanel Orientation="Horizontal" Margin="0,10">
+                                                    <TextBlock Text="设置值：" FontSize="14" VerticalAlignment="Center"/>
+                                                    <TextBox x:Name="ParameterValueTextBox" Width="150" Height="25"
+                                            Margin="5,0"/>
+                                                    <Button Content="验证" FontSize="12" Width="60" Height="25" 
+                                           Margin="10,0,0,0" Click="VerifyFCAnswer_Click" 
+                                           Tag="{Binding}"/>
+                                                </StackPanel>
+
+                                                <!-- 说明文字 -->
+                                                <TextBlock Text="{Binding Explanation}" 
+                                          FontSize="12" Foreground="Gray" 
+                                          Margin="0,10,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
+
             <!-- 右侧 - 控制面板 -->
             <Border Grid.Column="1" Background="White" CornerRadius="15" 
                     Margin="20,20,20,0" Padding="10"
@@ -263,17 +697,17 @@
                                     <StackPanel>
                                         <TextBlock Text="1. 特别提醒：考生须仔细核实考试信息，如身份是否相符，考试设备是否正常连接，试卷是否已经载入；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="2. 请仔细检查各元器件连接情况，对中断的连接，点击对应的按钮，系统会自动完成线路修复；" 
+                                        <TextBlock Text="2. 理论试卷：选择正确答案，每题只能选择一个选项；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="3. 每处连接最多只能进行一次上述的修复操作，修复后按钮变色表示已作答，请确保检测结果无误后再进行操作；" 
+                                        <TextBlock Text="3. 电路检测：检查各元器件连接情况，对中断的连接点击“修复”按钮；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="4. 对于没有问题的连接，请不要点击相应的“修复”按钮，否则计为“误答题”并扣除相应分数；" 
+                                        <TextBlock Text="4. 飞控实操：根据题目要求设置参数值，点击“验证”按钮确认；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="5. 无法看见的答题区域，可以操作滚动条将不可见区域移致可视区域，或按住“Ctrl”键，使用加鼠标滚轮进行缩放；" 
+                                        <TextBlock Text="5. 每处连接最多只能进行一次修复操作，修复后按钮变色表示已作答；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="6. 所有题目修复完成后请点击“提交”按钮交卷，而后点击“退出”按钮结束测试；" 
+                                        <TextBlock Text="6. 无法看见的答题区域，可使用滚动条或按住“Ctrl”键+鼠标滚轮进行缩放；" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
-                                        <TextBlock Text="7. 答题过程中如遇设备异常请及时联系监考老师。" 
+                                        <TextBlock Text="7. 所有题目完成后请点击“提交”按钮交卷，然后点击“退出”按钮结束测试。" 
                                                    TextWrapping="Wrap" FontSize="15" Margin="0,2"/>
                                     </StackPanel>
                                 </ScrollViewer>

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,6 +14,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -5910,8 +5912,52 @@ namespace DroneSimulator
             if (bytes < 1024 * 1024) return $"{bytes / 1024:F1} KB";
             if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024 * 1024):F1} MB";
             return $"{bytes / (1024 * 1024 * 1024):F1} GB";
-        }
+        }       
 
         #endregion
+    }
+    /// <summary>
+    /// 飞控题目类型到可见性转换器
+    /// </summary>
+    public class FCQuestionTypeToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null) return Visibility.Collapsed;
+
+            string typeString = value.ToString();
+
+            // 如果是参数设置类型的题目，显示输入框
+            if (typeString.Contains("ParameterSetting") || typeString.Contains("Setting"))
+            {
+                return Visibility.Visible;
+            }
+
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// 字符串到可见性转换器
+    /// </summary>
+    public class StringToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value == null || string.IsNullOrWhiteSpace(value.ToString()))
+                return Visibility.Collapsed;
+
+            return Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

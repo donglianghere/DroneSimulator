@@ -13,7 +13,9 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using AutoPilot.Parameters;   
+using AutoPilot.Parameters;
+using System.Windows.Data;
+using System.Globalization;
 
 namespace DroneSimulator
 {
@@ -21,6 +23,11 @@ namespace DroneSimulator
     {
         // 在 MainWindow 类中添加字段来跟踪题目状态
         private Dictionary<string, bool> _questionRepairStatus = new Dictionary<string, bool>();
+        // ========== 新增：理论试卷和飞控实操相关字段 ==========
+        private Dictionary<string, string> _theoryAnswers = new Dictionary<string, string>();
+        private Dictionary<string, string> _fcAnswers = new Dictionary<string, string>();
+        private List<TheoryQuestion> _theoryQuestions = new List<TheoryQuestion>();
+        private List<FlightControlQuestion> _fcQuestions = new List<FlightControlQuestion>();
 
         // ========== 使用 FcuOperate 提供的 ParameterService 重写电机测试 ==========
         private ParameterService? _fcService;
@@ -187,6 +194,293 @@ namespace DroneSimulator
             }
         }
 
+        // ========== 新增：理论试卷事件处理程序 ==========
+        /// <summary>
+        /// 理论题选项点击事件
+        /// </summary>
+        private void TheoryOption_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is RadioButton radioButton && radioButton.Tag is TheoryQuestion question)
+            {
+                // 如果考试已提交，禁止继续答题
+                if (isExamSubmitted)
+                {
+                    MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                try
+                {
+                    // 获取选项内容
+                    string selectedOption = radioButton.Content?.ToString() ?? "";
+
+                    // 保存学生答案
+                    _theoryAnswers[question.Id] = selectedOption;
+
+                    // 标记已答题（可以在视觉上给出反馈）
+                    radioButton.Foreground = new SolidColorBrush(Colors.Blue);
+
+                    // 更新统计
+                    UpdateExamStats();
+
+                    Debug.WriteLine($"理论题 {question.Id} 选择了答案: {selectedOption}");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"保存理论题答案时发生错误：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        // ========== 新增：飞控实操事件处理程序 ==========
+        /// <summary>
+        /// 连接飞控按钮点击事件
+        /// </summary>
+        private async void ConnectFC_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                btn.IsEnabled = false;
+                btn.Content = "连接中...";
+
+                try
+                {
+                    FCConnectionStatusText.Text = "连接中...";
+                    FCConnectionStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+
+                    bool connected = await InitFlightControllerAsync();
+
+                    if (connected)
+                    {
+                        FCConnectionStatusText.Text = "已连接";
+                        FCConnectionStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                        btn.Content = "重新连接";
+                    }
+                    else
+                    {
+                        FCConnectionStatusText.Text = "连接失败";
+                        FCConnectionStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                        btn.Content = "连接飞控";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    FCConnectionStatusText.Text = "连接异常";
+                    FCConnectionStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    btn.Content = "连接飞控";
+
+                    MessageBox.Show($"连接飞控失败：{ex.Message}", "连接错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally
+                {
+                    btn.IsEnabled = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 验证飞控答案按钮点击事件
+        /// </summary>
+        private async void VerifyFCAnswer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is FlightControlQuestion question)
+            {
+                // 如果考试已提交，禁止继续答题
+                if (isExamSubmitted)
+                {
+                    MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                btn.IsEnabled = false;
+                btn.Content = "验证中...";
+
+                try
+                {
+                    // 查找同一行的输入框
+                    var parent = btn.Parent as Grid;
+                    var textBox = parent?.Children.OfType<TextBox>().FirstOrDefault();
+
+                    if (textBox == null)
+                    {
+                        MessageBox.Show("找不到参数输入框！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+
+                    string studentAnswer = textBox.Text?.Trim() ?? "";
+
+                    if (string.IsNullOrEmpty(studentAnswer))
+                    {
+                        MessageBox.Show("请先输入参数值！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    // 保存学生答案
+                    _fcAnswers[question.Id] = studentAnswer;
+
+                    // 验证答案
+                    bool isCorrect = await ValidateFCAnswer(question, studentAnswer);
+
+                    // 更新按钮状态
+                    if (isCorrect)
+                    {
+                        btn.Background = new SolidColorBrush(Colors.LightGreen);
+                        btn.Content = "验证通过";
+                        textBox.IsEnabled = false; // 验证通过后禁用输入框
+                    }
+                    else
+                    {
+                        btn.Background = new SolidColorBrush(Colors.LightCoral);
+                        btn.Content = "验证失败";
+                    }
+
+                    // 更新统计
+                    UpdateExamStats();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"验证飞控参数时发生错误：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+
+                    btn.Background = new SolidColorBrush(Colors.LightCoral);
+                    btn.Content = "验证失败";
+                }
+                finally
+                {
+                    btn.IsEnabled = true;
+                }
+            }
+        }
+
+        // ========== 修改：增强的加载混合试卷到UI的方法 ==========
+        private async Task LoadMixedExamToUI(MixedExamData mixedExam)
+        {
+            try
+            {
+                Debug.WriteLine("开始加载混合试卷到UI...");
+
+                // 加载理论题目到理论试卷页面
+                if (mixedExam.Content.TheoryQuestions.Any())
+                {
+                    try
+                    {
+                        _theoryQuestions = mixedExam.Content.TheoryQuestions.Where(q => q.IsSelected).ToList();
+                        await Dispatcher.InvokeAsync(() => LoadTheoryQuestionsToUI(_theoryQuestions));
+                        Debug.WriteLine($"理论题目加载成功：{_theoryQuestions.Count} 道");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"加载理论题目失败：{ex.Message}");
+                    }
+                }
+
+                // 🔧 修复：安全加载飞控实操题目
+                if (mixedExam.Content.FCQuestions.Any())
+                {
+                    try
+                    {
+                        Debug.WriteLine($"开始转换 {mixedExam.Content.FCQuestions.Count} 道飞控题目...");
+
+                        _fcQuestions = mixedExam.Content.FCQuestions
+                            .Select(fcq => new FlightControlQuestion
+                            {
+                                Id = fcq.Id ?? "",
+                                QuestionStatement = fcq.QuestionStatement ?? "",
+                                Type = Enum.TryParse<FCQuestionType>(fcq.Type, out var type) ? type : FCQuestionType.ParameterSetting,
+                                Category = Enum.TryParse<FCQuestionCategory>(fcq.Category, out var category) ? category : FCQuestionCategory.BasicParameters,
+                                Difficulty = Enum.TryParse<QuestionDifficulty>(fcq.Difficulty, out var difficulty) ? difficulty : QuestionDifficulty.Medium,
+                                Points = fcq.Points,
+                                ParameterName = fcq.ParameterName ?? "",
+                                ParameterDescription = fcq.ParameterDescription ?? "",
+                                DataType = Enum.TryParse<ParameterDataType>(fcq.DataType, out var dataType) ? dataType : ParameterDataType.Float,
+                                CorrectValue = fcq.CorrectValue ?? "",
+                                IsActive = fcq.IsActive,
+                                CreatedBy = fcq.CreatedBy ?? "",
+                                CreatedTime = fcq.CreatedTime,
+                                RequireFlightControllerRead = true,
+                                VerifyMethod = ParameterVerifyMethod.FloatTolerance,
+                                IsSelected = true,
+                                Explanation = $"请设置参数 {fcq.ParameterName} 的值"
+                            }).ToList();
+
+                        Debug.WriteLine($"飞控题目转换成功：{_fcQuestions.Count} 道");
+
+                        // 🔧 重要：在UI线程上加载飞控题目
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            try
+                            {
+                                LoadFCQuestionsToUI(_fcQuestions);
+                                Debug.WriteLine("飞控题目UI加载成功");
+                            }
+                            catch (Exception uiEx)
+                            {
+                                Debug.WriteLine($"飞控题目UI加载失败：{uiEx.Message}");
+                                MessageBox.Show($"飞控题目界面加载失败：{uiEx.Message}", "UI错误",
+                                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                            }
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"飞控题目转换失败：{ex.Message}");
+                        Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+
+                        // 创建一个空的飞控题目列表，避免崩溃
+                        _fcQuestions = new List<FlightControlQuestion>();
+                        await Dispatcher.InvokeAsync(() => LoadFCQuestionsToUI(_fcQuestions));
+                    }
+                }
+                else
+                {
+                    // 没有飞控题目时，创建空列表
+                    _fcQuestions = new List<FlightControlQuestion>();
+                    await Dispatcher.InvokeAsync(() => LoadFCQuestionsToUI(_fcQuestions));
+                }
+
+                Debug.WriteLine($"混合试卷加载完成：理论题 {_theoryQuestions.Count} 道，飞控题 {_fcQuestions.Count} 道");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"加载混合试卷UI失败：{ex.Message}");
+                Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+
+                MessageBox.Show($"加载混合试卷UI失败：{ex.Message}\n\n程序将继续运行，但飞控实操功能可能不可用。", "加载错误",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        // ========== 新增：加载理论题目到UI ==========
+        private void LoadTheoryQuestionsToUI(List<TheoryQuestion> questions)
+        {
+            try
+            {
+                TheoryQuestionsList.ItemsSource = questions;
+                Debug.WriteLine($"理论题目已加载到UI：{questions.Count} 道");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载理论题目到UI失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // ========== 新增：加载飞控题目到UI ==========
+        private void LoadFCQuestionsToUI(List<FlightControlQuestion> questions)
+        {
+            try
+            {
+                FCQuestionsList.ItemsSource = questions;
+                Debug.WriteLine($"飞控题目已加载到UI：{questions.Count} 道");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"加载飞控题目到UI失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
         public static SerialPortConfig SerialConfig = new SerialPortConfig();
 
@@ -234,6 +528,8 @@ namespace DroneSimulator
             // 处理第三个页面的按钮(如果需要)
             DisableCanvasButtons(ExtensionCanvas);
         }
+
+
 
         private void DisableCanvasButtons(Canvas canvas)
         {
@@ -785,6 +1081,9 @@ namespace DroneSimulator
                                 CreationTime = mixedExam.CreationTime,
                                 Questions = mixedExam.Content.GetAllQuestionsAsGeneric()
                             };
+
+                            // 🚀 加载各类型题目到UI
+                            await LoadMixedExamToUI(mixedExam);
                         }
                     }
                     else
