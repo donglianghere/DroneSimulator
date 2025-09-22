@@ -1,42 +1,42 @@
-using System.Text.Json.Serialization;
+ï»¿using System.Text.Json.Serialization;
 using System.ComponentModel;
 
 namespace DroneSimulator
 {
     /// <summary>
-    /// ÌâÄ¿ÄÑ¶ÈµÈ¼¶
+    /// é¢˜ç›®éš¾åº¦ç­‰çº§
     /// </summary>
     public enum QuestionDifficulty
     {
-        Easy = 1,       // ¼òµ¥
-        Medium = 2,     // ÖĞµÈ  
-        Hard = 3        // À§ÄÑ
+        Easy = 1,       // ç®€å•
+        Medium = 2,     // ä¸­ç­‰  
+        Hard = 3        // å›°éš¾
     }
 
     /// <summary>
-    /// ÌâÄ¿ÀàĞÍ
+    /// é¢˜ç›®ç±»å‹
     /// </summary>
     public enum TheoryQuestionType
     {
-        SingleChoice = 1,    // µ¥Ñ¡Ìâ
-        MultipleChoice = 2   // ¶àÑ¡Ìâ
+        SingleChoice = 1,    // å•é€‰é¢˜
+        MultipleChoice = 2   // å¤šé€‰é¢˜
     }
 
     /// <summary>
-    /// ÄÚÈİ·ÖÀà
+    /// å†…å®¹åˆ†ç±»
     /// </summary>
     public enum TheoryQuestionCategory
     {
-        FlightPrinciples = 1,    // ·ÉĞĞÔ­Àí
-        Structure = 2,           // ½á¹¹×é³É
-        ControlAlgorithm = 3,    // ¿ØÖÆËã·¨
-        SensorFusion = 4,        // ´«¸ĞÆ÷ÈÚºÏ
-        FlightSafety = 5,        // ·ÉĞĞ°²È«
-        LawsRegulations = 6      // ·¨ÂÉ·¨¹æ
+        FlightPrinciples = 1,    // é£è¡ŒåŸç†
+        Structure = 2,           // ç»“æ„ç»„æˆ
+        ControlAlgorithm = 3,    // æ§åˆ¶ç®—æ³•
+        SensorFusion = 4,        // ä¼ æ„Ÿå™¨èåˆ
+        FlightSafety = 5,        // é£è¡Œå®‰å…¨
+        LawsRegulations = 6      // æ³•å¾‹æ³•è§„
     }
 
     /// <summary>
-    /// Ñ¡ÔñÌâÑ¡Ïî
+    /// é€‰æ‹©é¢˜é€‰é¡¹
     /// </summary>
     public class TheoryOption : INotifyPropertyChanged
     {
@@ -46,7 +46,7 @@ namespace DroneSimulator
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
         /// <summary>
-        /// Ñ¡Ïî±àºÅ A¡¢B¡¢C¡¢D¡¢E¡¢F
+        /// é€‰é¡¹ç¼–å· Aã€Bã€Cã€Dã€Eã€F
         /// </summary>
         public string OptionCode { get; set; } = "";
 
@@ -70,7 +70,7 @@ namespace DroneSimulator
             } 
         }
         
-        public string Explanation { get; set; } = ""; // Ñ¡Ïî½âÊÍ
+        public string Explanation { get; set; } = ""; // é€‰é¡¹è§£é‡Š
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName)
@@ -80,12 +80,13 @@ namespace DroneSimulator
     }
 
     /// <summary>
-    /// ÀíÂÛÌâÄ¿Àà
+    /// ç†è®ºé¢˜ç›®ç±»
     /// </summary>
     public class TheoryQuestion : INotifyPropertyChanged
     {
         private string _questionStatement = "";
         private bool _isSelected = false;
+        private int _questionNumber = 0; // é¢˜ç›®åºå·
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
@@ -99,31 +100,41 @@ namespace DroneSimulator
             }
         }
 
+        public int QuestionNumber
+        {
+            get => _questionNumber;
+            set
+            {
+                _questionNumber = value;
+                OnPropertyChanged(nameof(QuestionNumber));
+            }
+        }
+
         public TheoryQuestionType Type { get; set; } = TheoryQuestionType.SingleChoice;
         public TheoryQuestionCategory Category { get; set; } = TheoryQuestionCategory.FlightPrinciples;
         public QuestionDifficulty Difficulty { get; set; } = QuestionDifficulty.Medium;
-        public int Points { get; set; } = 2; // ÌâÄ¿·ÖÖµ
-        public bool IsActive { get; set; } = true; // ÊÇ·ñÆôÓÃ
+        public int Points { get; set; } = 2; // é¢˜ç›®åˆ†å€¼
+        public bool IsActive { get; set; } = true; // æ˜¯å¦å¯ç”¨
 
         public string TypeDisplayName => GetTypeDisplayName();
         public string CategoryDisplayName => GetCategoryDisplayName();
         public string DifficultyDisplayName => GetDifficultyDisplayName();
 
-        // ĞŞ¸ÄÕıÈ·´ğ°¸ÏÔÊ¾ÊôĞÔ£¬Ö§³ÖÑ¡Ïî´úºÅÏÔÊ¾
+        // ä¿®æ”¹æ­£ç¡®ç­”æ¡ˆæ˜¾ç¤ºå±æ€§ï¼Œæ”¯æŒé€‰é¡¹ä»£å·æ˜¾ç¤º
         public string CorrectAnswersDisplay
         {
             get
             {
                 if (!CorrectAnswers.Any())
-                    return "Î´ÉèÖÃ";
+                    return "æœªè®¾ç½®";
 
-                // Èç¹ûÕıÈ·´ğ°¸ÊÇÑ¡Ïî´úºÅ£¨A¡¢B¡¢CµÈ£©£¬Ö±½ÓÏÔÊ¾
+                // å¦‚æœæ­£ç¡®ç­”æ¡ˆæ˜¯é€‰é¡¹ä»£å·ï¼ˆAã€Bã€Cç­‰ï¼‰ï¼Œç›´æ¥æ˜¾ç¤º
                 if (CorrectAnswers.All(answer => answer.Length == 1 && answer[0] >= 'A' && answer[0] <= 'F'))
                 {
                     return string.Join(", ", CorrectAnswers);
                 }
 
-                // Èç¹ûÕıÈ·´ğ°¸ÊÇÑ¡ÏîÎÄ±¾£¬³¢ÊÔ×ª»»Îª´úºÅÏÔÊ¾
+                // å¦‚æœæ­£ç¡®ç­”æ¡ˆæ˜¯é€‰é¡¹æ–‡æœ¬ï¼Œå°è¯•è½¬æ¢ä¸ºä»£å·æ˜¾ç¤º
                 var codes = new List<string>();
                 for (int i = 0; i < Options.Count; i++)
                 {
@@ -138,7 +149,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ÊÇ·ñ±»Ñ¡ÖĞ£¨ÓÃÓÚÅúÁ¿²Ù×÷£©
+        /// æ˜¯å¦è¢«é€‰ä¸­ï¼ˆç”¨äºæ‰¹é‡æ“ä½œï¼‰
         /// </summary>
         public bool IsSelected
         {
@@ -152,87 +163,87 @@ namespace DroneSimulator
             }
         }
 
-        // Ñ¡Ïî£¨×î¶à6¸ö£©
+        // é€‰é¡¹ï¼ˆæœ€å¤š6ä¸ªï¼‰
         public List<TheoryOption> Options { get; set; } = new();
 
-        // ÕıÈ·´ğ°¸£¬µ¥Ñ¡Ê±Ö»ÓĞÒ»¸ö£¬¶àÑ¡Ê±¿ÉÄÜ¶à¸ö
+        // æ­£ç¡®ç­”æ¡ˆï¼Œå•é€‰æ—¶åªæœ‰ä¸€ä¸ªï¼Œå¤šé€‰æ—¶å¯èƒ½å¤šä¸ª
         public List<string> CorrectAnswers { get; set; } = new();
 
-        // ÌâÄ¿½âÎö
+        // é¢˜ç›®è§£æ
         public string Explanation { get; set; } = "";
 
-        // ´´½¨ĞÅÏ¢
+        // åˆ›å»ºä¿¡æ¯
         public string CreatedBy { get; set; } = "";
         public DateTime CreatedTime { get; set; } = DateTime.Now;
         public DateTime LastModified { get; set; } = DateTime.Now;
         public string LastModifiedBy { get; set; } = "";
 
-        // Ê¹ÓÃÍ³¼Æ
+        // ä½¿ç”¨ç»Ÿè®¡
         public int UsageCount { get; set; } = 0;
-        public double AverageScore { get; set; } = 0.0; // Æ½¾ùµÃ·ÖÂÊ
+        public double AverageScore { get; set; } = 0.0; // å¹³å‡å¾—åˆ†ç‡
 
-        // ÑéÖ¤ÌâÄ¿ÍêÕûĞÔ
+        // éªŒè¯é¢˜ç›®å®Œæ•´æ€§
         public bool IsValid()
         {
             if (string.IsNullOrWhiteSpace(QuestionStatement)) return false;
             if (Options.Count < 2 || Options.Count > 6) return false;
             if (!CorrectAnswers.Any()) return false;
 
-            // ÑéÖ¤ÕıÈ·´ğ°¸ÊÇ·ñÔÚÑ¡ÏîÖĞ
+            // éªŒè¯æ­£ç¡®ç­”æ¡ˆæ˜¯å¦åœ¨é€‰é¡¹ä¸­
             var optionTexts = Options.Select(o => o.Text).ToList();
             foreach (var answer in CorrectAnswers)
             {
                 if (!optionTexts.Contains(answer)) return false;
             }
 
-            // µ¥Ñ¡ÌâÖ»ÄÜÓĞÒ»¸öÕıÈ·´ğ°¸
+            // å•é€‰é¢˜åªèƒ½æœ‰ä¸€ä¸ªæ­£ç¡®ç­”æ¡ˆ
             if (Type == TheoryQuestionType.SingleChoice && CorrectAnswers.Count != 1)
                 return false;
 
             return true;
         }
 
-        // »ñÈ¡ÕıÈ·Ñ¡Ïî
+        // è·å–æ­£ç¡®é€‰é¡¹
         public List<TheoryOption> GetCorrectOptions()
         {
             return Options.Where(o => CorrectAnswers.Contains(o.Text)).ToList();
         }
 
-        // »ñÈ¡ÏÔÊ¾ÓÃµÄ·ÖÀàÃû³Æ
+        // è·å–æ˜¾ç¤ºç”¨çš„åˆ†ç±»åç§°
         public string GetCategoryDisplayName()
         {
             return Category switch
             {
-                TheoryQuestionCategory.FlightPrinciples => "·ÉĞĞÔ­Àí",
-                TheoryQuestionCategory.Structure => "½á¹¹×é³É",
-                TheoryQuestionCategory.ControlAlgorithm => "¿ØÖÆËã·¨",
-                TheoryQuestionCategory.SensorFusion => "´«¸ĞÆ÷ÈÚºÏ",
-                TheoryQuestionCategory.FlightSafety => "·ÉĞĞ°²È«",
-                TheoryQuestionCategory.LawsRegulations => "·¨¹æ·¨ÂÉ",
-                _ => "Î´Öª·ÖÀà"
+                TheoryQuestionCategory.FlightPrinciples => "é£è¡ŒåŸç†",
+                TheoryQuestionCategory.Structure => "ç»“æ„ç»„æˆ",
+                TheoryQuestionCategory.ControlAlgorithm => "æ§åˆ¶ç®—æ³•",
+                TheoryQuestionCategory.SensorFusion => "ä¼ æ„Ÿå™¨èåˆ",
+                TheoryQuestionCategory.FlightSafety => "é£è¡Œå®‰å…¨",
+                TheoryQuestionCategory.LawsRegulations => "æ³•è§„æ³•å¾‹",
+                _ => "æœªçŸ¥åˆ†ç±»"
             };
         }
 
-        // »ñÈ¡ÏÔÊ¾ÓÃµÄÄÑ¶ÈÃû³Æ
+        // è·å–æ˜¾ç¤ºç”¨çš„éš¾åº¦åç§°
         public string GetDifficultyDisplayName()
         {
             return Difficulty switch
             {
-                QuestionDifficulty.Easy => "¼ò",
-                QuestionDifficulty.Medium => "ÖĞµÈ",
-                QuestionDifficulty.Hard => "À§ÄÑ",
-                _ => "ÖĞµÈ"
+                QuestionDifficulty.Easy => "ç®€",
+                QuestionDifficulty.Medium => "ä¸­ç­‰",
+                QuestionDifficulty.Hard => "å›°éš¾",
+                _ => "ä¸­ç­‰"
             };
         }
 
-        // »ñÈ¡ÏÔÊ¾ÓÃµÄÀàĞÍÃû³Æ
+        // è·å–æ˜¾ç¤ºç”¨çš„ç±»å‹åç§°
         public string GetTypeDisplayName()
         {
             return Type switch
             {
-                TheoryQuestionType.SingleChoice => "µ¥Ñ¡Ìâ",
-                TheoryQuestionType.MultipleChoice => "¶àÑ¡Ìâ",
-                _ => "µ¥Ñ¡Ìâ"
+                TheoryQuestionType.SingleChoice => "å•é€‰é¢˜",
+                TheoryQuestionType.MultipleChoice => "å¤šé€‰é¢˜",
+                _ => "å•é€‰é¢˜"
             };
         }
 
@@ -244,7 +255,7 @@ namespace DroneSimulator
     }
 
     /// <summary>
-    /// ÀíÂÛÊÔ¾íÊı¾İ
+    /// ç†è®ºè¯•å·æ•°æ®
     /// </summary>
     public class TheoryExamData
     {
@@ -254,26 +265,26 @@ namespace DroneSimulator
         public string TeacherId { get; set; } = "";
         public DateTime CreationTime { get; set; } = DateTime.Now;
         public int TotalPoints { get; set; } = 0;
-        public int TimeLimit { get; set; } = 60; // ¿¼ÊÔÊ±¼äÏŞÖÆ£¨·ÖÖÓ£©
+        public int TimeLimit { get; set; } = 60; // è€ƒè¯•æ—¶é—´é™åˆ¶ï¼ˆåˆ†é’Ÿï¼‰
         public List<TheoryQuestion> Questions { get; set; } = new();
-        public bool IsActive { get; set; } = false; // ÊÇ·ñÎªµ±Ç°¿¼ÊÔÓÃ¾í
+        public bool IsActive { get; set; } = false; // æ˜¯å¦ä¸ºå½“å‰è€ƒè¯•ç”¨å·
         
-        // ¼ÆËã×Ü·Ö
+        // è®¡ç®—æ€»åˆ†
         public void CalculateTotalPoints()
         {
             TotalPoints = Questions.Sum(q => q.Points);
         }
         
-        // »ñÈ¡Í³¼ÆĞÅÏ¢
+        // è·å–ç»Ÿè®¡ä¿¡æ¯
         public string GetStatistics()
         {
-            if (!Questions.Any()) return "ÔİÎŞÌâÄ¿";
+            if (!Questions.Any()) return "æš‚æ— é¢˜ç›®";
             
             var stats = Questions.GroupBy(q => q.Category)
-                .Select(g => $"{g.First().GetCategoryDisplayName()}({g.Count()}Ìâ)")
+                .Select(g => $"{g.First().GetCategoryDisplayName()}({g.Count()}é¢˜)")
                 .ToList();
                 
-            return $"¹²{Questions.Count}Ìâ£¬{TotalPoints}·Ö£º{string.Join("¡¢", stats)}";
+            return $"å…±{Questions.Count}é¢˜ï¼Œ{TotalPoints}åˆ†ï¼š{string.Join("ã€", stats)}";
         }
     }
 }

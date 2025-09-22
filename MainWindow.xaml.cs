@@ -535,10 +535,17 @@ namespace DroneSimulator
                     Debug.WriteLine($"创建了 {testQuestions.Count} 道测试题目");
                 }
 
+                // 🚀 为题目设置序号
+                for (int i = 0; i < questions.Count; i++)
+                {
+                    questions[i].QuestionNumber = i + 1;
+                    Debug.WriteLine($"设置题目序号：第{i + 1}题 - {questions[i].Id}");
+                }
+
                 // 为每个题目的选项设置编号（A、B、C、D等）
                 foreach (var question in questions)
                 {
-                    Debug.WriteLine($"处理题目：{question.Id} - {question.QuestionStatement}");
+                    Debug.WriteLine($"处理题目：第{question.QuestionNumber}题 {question.Id} - {question.QuestionStatement}");
                     Debug.WriteLine($"  类型：{question.Type}({(int)question.Type})，选项数：{question.Options?.Count ?? 0}");
 
                     if (question.Options != null)
@@ -557,6 +564,10 @@ namespace DroneSimulator
                     try
                     {
                         Debug.WriteLine("正在绑定数据到UI...");
+
+                        // 🚀 更新题目总数显示
+                        TheoryQuestionsCountText.Text = $"共 {questions.Count} 道题目";
+
                         TheoryQuestionsList.ItemsSource = null;
                         TheoryQuestionsList.UpdateLayout();
                         TheoryQuestionsList.ItemsSource = questions;
@@ -649,6 +660,28 @@ namespace DroneSimulator
             };
 
             testQuestions.Add(multipleChoiceQuestion);
+
+            // 🚀 添加第三道题目
+            var anotherSingleChoice = new TheoryQuestion
+            {
+                Id = "TEST003",
+                QuestionStatement = "这是第三道测试题目，用于验证序号功能",
+                Type = TheoryQuestionType.SingleChoice,
+                Category = TheoryQuestionCategory.FlightSafety,
+                Difficulty = QuestionDifficulty.Hard,
+                Points = 3,
+                Options = new List<TheoryOption>
+        {
+            new TheoryOption { Text = "选项A - 错误", IsCorrect = false },
+            new TheoryOption { Text = "选项B - 错误", IsCorrect = false },
+            new TheoryOption { Text = "选项C - 正确", IsCorrect = true }
+        },
+                CorrectAnswers = new List<string> { "选项C - 正确" },
+                IsSelected = true,
+                IsActive = true
+            };
+
+            testQuestions.Add(anotherSingleChoice);
 
             return testQuestions;
         }
