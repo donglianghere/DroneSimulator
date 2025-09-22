@@ -1,6 +1,8 @@
-﻿using DroneSimulator;
+﻿using AutoPilot.Parameters;
+using DroneSimulator;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Ports;
 using System.Runtime.InteropServices;
@@ -9,16 +11,16 @@ using System.Text.Json;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using AutoPilot.Parameters;
-using System.Windows.Data;
-using System.Globalization;
 
 namespace DroneSimulator
-{
+{   
+
     public partial class MainWindow : Window
     {
         // 在 MainWindow 类中添加字段来跟踪题目状态
@@ -28,6 +30,7 @@ namespace DroneSimulator
         private Dictionary<string, string> _fcAnswers = new Dictionary<string, string>();
         private List<TheoryQuestion> _theoryQuestions = new List<TheoryQuestion>();
         private List<FlightControlQuestion> _fcQuestions = new List<FlightControlQuestion>();
+               
 
         // ========== 使用 FcuOperate 提供的 ParameterService 重写电机测试 ==========
         private ParameterService? _fcService;
@@ -193,46 +196,81 @@ namespace DroneSimulator
                 btn.IsEnabled = true;
             }
         }
-
+        
         // ========== 新增：理论试卷事件处理程序 ==========
         /// <summary>
         /// 理论题选项点击事件
         /// </summary>
         private void TheoryOption_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is RadioButton radioButton && radioButton.Tag is TheoryQuestion question)
+            try
             {
-                // 如果考试已提交，禁止继续答题
-                if (isExamSubmitted)
+                if (sender is RadioButton radioButton && radioButton.Tag is TheoryOption option)
                 {
-                    MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+                    // 处理单选题
+                    var question = GetQuestionFromOption(option);
+                    if (question != null)
+                    {
+                        // 记录学生答案
+                        _theoryAnswers[question.Id] = option.Text;
+                        System.Diagnostics.Debug.WriteLine($"单选题答案: 题目ID={question.Id}, 选择={option.Text}");
+                    }
+                }
+                else if (sender is CheckBox checkBox && checkBox.Tag is TheoryOption option2)
+                {
+                    // 处理多选题
+                    var question = GetQuestionFromOption(option2);
+                    if (question != null)
+                    {
+                        // 获取当前题目的所有选中答案
+                        var selectedOptions = GetSelectedOptionsForQuestion(question.Id);
+                        _theoryAnswers[question.Id] = string.Join(";", selectedOptions);
+                        System.Diagnostics.Debug.WriteLine($"多选题答案: 题目ID={question.Id}, 选择={_theoryAnswers[question.Id]}");
+                    }
                 }
 
-                try
-                {
-                    // 获取选项内容
-                    string selectedOption = radioButton.Content?.ToString() ?? "";
-
-                    // 保存学生答案
-                    _theoryAnswers[question.Id] = selectedOption;
-
-                    // 标记已答题（可以在视觉上给出反馈）
-                    radioButton.Foreground = new SolidColorBrush(Colors.Blue);
-
-                    // 更新统计
-                    UpdateExamStats();
-
-                    Debug.WriteLine($"理论题 {question.Id} 选择了答案: {selectedOption}");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"保存理论题答案时发生错误：{ex.Message}", "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                // 更新考试统计
+                UpdateExamStats();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理理论题目选项点击失败: {ex.Message}");
             }
         }
 
+        /// <summary>
+        /// 从选项获取对应的题目
+        /// </summary>
+        private TheoryQuestion GetQuestionFromOption(TheoryOption option)
+        {
+            return _theoryQuestions?.FirstOrDefault(q => q.Options.Contains(option));
+        }
+
+        /// <summary>
+        /// 获取指定题目的所有选中选项
+        /// </summary>
+        private List<string> GetSelectedOptionsForQuestion(string questionId)
+        {
+            var selectedOptions = new List<string>();
+
+            // 遍历界面上的CheckBox控件，找到选中的选项
+            var checkBoxes = new List<CheckBox>();
+            FindVisualChildren<CheckBox>(TheoryQuestionsPanel, checkBoxes);
+
+            foreach (var checkBox in checkBoxes)
+            {
+                if (checkBox.IsChecked == true && checkBox.Tag is TheoryOption option)
+                {
+                    var question = GetQuestionFromOption(option);
+                    if (question?.Id == questionId)
+                    {
+                        selectedOptions.Add(option.Text);
+                    }
+                }
+            }
+
+            return selectedOptions;
+        }
         // ========== 新增：飞控实操事件处理程序 ==========
         /// <summary>
         /// 连接飞控按钮点击事件
@@ -366,14 +404,33 @@ namespace DroneSimulator
                 {
                     try
                     {
-                        _theoryQuestions = mixedExam.Content.TheoryQuestions.Where(q => q.IsSelected).ToList();
-                        await Dispatcher.InvokeAsync(() => LoadTheoryQuestionsToUI(_theoryQuestions));
-                        Debug.WriteLine($"理论题目加载成功：{_theoryQuestions.Count} 道");
+                        Debug.WriteLine($"发现 {mixedExam.Content.TheoryQuestions.Count} 道理论题目");
+
+                        // 🔧 修复：确保选择IsSelected=true的题目
+                        _theoryQuestions = mixedExam.Content.TheoryQuestions
+                            .Where(q => q.IsSelected)
+                            .ToList();
+
+                        Debug.WriteLine($"选择了 {_theoryQuestions.Count} 道理论题目用于考试");
+
+                        // 🔧 确保在UI线程上加载
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            LoadTheoryQuestionsToUI(_theoryQuestions);
+                        });
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"加载理论题目失败：{ex.Message}");
+                        MessageBox.Show($"理论题目加载失败：{ex.Message}", "警告",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
+                }
+                else
+                {
+                    Debug.WriteLine("⚠️ 混合试卷中没有理论题目");
+                    _theoryQuestions = new List<TheoryQuestion>();
+                    await Dispatcher.InvokeAsync(() => LoadTheoryQuestionsToUI(_theoryQuestions));
                 }
 
                 // 🔧 修复：安全加载飞控实操题目
@@ -452,19 +509,121 @@ namespace DroneSimulator
             }
         }
 
-        // ========== 新增：加载理论题目到UI ==========
+        /// <summary>
+        /// 加载理论题目到UI - 修改版本支持从混合试卷加载
+        /// </summary>
         private void LoadTheoryQuestionsToUI(List<TheoryQuestion> questions)
         {
             try
             {
-                TheoryQuestionsList.ItemsSource = questions;
-                Debug.WriteLine($"理论题目已加载到UI：{questions.Count} 道");
+                Debug.WriteLine($"=== 开始加载理论题目到UI ===");
+                Debug.WriteLine($"收到 {questions?.Count ?? 0} 道理论题目");
+
+                if (questions == null || !questions.Any())
+                {
+                    Debug.WriteLine("⚠️ 理论题目列表为空");
+
+                    // 🔧 添加测试数据以验证UI是否工作
+                    Debug.WriteLine("创建测试题目验证UI...");
+                    var testQuestions = CreateTestTheoryQuestions();
+                    questions = testQuestions;
+                    Debug.WriteLine($"创建了 {testQuestions.Count} 道测试题目");
+                }
+
+                // 为每个题目的选项设置编号（A、B、C、D等）
+                foreach (var question in questions)
+                {
+                    Debug.WriteLine($"处理题目：{question.Id} - {question.QuestionStatement}");
+                    Debug.WriteLine($"  类型：{question.Type}，选项数：{question.Options?.Count ?? 0}");
+
+                    if (question.Options != null)
+                    {
+                        for (int i = 0; i < question.Options.Count; i++)
+                        {
+                            question.Options[i].OptionCode = ((char)('A' + i)).ToString();
+                            Debug.WriteLine($"    选项{question.Options[i].OptionCode}：{question.Options[i].Text}");
+                        }
+                    }
+                }
+
+                // 🔧 确保在UI线程上执行
+                Dispatcher.Invoke(() =>
+                {
+                    TheoryQuestionsList.ItemsSource = null; // 先清空
+                    TheoryQuestionsList.UpdateLayout(); // 强制更新布局
+                    TheoryQuestionsList.ItemsSource = questions; // 重新设置
+                    TheoryQuestionsList.UpdateLayout(); // 再次强制更新布局
+                    Debug.WriteLine($"✅ 理论题目已绑定到UI：{questions.Count} 道");
+
+                    // 🔧 验证绑定是否成功
+                    Debug.WriteLine($"UI控件状态：ItemsSource = {TheoryQuestionsList.ItemsSource != null}");
+                    Debug.WriteLine($"UI控件项目数：{TheoryQuestionsList.Items.Count}");
+                });
             }
             catch (Exception ex)
             {
+                Debug.WriteLine($"❌ 加载理论题目到UI失败：{ex.Message}");
+                Debug.WriteLine($"堆栈跟踪：{ex.StackTrace}");
+
                 MessageBox.Show($"加载理论题目到UI失败：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// 创建测试理论题目（用于调试）
+        /// </summary>
+        private List<TheoryQuestion> CreateTestTheoryQuestions()
+        {
+            var testQuestions = new List<TheoryQuestion>();
+
+            // 测试单选题
+            var singleChoiceQuestion = new TheoryQuestion
+            {
+                Id = "TEST001",
+                QuestionStatement = "这是一道测试单选题，用于验证UI显示功能",
+                Type = TheoryQuestionType.SingleChoice,
+                Category = TheoryQuestionCategory.FlightPrinciples,
+                Difficulty = QuestionDifficulty.Easy,
+                Points = 2,
+                Options = new List<TheoryOption>
+        {
+            new TheoryOption { Text = "选项A - 这是错误答案", IsCorrect = false },
+            new TheoryOption { Text = "选项B - 这是正确答案", IsCorrect = true },
+            new TheoryOption { Text = "选项C - 这是错误答案", IsCorrect = false },
+            new TheoryOption { Text = "选项D - 这是错误答案", IsCorrect = false }
+        },
+                CorrectAnswers = new List<string> { "选项B - 这是正确答案" },
+                IsSelected = true,
+                IsActive = true
+            };
+
+            testQuestions.Add(singleChoiceQuestion);
+
+            // 测试多选题
+            var multipleChoiceQuestion = new TheoryQuestion
+            {
+                Id = "TEST002",
+                QuestionStatement = "这是一道测试多选题，用于验证UI显示功能",
+                Type = TheoryQuestionType.MultipleChoice,
+                Category = TheoryQuestionCategory.ControlAlgorithm,
+                Difficulty = QuestionDifficulty.Medium,
+                Points = 3,
+                Options = new List<TheoryOption>
+        {
+            new TheoryOption { Text = "选项A - 正确答案之一", IsCorrect = true },
+            new TheoryOption { Text = "选项B - 错误答案", IsCorrect = false },
+            new TheoryOption { Text = "选项C - 正确答案之一", IsCorrect = true },
+            new TheoryOption { Text = "选项D - 错误答案", IsCorrect = false }
+        },
+                CorrectAnswers = new List<string> { "选项A - 正确答案之一", "选项C - 正确答案之一" },
+                IsSelected = true,
+                IsActive = true
+            };
+
+            testQuestions.Add(multipleChoiceQuestion);
+
+            return testQuestions;
         }
 
         // ========== 新增：加载飞控题目到UI ==========
@@ -1760,5 +1919,149 @@ namespace DroneSimulator
             this.DialogResult = false;
             this.Close();
         }
+
+        // 添加一个ExamStatItem类用于统计显示
+        public class ExamStatItem
+        {
+            public string Name { get; set; } = "";
+            public string Value { get; set; } = "";
+        }        
+
+        // 在MainWindow类中添加FindVisualChildren方法（如果不存在的话）
+        private void FindVisualChildren<T>(DependencyObject depObj, List<T> children) where T : DependencyObject
+        {
+            if (depObj != null)
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(depObj); i++)
+                {
+                    DependencyObject child = VisualTreeHelper.GetChild(depObj, i);
+                    if (child != null && child is T)
+                    {
+                        children.Add((T)child);
+                    }
+
+                    FindVisualChildren<T>(child, children);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 理论题选项选中事件
+        /// </summary>
+        private void TheoryOption_Checked(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is ToggleButton toggleButton && toggleButton.Tag is TheoryOption option)
+                {
+                    var question = GetQuestionFromOption(option);
+                    if (question != null)
+                    {
+                        if (question.Type == TheoryQuestionType.SingleChoice)
+                        {
+                            // 单选题：取消同组其他选项
+                            ClearOtherOptionsInGroup(question.Id, option);
+                        }
+
+                        // 记录学生答案
+                        UpdateTheoryAnswer(question);
+
+                        System.Diagnostics.Debug.WriteLine($"题目类型：{question.Type}, 题目ID={question.Id}, 选择={option.Text}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理理论题目选项选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 理论题选项取消选中事件
+        /// </summary>
+        private void TheoryOption_Unchecked(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is ToggleButton toggleButton && toggleButton.Tag is TheoryOption option)
+                {
+                    var question = GetQuestionFromOption(option);
+                    if (question != null)
+                    {
+                        // 更新答案
+                        UpdateTheoryAnswer(question);
+
+                        System.Diagnostics.Debug.WriteLine($"取消选择：题目ID={question.Id}, 选项={option.Text}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"处理理论题目选项取消选中失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清除同组其他选项（单选题用）
+        /// </summary>
+        private void ClearOtherOptionsInGroup(string questionId, TheoryOption currentOption)
+        {
+            try
+            {
+                var toggleButtons = new List<ToggleButton>();
+                FindVisualChildren<ToggleButton>(TheoryQuestionsPanel, toggleButtons);
+
+                foreach (var toggleButton in toggleButtons)
+                {
+                    if (toggleButton.Tag is TheoryOption option && option != currentOption)
+                    {
+                        var question = GetQuestionFromOption(option);
+                        if (question?.Id == questionId)
+                        {
+                            toggleButton.IsChecked = false;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"清除同组选项失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新理论题答案
+        /// </summary>
+        private void UpdateTheoryAnswer(TheoryQuestion question)
+        {
+            try
+            {
+                var selectedOptions = new List<string>();
+
+                var toggleButtons = new List<ToggleButton>();
+                FindVisualChildren<ToggleButton>(TheoryQuestionsPanel, toggleButtons);
+
+                foreach (var toggleButton in toggleButtons)
+                {
+                    if (toggleButton.IsChecked == true && toggleButton.Tag is TheoryOption option)
+                    {
+                        var optionQuestion = GetQuestionFromOption(option);
+                        if (optionQuestion?.Id == question.Id)
+                        {
+                            selectedOptions.Add(option.Text);
+                        }
+                    }
+                }
+
+                _theoryAnswers[question.Id] = string.Join(";", selectedOptions);
+                UpdateExamStats();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新理论题答案失败: {ex.Message}");
+            }
+        }
+
     }
+    
 }

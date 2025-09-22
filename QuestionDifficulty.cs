@@ -44,7 +44,12 @@ namespace DroneSimulator
         private bool _isCorrect = false;
 
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        
+
+        /// <summary>
+        /// Ñ¡Ïî±àºÅ A¡¢B¡¢C¡¢D¡¢E¡¢F
+        /// </summary>
+        public string OptionCode { get; set; } = "";
+
         public string Text 
         { 
             get => _text; 

@@ -99,10 +99,12 @@
 
         <!-- 🚀 新增：缺失的转换器 -->
         <!-- 飞控题目类型到可见性转换器 -->
-        <local:FCQuestionTypeToVisibilityConverter x:Key="FCQuestionTypeToVisibilityConverter"/>
+        <!-- <local:FCQuestionTypeToVisibilityConverter x:Key="FCQuestionTypeToVisibilityConverter"/>-->
         <!-- 字符串到可见性转换器 -->
-        <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
-
+        <!-- <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>-->
+        <!-- 🚀 新增：题目编号转换器 -->
+        <!-- <local:QuestionNumberConverter x:Key="QuestionNumberConverter"/>-->
+        <local:TheoryQuestionVisibilityConverter x:Key="TheoryQuestionVisibilityConverter"/>
     </Window.Resources>
 
     <Grid Margin="0,0,0,0">
@@ -128,36 +130,204 @@
                     <ScrollViewer x:Name="TheoryScrollViewer" VerticalScrollBarVisibility="Auto" Margin="10">
                         <StackPanel x:Name="TheoryQuestionsPanel" Margin="20">
                             <TextBlock Text="理论知识考试" FontSize="28" FontWeight="Bold" 
-                                      HorizontalAlignment="Center" Margin="0,0,0,20" 
-                                      Foreground="#2D3A4A"/>
+      HorizontalAlignment="Center" Margin="0,0,0,20" 
+      Foreground="#2D3A4A"/>
 
-                            <TextBlock Text="请仔细阅读题目，选择正确答案。每题只能选择一个选项。" 
-                                      FontSize="16" Margin="0,0,0,20" 
-                                      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
+                            <TextBlock Text="请仔细阅读题目，选择正确答案。单选题只能选择一个选项，多选题可以选择多个选项。" 
+      FontSize="16" Margin="0,0,0,20" 
+      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
 
-                            <!-- 理论题目将动态加载到这里 -->
+                            <!-- 🔧 修改：双列布局显示理论题目 -->
                             <ItemsControl x:Name="TheoryQuestionsList">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <!-- 使用UniformGrid实现双列布局 -->
+                                        <UniformGrid Columns="2" HorizontalAlignment="Stretch"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="White" CornerRadius="8" Margin="0,10" 
-                                               Padding="15" BorderBrush="LightGray" BorderThickness="1"
-                                               Effect="{StaticResource DropShadowEffect}">
+                                        <!-- 每个题目的容器 -->
+                                        <Border Background="White" CornerRadius="10" Margin="10" 
+               Padding="20" BorderBrush="#E0E7F0" BorderThickness="2"
+               MinHeight="250" MaxWidth="600"
+               Effect="{StaticResource DropShadowEffect}">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding QuestionText}" 
-                                                          FontSize="16" FontWeight="Bold" 
-                                                          Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                                <!-- 题目标题：ID + 题型 -->
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                                    <Border Background="#4A90E2" CornerRadius="15" 
+                           Padding="8,4" Margin="0,0,10,0">
+                                                        <TextBlock Text="{Binding Id}" 
+                                  FontSize="12" FontWeight="Bold" 
+                                  Foreground="White"/>
+                                                    </Border>
 
+                                                    <!-- 题目类型标识 -->
+                                                    <Border CornerRadius="12" Padding="6,3" Margin="0,0,10,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <!-- 🔧 修复：使用x:Static来引用枚举值 -->
+                                                                    <DataTrigger Binding="{Binding Type}" Value="1">
+                                                                        <Setter Property="Background" Value="#E8F5E8"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding Type}" Value="2">
+                                                                        <Setter Property="Background" Value="#FFF3E0"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock FontSize="10" FontWeight="Bold">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Type}" Value="1">
+                                                                            <Setter Property="Text" Value="单选题"/>
+                                                                            <Setter Property="Foreground" Value="#4CAF50"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Type}" Value="2">
+                                                                            <Setter Property="Text" Value="多选题"/>
+                                                                            <Setter Property="Foreground" Value="#FF9800"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Border>
+
+                                                    <!-- 分值显示 -->
+                                                    <TextBlock Text="{Binding Points, StringFormat='({0}分)'}" 
+                              FontSize="11" Foreground="#666" 
+                              VerticalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- 题目陈述 -->
+                                                <TextBlock Text="{Binding QuestionStatement}" 
+                          FontSize="15" FontWeight="Medium" 
+                          Margin="0,0,0,15" TextWrapping="Wrap"
+                          Foreground="#333" LineHeight="22"/>
+
+                                                <!-- 选项列表 -->
                                                 <ItemsControl ItemsSource="{Binding Options}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <RadioButton Content="{Binding}" 
-                                                                        Style="{StaticResource TheoryOptionButtonStyle}"
-                                                                        GroupName="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=DataContext.Id}"
-                                                                        Tag="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=DataContext}"
-                                                                        Click="TheoryOption_Click"/>
+                                                            <Border Margin="0,4" Padding="10,8" 
+Background="#FAFBFC" CornerRadius="6"
+BorderBrush="#E9ECEF" BorderThickness="1">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <!-- 选项编号 A、B、C、D -->
+                                                                    <Border Background="#4A90E2" CornerRadius="12" 
+        Width="24" Height="24" Margin="0,0,10,0">
+                                                                        <TextBlock Text="{Binding OptionCode}" 
+               FontSize="12" FontWeight="Bold" 
+               Foreground="White" 
+               HorizontalAlignment="Center" 
+               VerticalAlignment="Center"/>
+                                                                    </Border>
+
+                                                                    <!-- 选项文本 -->
+                                                                    <TextBlock Text="{Binding Text}" 
+           FontSize="13" 
+           Foreground="#495057"
+           TextWrapping="Wrap"
+           VerticalAlignment="Center"
+           Margin="0,0,10,0"
+           MaxWidth="400"/>
+
+                                                                    <!-- 🔧 简化方案：使用ToggleButton统一处理单选和多选 -->
+                                                                    <ToggleButton x:Name="OptionToggle"
+              Tag="{Binding}"
+              VerticalAlignment="Center"
+              Checked="TheoryOption_Checked"
+              Unchecked="TheoryOption_Unchecked"
+              Width="24" Height="24">
+                                                                        <ToggleButton.Style>
+                                                                            <Style TargetType="ToggleButton">
+                                                                                <Setter Property="Template">
+                                                                                    <Setter.Value>
+                                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                                            <!-- 🔧 根据题目类型动态选择样式 -->
+                                                                                            <Border x:Name="OptionBorder" 
+                                Background="White" 
+                                BorderThickness="2" 
+                                Width="24" Height="24">
+                                                                                                <Border.Style>
+                                                                                                    <Style TargetType="Border">
+                                                                                                        <Style.Triggers>
+                                                                                                            <!-- 单选题圆形样式 -->
+                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="{x:Static local:TheoryQuestionType.SingleChoice}">
+                                                                                                                <Setter Property="CornerRadius" Value="12"/>
+                                                                                                                <Setter Property="BorderBrush" Value="#4A90E2"/>
+                                                                                                            </DataTrigger>
+                                                                                                            <!-- 多选题方形样式 -->
+                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="{x:Static local:TheoryQuestionType.MultipleChoice}">
+                                                                                                                <Setter Property="CornerRadius" Value="4"/>
+                                                                                                                <Setter Property="BorderBrush" Value="#FF9800"/>
+                                                                                                            </DataTrigger>
+                                                                                                        </Style.Triggers>
+                                                                                                    </Style>
+                                                                                                </Border.Style>
+
+                                                                                                <!-- 选中标记 -->
+                                                                                                <Grid>
+                                                                                                    <!-- 单选题圆形标记 -->
+                                                                                                    <Ellipse x:Name="SingleChoiceMark"
+                                         Width="10" Height="10"
+                                         Fill="#4A90E2">
+                                                                                                        <Ellipse.Visibility>
+                                                                                                            <MultiBinding Converter="{StaticResource TheoryQuestionVisibilityConverter}"
+                                                      ConverterParameter="SingleChoice">
+                                                                                                                <Binding Path="IsChecked" RelativeSource="{RelativeSource AncestorType=ToggleButton}"/>
+                                                                                                                <Binding Path="DataContext.Type" RelativeSource="{RelativeSource AncestorType=Border, AncestorLevel=3}"/>
+                                                                                                            </MultiBinding>
+                                                                                                        </Ellipse.Visibility>
+                                                                                                    </Ellipse>
+
+                                                                                                    <!-- 多选题勾选标记 -->
+                                                                                                    <Path x:Name="MultipleChoiceMark"
+                                      Data="M 2,6 L 8,12 L 18,2"
+                                      Stroke="#FF9800"
+                                      StrokeThickness="3">
+                                                                                                        <Path.Visibility>
+                                                                                                            <MultiBinding Converter="{StaticResource TheoryQuestionVisibilityConverter}"
+                                                      ConverterParameter="MultipleChoice">
+                                                                                                                <Binding Path="IsChecked" RelativeSource="{RelativeSource AncestorType=ToggleButton}"/>
+                                                                                                                <Binding Path="DataContext.Type" RelativeSource="{RelativeSource AncestorType=Border, AncestorLevel=3}"/>
+                                                                                                            </MultiBinding>
+                                                                                                        </Path.Visibility>
+                                                                                                    </Path>
+                                                                                                </Grid>
+                                                                                            </Border>
+                                                                                            <ControlTemplate.Triggers>
+                                                                                                <!-- 鼠标悬停效果 -->
+                                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                                    <Setter TargetName="OptionBorder" Property="Background" Value="#F0F8FF"/>
+                                                                                                </Trigger>
+
+                                                                                                <!-- 选中效果 -->
+                                                                                                <Trigger Property="IsChecked" Value="True">
+                                                                                                    <Setter TargetName="OptionBorder" Property="Background" Value="#E3F2FD"/>
+                                                                                                </Trigger>
+                                                                                            </ControlTemplate.Triggers>
+                                                                                        </ControlTemplate>
+                                                                                    </Setter.Value>
+                                                                                </Setter>
+                                                                            </Style>
+                                                                        </ToggleButton.Style>
+                                                                    </ToggleButton>
+                                                                </StackPanel>
+                                                            </Border>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
+
+                                                <!-- 题目底部信息 -->
+                                                <StackPanel Orientation="Horizontal" Margin="0,15,0,0" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding CategoryDisplayName}" 
+                              FontSize="10" Foreground="#888" Margin="0,0,10,0"/>
+                                                    <TextBlock Text="{Binding DifficultyDisplayName}" 
+                              FontSize="10" Foreground="#888"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
