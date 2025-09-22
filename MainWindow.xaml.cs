@@ -399,19 +399,27 @@ namespace DroneSimulator
             {
                 Debug.WriteLine("开始加载混合试卷到UI...");
 
-                // 加载理论题目到理论试卷页面
+                // 🔧 修复：理论题目加载逻辑
                 if (mixedExam.Content.TheoryQuestions.Any())
                 {
                     try
                     {
                         Debug.WriteLine($"发现 {mixedExam.Content.TheoryQuestions.Count} 道理论题目");
 
-                        // 🔧 修复：确保选择IsSelected=true的题目
-                        _theoryQuestions = mixedExam.Content.TheoryQuestions
-                            .Where(q => q.IsSelected)
-                            .ToList();
+                        // 🔧 修复：不再过滤IsSelected，显示所有理论题目
+                        _theoryQuestions = mixedExam.Content.TheoryQuestions.ToList();
 
-                        Debug.WriteLine($"选择了 {_theoryQuestions.Count} 道理论题目用于考试");
+                        // 🔧 如果所有题目的IsSelected都是false，强制设置为true
+                        if (_theoryQuestions.Any() && _theoryQuestions.All(q => !q.IsSelected))
+                        {
+                            Debug.WriteLine("所有理论题目的IsSelected都是false，强制设置为true");
+                            foreach (var q in _theoryQuestions)
+                            {
+                                q.IsSelected = true;
+                            }
+                        }
+
+                        Debug.WriteLine($"将要显示 {_theoryQuestions.Count} 道理论题目");
 
                         // 🔧 确保在UI线程上加载
                         await Dispatcher.InvokeAsync(() =>
@@ -521,10 +529,7 @@ namespace DroneSimulator
 
                 if (questions == null || !questions.Any())
                 {
-                    Debug.WriteLine("⚠️ 理论题目列表为空");
-
-                    // 🔧 添加测试数据以验证UI是否工作
-                    Debug.WriteLine("创建测试题目验证UI...");
+                    Debug.WriteLine("⚠️ 理论题目列表为空，创建测试题目");
                     var testQuestions = CreateTestTheoryQuestions();
                     questions = testQuestions;
                     Debug.WriteLine($"创建了 {testQuestions.Count} 道测试题目");
@@ -534,7 +539,7 @@ namespace DroneSimulator
                 foreach (var question in questions)
                 {
                     Debug.WriteLine($"处理题目：{question.Id} - {question.QuestionStatement}");
-                    Debug.WriteLine($"  类型：{question.Type}，选项数：{question.Options?.Count ?? 0}");
+                    Debug.WriteLine($"  类型：{question.Type}({(int)question.Type})，选项数：{question.Options?.Count ?? 0}");
 
                     if (question.Options != null)
                     {
@@ -549,15 +554,27 @@ namespace DroneSimulator
                 // 🔧 确保在UI线程上执行
                 Dispatcher.Invoke(() =>
                 {
-                    TheoryQuestionsList.ItemsSource = null; // 先清空
-                    TheoryQuestionsList.UpdateLayout(); // 强制更新布局
-                    TheoryQuestionsList.ItemsSource = questions; // 重新设置
-                    TheoryQuestionsList.UpdateLayout(); // 再次强制更新布局
-                    Debug.WriteLine($"✅ 理论题目已绑定到UI：{questions.Count} 道");
+                    try
+                    {
+                        Debug.WriteLine("正在绑定数据到UI...");
+                        TheoryQuestionsList.ItemsSource = null;
+                        TheoryQuestionsList.UpdateLayout();
+                        TheoryQuestionsList.ItemsSource = questions;
+                        TheoryQuestionsList.UpdateLayout();
 
-                    // 🔧 验证绑定是否成功
-                    Debug.WriteLine($"UI控件状态：ItemsSource = {TheoryQuestionsList.ItemsSource != null}");
-                    Debug.WriteLine($"UI控件项目数：{TheoryQuestionsList.Items.Count}");
+                        Debug.WriteLine($"✅ 理论题目已绑定到UI：{questions.Count} 道");
+                        Debug.WriteLine($"UI控件状态：ItemsSource = {TheoryQuestionsList.ItemsSource != null}");
+                        Debug.WriteLine($"UI控件项目数：{TheoryQuestionsList.Items.Count}");
+
+                        // 🔧 强制刷新UI
+                        InvalidateVisual();
+                        UpdateLayout();
+                    }
+                    catch (Exception uiEx)
+                    {
+                        Debug.WriteLine($"UI绑定异常：{uiEx.Message}");
+                        throw;
+                    }
                 });
             }
             catch (Exception ex)
@@ -568,6 +585,16 @@ namespace DroneSimulator
                 MessageBox.Show($"加载理论题目到UI失败：{ex.Message}", "错误",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        /// <summary>
+        /// 调试：手动测试理论题目加载
+        /// </summary>
+        public void TestTheoryQuestionsLoad()
+        {
+            Debug.WriteLine("=== 手动测试理论题目加载 ===");
+            var testQuestions = CreateTestTheoryQuestions();
+            LoadTheoryQuestionsToUI(testQuestions);
         }
 
         /// <summary>
@@ -1957,9 +1984,9 @@ namespace DroneSimulator
                     var question = GetQuestionFromOption(option);
                     if (question != null)
                     {
+                        // 🔧 修复：如果是单选题，先取消同组其他选项
                         if (question.Type == TheoryQuestionType.SingleChoice)
                         {
-                            // 单选题：取消同组其他选项
                             ClearOtherOptionsInGroup(question.Id, option);
                         }
 
@@ -2018,6 +2045,7 @@ namespace DroneSimulator
                         var question = GetQuestionFromOption(option);
                         if (question?.Id == questionId)
                         {
+                            // 🔧 修复：设置为false而不是调用IsChecked
                             toggleButton.IsChecked = false;
                         }
                     }

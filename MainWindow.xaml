@@ -255,12 +255,12 @@ BorderBrush="#E9ECEF" BorderThickness="1">
                                                                                                     <Style TargetType="Border">
                                                                                                         <Style.Triggers>
                                                                                                             <!-- 单选题圆形样式 -->
-                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="{x:Static local:TheoryQuestionType.SingleChoice}">
+                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="1">
                                                                                                                 <Setter Property="CornerRadius" Value="12"/>
                                                                                                                 <Setter Property="BorderBrush" Value="#4A90E2"/>
                                                                                                             </DataTrigger>
                                                                                                             <!-- 多选题方形样式 -->
-                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="{x:Static local:TheoryQuestionType.MultipleChoice}">
+                                                                                                            <DataTrigger Binding="{Binding DataContext.Type, RelativeSource={RelativeSource AncestorType=Border, AncestorLevel=3}}" Value="2">
                                                                                                                 <Setter Property="CornerRadius" Value="4"/>
                                                                                                                 <Setter Property="BorderBrush" Value="#FF9800"/>
                                                                                                             </DataTrigger>
