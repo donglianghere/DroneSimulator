@@ -1531,25 +1531,71 @@ namespace DroneSimulator
                 hwndSource.AddHook(WndProc);
         }
 
-        // 填充数据示例
-        private void ShowExamStats(int total, int correct, int wrong, TimeSpan duration)
+        // 修改统计显示方法，适配混合试卷
+        private void ShowExamStats(int circuitTotal, int theoryTotal, int fcTotal, int circuitCorrect, int theoryCorrect, int fcCorrect, TimeSpan duration)
         {
             var stats = new List<ExamStatItem>
-            {
-                new ExamStatItem { Name = "题目总数", Value = total.ToString() },
-                new ExamStatItem { Name = "正确答题", Value = correct.ToString() },
-                new ExamStatItem { Name = "误答题", Value = wrong.ToString() },
-                new ExamStatItem { Name = "答题耗时", Value = duration.ToString(@"mm\:ss") }
-            };
+    {
+        // 题目数量统计
+        new ExamStatItem { Name = "理论题", Value = $"{theoryTotal}题" },
+        new ExamStatItem { Name = "电路检测", Value = $"{circuitTotal}题" },
+        new ExamStatItem { Name = "飞控实操", Value = $"{fcTotal}题" },
+        new ExamStatItem { Name = "题目总数", Value = $"{circuitTotal + theoryTotal + fcTotal}题" },
+        
+        // 完成情况统计
+        new ExamStatItem { Name = "理论已答", Value = $"{_theoryAnswers.Count}/{theoryTotal}" },
+        new ExamStatItem { Name = "电路已修", Value = $"{circuitCorrect}/{circuitTotal}" },
+        new ExamStatItem { Name = "飞控已验", Value = $"{_fcAnswers.Count}/{fcTotal}" },
+        
+        // 时间统计
+        new ExamStatItem { Name = "答题耗时", Value = duration.ToString(@"mm\:ss") }
+    };
+
             ExamStatListView.ItemsSource = stats;
         }
 
-        // 添加更新统计的方法
+        // 重载方法，保持向后兼容
+        private void ShowExamStats(int total, int correct, int wrong, TimeSpan duration)
+        {
+            // 计算混合试卷的各类题目数量
+            int theoryTotal = _theoryQuestions?.Count ?? 0;
+            int fcTotal = _fcQuestions?.Count ?? 0;
+            int circuitTotal = latestExam?.Questions?.Count(q => !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+
+            ShowExamStats(circuitTotal, theoryTotal, fcTotal, correct, 0, 0, duration);
+        }
+
+        // 增强的UpdateExamStats方法
         private void UpdateExamStats()
         {
-            int totalQuestions = latestExam?.Questions?.Count(q => q.IsChecked) ?? 0;
+            // 电路检测题统计
+            int circuitTotal = latestExam?.Questions?.Count(q => !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+            int circuitCorrect = correctAnswers;
+
+            // 理论题统计
+            int theoryTotal = _theoryQuestions?.Count ?? 0;
+            int theoryAnswered = _theoryAnswers.Count;
+
+            // 飞控实操题统计
+            int fcTotal = _fcQuestions?.Count ?? 0;
+            int fcAnswered = _fcAnswers.Count;
+
             var duration = GetElapsedExamTime();
-            ShowExamStats(totalQuestions, correctAnswers, wrongAnswers, duration);
+
+            // 使用新的统计显示
+            var stats = new List<ExamStatItem>
+    {
+        new ExamStatItem { Name = "理论题", Value = $"{theoryTotal}题" },
+        new ExamStatItem { Name = "电路检测", Value = $"{circuitTotal}题" },
+        new ExamStatItem { Name = "飞控实操", Value = $"{fcTotal}题" },
+        new ExamStatItem { Name = "题目总数", Value = $"{circuitTotal + theoryTotal + fcTotal}题" },
+        new ExamStatItem { Name = "理论已答", Value = $"{theoryAnswered}/{theoryTotal}" },
+        new ExamStatItem { Name = "电路已修", Value = $"{circuitCorrect}/{circuitTotal}" },
+        new ExamStatItem { Name = "飞控已验", Value = $"{fcAnswered}/{fcTotal}" },
+        new ExamStatItem { Name = "答题耗时", Value = duration.ToString(@"hh\:mm\:ss") }
+    };
+
+            ExamStatListView.ItemsSource = stats;
         }
 
         private const int WM_NCLBUTTONDBLCLK = 0x00A3;
