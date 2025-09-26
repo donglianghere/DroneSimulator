@@ -285,7 +285,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="400"/>
+            <ColumnDefinition Width="500"/>
         </Grid.ColumnDefinitions>
 
         <!-- 左侧 TabControl - 包含题库面板 -->
@@ -1262,31 +1262,139 @@
                               Margin="20,0,20,0">
                     <StackPanel>
                         <!-- 教师信息显示区 -->
-                        <GroupBox Header="教师信息" Padding="10" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
+                        <GroupBox Header="试卷信息" Padding="10" Margin="0,0,0,10" Style="{StaticResource ClosedGroupBox}">
                             <StackPanel>
-                                <TextBlock x:Name="TeacherNameText" Text="姓名：" FontSize="20"  FontWeight="Normal"/>
-                                <TextBlock x:Name="TeacherIdText" Text="工号：" FontSize="20" Margin="0,10,0,0"  FontWeight="Normal"/>
+                                <TextBlock x:Name="TeacherNameText" Text="老师姓名：" FontSize="20"  FontWeight="Normal"/>
+                                <TextBlock x:Name="TeacherIdText" Text="老师工号：" FontSize="20" Margin="0,10,0,0"  FontWeight="Normal"/>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 试卷名称标签和输入框水平排列 -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0" 
+                                               Text="试卷名称：" FontSize="20" 
+                                               VerticalAlignment="Center" Margin="0,10,0,5" 
+                                               FontWeight="Normal"/>
+                                    <TextBox x:Name="ExamNameBox" Grid.Row="0" Grid.Column="1" 
+                                               Height="30" Margin="0,10,0,5"/>
+
+                                    <!-- 状态提示与TextBox垂直对齐 -->
+                                    <TextBlock x:Name="ExamNameStatusText" Grid.Row="1" Grid.Column="1" 
+                                                 FontSize="12" Margin="0,10,0,0" 
+                                                 Foreground="Orange" TextWrapping="Wrap"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>                       
+
+                        <!-- 🚀 新增：试卷分数配置 -->
+                        <GroupBox Header="分数配置" Padding="10" Margin="0,0,0,5" Style="{StaticResource ClosedGroupBox}">
+                            <StackPanel>
+                                <!-- 总分设置 -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="试卷总分：" FontSize="16" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TotalScoreTextBox" Grid.Column="1" Height="25" Margin="5,0" 
+                                             FontSize="16" Text="100" TextAlignment="Center"
+                                             TextChanged="TotalScoreTextBox_TextChanged"/>
+                                    <TextBlock Grid.Column="2" Text="分" FontSize="16" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- 分数占比设置 -->
+                                <TextBlock Text="各类题目分数占比：" FontSize="14" FontWeight="Bold" 
+                                            Margin="0,5,0,5" Foreground="#2D3A4A"/>
+
+                                <!-- 理论题占比 -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="理论题：" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TheoryPercentageTextBox" Grid.Column="1" Height="22" 
+                                             FontSize="14" Text="40" TextAlignment="Center"
+                                             TextChanged="PercentageTextBox_TextChanged"/>
+                                    <TextBlock Grid.Column="2" Text="%" FontSize="14" VerticalAlignment="Center" Margin="2,0,5,0"/>
+                                    <TextBlock x:Name="TheoryScoreText" Grid.Column="3" Text="(40分)" FontSize="12" 
+                                                VerticalAlignment="Center" Foreground="#666"/>
+                                    <Slider x:Name="TheoryPercentageSlider" Grid.Column="4" Minimum="0" Maximum="100" 
+                                            Value="40" Margin="5,0,0,0" VerticalAlignment="Center"
+                                            ValueChanged="PercentageSlider_ValueChanged"/>
+                                </Grid>
+
+                                <!-- 电路题占比 -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="电路题：" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="CircuitPercentageTextBox" Grid.Column="1" Height="22" 
+                                             FontSize="14" Text="40" TextAlignment="Center"
+                                             TextChanged="PercentageTextBox_TextChanged"/>
+                                    <TextBlock Grid.Column="2" Text="%" FontSize="14" VerticalAlignment="Center" Margin="2,0,5,0"/>
+                                    <TextBlock x:Name="CircuitScoreText" Grid.Column="3" Text="(40分)" FontSize="12" 
+                                                VerticalAlignment="Center" Foreground="#666"/>
+                                    <Slider x:Name="CircuitPercentageSlider" Grid.Column="4" Minimum="0" Maximum="100" 
+                                            Value="40" Margin="5,0,0,0" VerticalAlignment="Center"
+                                            ValueChanged="PercentageSlider_ValueChanged"/>
+                                </Grid>
+
+                                <!-- 飞控题占比 -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="60"/>
+                                        <ColumnDefinition Width="30"/>
+                                        <ColumnDefinition Width="50"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="飞控题：" FontSize="14" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="FCPercentageTextBox" Grid.Column="1" Height="22" 
+                                             FontSize="14" Text="20" TextAlignment="Center"
+                                             TextChanged="PercentageTextBox_TextChanged"/>
+                                    <TextBlock Grid.Column="2" Text="%" FontSize="14" VerticalAlignment="Center" Margin="2,0,5,0"/>
+                                    <TextBlock x:Name="FCScoreText" Grid.Column="3" Text="(20分)" FontSize="12" 
+                                                VerticalAlignment="Center" Foreground="#666"/>
+                                    <Slider x:Name="FCPercentageSlider" Grid.Column="4" Minimum="0" Maximum="100" 
+                                            Value="20" Margin="5,0,0,0" VerticalAlignment="Center"
+                                            ValueChanged="PercentageSlider_ValueChanged"/>
+                                </Grid>
+
+                                <!-- 分数配置操作按钮 -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                                    <Button x:Name="RecommendScoreButton" Content="智能推荐" Width="80" Height="25"
+                                            Background="#4CAF50" Foreground="White" FontSize="12" 
+                                            Click="RecommendScore_Click" ToolTip="根据题目数量智能推荐分数占比"/>
+                                    <Button x:Name="ResetScoreButton" Content="重置" Width="60" Height="25" Margin="10,0,0,0"
+                                            Background="#FF9800" Foreground="White" FontSize="12" 
+                                            Click="ResetScore_Click" ToolTip="重置为默认分数配置"/>
+                                    <Button x:Name="EqualScoreButton" Content="平均分配" Width="80" Height="25" Margin="10,0,0,0"
+                                            Background="#2196F3" Foreground="White" FontSize="12" 
+                                            Click="EqualScore_Click" ToolTip="平均分配各类题目分数"/>
+                                </StackPanel>
+
+                                <!-- 分数配置状态提示 -->
+                                <TextBlock x:Name="ScoreConfigStatusText" FontSize="11" Margin="0,5,0,0" 
+                                           TextAlignment="Center" Foreground="#666" TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
-
-                        <!-- 试卷名称输入 -->
-                        <GroupBox Header="试卷信息" Padding="10" Margin="0,0,0,5" Style="{StaticResource ClosedGroupBox}">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="试卷名称：" FontSize="20" Margin="0,0,0,5"  FontWeight="Normal"/>
-                                <TextBox x:Name="ExamNameBox" Grid.Row="1" Height="30"/>
-
-                                <!-- 添加状态提示 -->
-                                <TextBlock x:Name="ExamNameStatusText" Grid.Row="2" 
-                                           FontSize="12" Margin="0,2,0,0" 
-                                           Foreground="Orange" TextWrapping="Wrap"/>
-                            </Grid>
-                        </GroupBox>
-
+                        
                         <!-- 试卷列表 -->
                         <GroupBox Header="试卷列表" Padding="5" Margin="0,2,0,2" FontSize="13" Style="{StaticResource ClosedGroupBox}">
                             <StackPanel>

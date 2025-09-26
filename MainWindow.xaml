@@ -15,7 +15,7 @@
         Topmost="True"
         Icon="/Resources/drone-icon.png">
     <!-- 资源定义 -->
-    <Window.Resources>        
+    <Window.Resources>
         <DropShadowEffect x:Key="DropShadowEffect" 
                           ShadowDepth="5" BlurRadius="10" 
                           Color="Black" Opacity="0.3"/>
@@ -118,12 +118,14 @@
         <!-- 主要内容区域 -->
         <Grid Grid.Row="1" Margin="5,5,5,5" Grid.RowSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="350"/>
+                <ColumnDefinition Width="1518*"/>
+                <ColumnDefinition Width="43*"/>
+                <ColumnDefinition Width="5.5"/>
+                <ColumnDefinition Width="380"/>
             </Grid.ColumnDefinitions>
 
             <!-- 左侧 - TabControl -->
-            <TabControl x:Name="MainTabControl" Grid.Column="0" Margin="0">
+            <TabControl x:Name="MainTabControl" Grid.Column="0" Grid.ColumnSpan="2">
 
                 <!-- 🚀 新增：答题须知页面 -->
                 <TabItem Header="答题须知" x:Name="InstructionsTab"
@@ -138,87 +140,180 @@
 
                             <!-- 答题须知内容 -->
                             <Border Background="#F8F9FA" CornerRadius="10" Padding="20" 
-                    Margin="0,0,0,20" BorderBrush="#2D3A4A" BorderThickness="2"
-                    Effect="{StaticResource DropShadowEffect}">
+                                    Margin="0,0,0,20" BorderBrush="#2D3A4A" BorderThickness="2"
+                                    Effect="{StaticResource DropShadowEffect}">
                                 <StackPanel>
                                     <TextBlock Text="考试重要说明" FontSize="20" FontWeight="Bold" 
-                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
+                                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
 
                                     <StackPanel>
                                         <Border Background="#FFE6E6" CornerRadius="8" Padding="15" Margin="0,0,0,15"
-                                BorderBrush="#FF4444" BorderThickness="2">
+                                                BorderBrush="#FF4444" BorderThickness="2">
                                             <StackPanel>
                                                 <TextBlock Text="⚠️ 特别提醒" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#CC0000" Margin="0,0,0,10"/>
+                                                           Foreground="#CC0000" Margin="0,0,0,10"/>
                                                 <TextBlock Text="考生须仔细核实考试信息，如身份是否相符，考试设备是否正常连接，试卷是否已经载入。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#CC0000"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#CC0000"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Background="#E8F4FD" CornerRadius="8" Padding="15" Margin="0,0,0,10"
+                                                BorderBrush="#1976D2" BorderThickness="2">
+                                            <StackPanel>
+                                                <TextBlock Text="💯 试卷分值分配" FontSize="16" FontWeight="Bold" 
+                                                           Foreground="#1565C0" Margin="0,0,0,8"/>
+
+                                                <TextBlock Text="本考试系统采用智能分值分配机制，确保各类题目得到合理的分数权重：" 
+                                                           TextWrapping="Wrap" FontSize="14" Margin="0,2,0,8"
+                                                           Foreground="#1565C0"/>
+
+                                                <!-- 分值分配详细说明 -->
+                                                <StackPanel Margin="10,0,0,0">
+                                                    <TextBlock Text="📚 理论题目：通常占总分的 40%，考核理论知识掌握程度" 
+                                                               TextWrapping="Wrap" FontSize="13" Margin="0,2"
+                                                               Foreground="#1976D2"/>
+                                                    <TextBlock Text="🔧 电路检测：通常占总分的 40%，考核硬件故障排除能力" 
+                                                               TextWrapping="Wrap" FontSize="13" Margin="0,2"
+                                                               Foreground="#1976D2"/>
+                                                    <TextBlock Text="🎮 飞控实操：通常占总分的 20%，考核参数配置实践能力" 
+                                                               TextWrapping="Wrap" FontSize="13" Margin="0,2"
+                                                               Foreground="#1976D2"/>
+                                                </StackPanel>
+
+                                                <TextBlock Text="注意：具体分值比例由出题教师设定，可在右侧答题面板查看详细得分情况。" 
+                                                           TextWrapping="Wrap" FontSize="13" Margin="0,8,0,0"
+                                                           Foreground="#0D47A1" FontWeight="Bold"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#E8F5E8" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#4CAF50" BorderThickness="1">
+                                                BorderBrush="#4CAF50" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="📋 理论试卷" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#2E7D32" Margin="0,0,0,5"/>
+                                                           Foreground="#2E7D32" Margin="0,0,0,5"/>
                                                 <TextBlock Text="选择正确答案，单选题只能选择一个选项，多选题可以选择多个选项。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#2E7D32"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#2E7D32"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#E3F2FD" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#2196F3" BorderThickness="1">
+                                                BorderBrush="#2196F3" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="🔧 电路检测" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#1976D2" Margin="0,0,0,5"/>
+                                                           Foreground="#1976D2" Margin="0,0,0,5"/>
                                                 <TextBlock Text="检查各元器件连接情况，对中断的连接点击“修复”按钮。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#1976D2"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#1976D2"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#FFF3E0" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#FF9800" BorderThickness="1">
+                                                BorderBrush="#FF9800" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="🎮 飞控实操" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#F57C00" Margin="0,0,0,5"/>
+                                                           Foreground="#F57C00" Margin="0,0,0,5"/>
                                                 <TextBlock Text="根据题目要求设置参数值，点击“验证”按钮确认。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#F57C00"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#F57C00"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#F3E5F5" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#9C27B0" BorderThickness="1">
+                                                BorderBrush="#9C27B0" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="📝 答题规则" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#7B1FA2" Margin="0,0,0,5"/>
+                                                           Foreground="#7B1FA2" Margin="0,0,0,5"/>
                                                 <TextBlock Text="每处连接最多只能进行一次修复操作，修复后按钮变色表示已作答。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#7B1FA2"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#7B1FA2"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#E8F5E8" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#4CAF50" BorderThickness="1">
+                                                BorderBrush="#4CAF50" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="🖱️ 操作提示" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#2E7D32" Margin="0,0,0,5"/>
+                                                           Foreground="#2E7D32" Margin="0,0,0,5"/>
                                                 <TextBlock Text="无法看见的答题区域，可使用滚动条或按住“Ctrl”键+鼠标滚轮进行缩放。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#2E7D32"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#2E7D32"/>
                                             </StackPanel>
                                         </Border>
 
                                         <Border Background="#FFEBEE" CornerRadius="8" Padding="15" Margin="0,0,0,10"
-                                BorderBrush="#F44336" BorderThickness="1">
+                                                BorderBrush="#F44336" BorderThickness="1">
                                             <StackPanel>
                                                 <TextBlock Text="✅ 提交考试" FontSize="16" FontWeight="Bold" 
-                                           Foreground="#F32F2F" Margin="0,0,0,5"/>
+                                                           Foreground="#F32F2F" Margin="0,0,0,5"/>
                                                 <TextBlock Text="所有题目完成后请点击“提交”按钮交卷，然后点击“退出”按钮结束测试。" 
-                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
-                                           Foreground="#332F2F"/>
+                                                           TextWrapping="Wrap" FontSize="15" Margin="0,2"
+                                                           Foreground="#332F2F"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 🚀 新增：分数计算规则详细说明 -->
+                                        <Border Background="White" CornerRadius="10" Padding="20" 
+Margin="0,0,0,20" BorderBrush="#E0E7F0" BorderThickness="2"
+Effect="{StaticResource DropShadowEffect}">
+                                            <StackPanel>
+                                                <TextBlock Text="📊 分数计算规则" FontSize="18" FontWeight="Bold" 
+           Foreground="#2D3A4A" Margin="0,0,0,15"/>
+
+                                                <StackPanel>
+                                                    <TextBlock Text="为确保考试评分的公平性和科学性，系统采用以下分数计算方法：" 
+               FontSize="14" Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                                    <!-- 理论题目计分规则 -->
+                                                    <Border Background="#F0F8FF" CornerRadius="6" Padding="12" Margin="0,5">
+                                                        <StackPanel>
+                                                            <TextBlock Text="📚 理论题目计分规则" FontSize="15" FontWeight="Bold" 
+                       Foreground="#1E88E5" Margin="0,0,0,8"/>
+                                                            <TextBlock Text="1. 原始得分 = Σ(答对题目的分值)" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="2. 得分率 = 原始得分 ÷ 理论题目总分值" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="3. 最终得分 = 理论题权重分值 × 得分率" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="例如：理论题总分60分，答对40分，权重占40%，则得分 = 40 × (40÷60) = 26.67分" 
+                       FontSize="12" Margin="8,5,0,0" Foreground="#666" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- 电路检测计分规则 -->
+                                                    <Border Background="#F0FFF0" CornerRadius="6" Padding="12" Margin="0,5">
+                                                        <StackPanel>
+                                                            <TextBlock Text="🔧 电路检测计分规则" FontSize="15" FontWeight="Bold" 
+                       Foreground="#4CAF50" Margin="0,0,0,8"/>
+                                                            <TextBlock Text="1. 得分率 = 正确修复题目数 ÷ 电路题目总数" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="2. 最终得分 = 电路题权重分值 × 得分率" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="例如：共20道电路题，答对16道，权重占40%，则得分 = 40 × (16÷20) = 32分" 
+                       FontSize="12" Margin="8,5,0,0" Foreground="#666" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- 飞控实操计分规则 -->
+                                                    <Border Background="#FFF8E1" CornerRadius="6" Padding="12" Margin="0,5">
+                                                        <StackPanel>
+                                                            <TextBlock Text="🎮 飞控实操计分规则" FontSize="15" FontWeight="Bold" 
+                       Foreground="#F57C00" Margin="0,0,0,8"/>
+                                                            <TextBlock Text="1. 得分率 = 验证通过题目数 ÷ 飞控题目总数" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="2. 最终得分 = 飞控题权重分值 × 得分率" FontSize="13" Margin="8,2"/>
+                                                            <TextBlock Text="⚠️ 当前版本：飞控实操题目暂不计入总分，权重为0%" 
+                       FontSize="12" Margin="8,5,0,0" Foreground="#E65100" FontWeight="Bold"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- 总分计算 -->
+                                                    <Border Background="#F3E5F5" CornerRadius="6" Padding="12" Margin="0,10,0,5">
+                                                        <StackPanel>
+                                                            <TextBlock Text="💯 总分计算公式" FontSize="15" FontWeight="Bold" 
+                                                                        Foreground="#7B1FA2" Margin="0,0,0,8"/>
+                                                            <TextBlock Text="考试总分 = 理论题得分 + 电路题得分 + 飞控题得分" 
+                                                                        FontSize="14" Margin="8,2" FontWeight="Bold"/>
+                                                            <TextBlock Text="满分：100分（各类题目权重之和为100%）" 
+                                                                        FontSize="13" Margin="8,5,0,0" Foreground="#666"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -227,54 +322,64 @@
 
                             <!-- 考试注意事项 -->
                             <Border Background="White" CornerRadius="10" Padding="20" 
-                    Margin="0,0,0,20" BorderBrush="#E0E7F0" BorderThickness="2"
-                    Effect="{StaticResource DropShadowEffect}">
+                                    Margin="0,0,0,20" BorderBrush="#E0E7F0" BorderThickness="2"
+                                    Effect="{StaticResource DropShadowEffect}">
                                 <StackPanel>
                                     <TextBlock Text="📌 考试注意事项" FontSize="18" FontWeight="Bold" 
-                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
+                                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
 
                                     <StackPanel>
                                         <TextBlock Text="• 考试时间有限，请合理分配时间完成各个部分。" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
                                         <TextBlock Text="• 理论试卷和电路检测题目可以反复修改，飞控实操题目验证后不可更改。" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
                                         <TextBlock Text="• 请确保在稳定的网络环境下进行考试，避免数据丢失。" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
                                         <TextBlock Text="• 考试过程中如遇技术问题，请及时联系监考老师。" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
                                         <TextBlock Text="• 考试结束前请务必点击“提交”按钮，否则成绩无效。" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap" 
-                                   Foreground="#D32F2F" FontWeight="Bold"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap" 
+                                                   Foreground="#D32F2F" FontWeight="Bold"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
 
                             <!-- 技术支持信息 -->
                             <Border Background="White" CornerRadius="10" Padding="20" 
-                    BorderBrush="#E0E7F0" BorderThickness="2"
-                    Effect="{StaticResource DropShadowEffect}">
+                                    BorderBrush="#E0E7F0" BorderThickness="2"
+                                    Effect="{StaticResource DropShadowEffect}">
                                 <StackPanel>
                                     <TextBlock Text="🛠️ 技术支持" FontSize="18" FontWeight="Bold" 
-                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
+                                               Foreground="#2D3A4A" Margin="0,0,0,15"/>
 
                                     <StackPanel>
                                         <TextBlock Text="如果在考试过程中遇到技术问题，请按以下步骤操作：" 
-                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
+                                                   FontSize="14" Margin="0,5" TextWrapping="Wrap"/>
                                         <TextBlock Text="1. 检查网络连接是否正常" 
-                                   FontSize="14" Margin="20,5,0,5"/>
+                                                   FontSize="14" Margin="20,5,0,5"/>
                                         <TextBlock Text="2. 确认设备连接状态" 
-                                   FontSize="14" Margin="20,5,0,5"/>
+                                                    FontSize="14" Margin="20,5,0,5"/>
                                         <TextBlock Text="3. 重新启动软件（如必要）" 
-                                   FontSize="14" Margin="20,5,0,5"/>
+                                                    FontSize="14" Margin="20,5,0,5"/>
                                         <TextBlock Text="4. 联系现场技术支持人员" 
-                                   FontSize="14" Margin="20,5,0,5"/>
+                                                    FontSize="14" Margin="20,5,0,5"/>
+                                        <!-- 🚀 新增：分数计算问题支持 -->
+                                        <TextBlock Text="关于分数计算的疑问：" 
+                                                   FontSize="14" Margin="0,10,0,5" FontWeight="Bold" 
+                                                   Foreground="#2D3A4A"/>
+                                        <TextBlock Text="• 可随时查看右侧答题面板的实时得分统计" 
+                                                   FontSize="14" Margin="20,2,0,2"/>
+                                        <TextBlock Text="• 分数计算采用权重分配机制，确保评分公平" 
+                                                   FontSize="14" Margin="20,2,0,2"/>
+                                        <TextBlock Text="• 如对分数有疑问，可在考试结束后联系教师查询" 
+                                                   FontSize="14" Margin="20,2,0,2"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
-                
+
                 <!-- 理论试卷页面 -->
                 <TabItem Header="理论试卷" x:Name="TheoryTab"
                          FontSize="16" FontWeight="Bold" FontFamily="Microsoft YaHei"
@@ -283,19 +388,19 @@
                     <ScrollViewer x:Name="TheoryScrollViewer" VerticalScrollBarVisibility="Auto" Margin="10">
                         <StackPanel x:Name="TheoryQuestionsPanel" Margin="20">
                             <TextBlock Text="理论试卷" FontSize="28" FontWeight="Bold" 
-                      HorizontalAlignment="Center" Margin="0,0,0,10" 
-                      Foreground="#2D3A4A"/>
+                                          HorizontalAlignment="Center" Margin="0,0,0,10" 
+                                          Foreground="#2D3A4A"/>
 
                             <!-- 🚀 新增：题目总数显示 -->
                             <TextBlock x:Name="TheoryQuestionsCountText" 
-                      Text="共 0 道题目" 
-                      FontSize="16" FontWeight="Medium"
-                      HorizontalAlignment="Center" Margin="0,0,0,20" 
-                      Foreground="#4A90E2"/>
+                                      Text="共 0 道题目" 
+                                      FontSize="16" FontWeight="Medium"
+                                      HorizontalAlignment="Center" Margin="0,0,0,20" 
+                                      Foreground="#4A90E2"/>
 
                             <TextBlock Text="请仔细阅读题目，选择正确答案。单选题只能选择一个选项，多选题可以选择多个选项。" 
-                      FontSize="16" Margin="0,0,0,20" 
-                      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
+                                      FontSize="16" Margin="0,0,0,20" 
+                                      Foreground="DarkSlateGray" TextWrapping="Wrap"/>
 
                             <!-- 🔧 修改：双列布局显示理论题目 -->
                             <ItemsControl x:Name="TheoryQuestionsList">
@@ -309,15 +414,15 @@
                                     <DataTemplate>
                                         <!-- 每个题目的容器 -->
                                         <Border Background="White" CornerRadius="10" Margin="10" 
-               Padding="20" BorderBrush="#E0E7F0" BorderThickness="2"
-               MinHeight="250" MaxWidth="600"
-               Effect="{StaticResource DropShadowEffect}">
+                                                   Padding="20" BorderBrush="#E0E7F0" BorderThickness="2"
+                                                   MinHeight="250" MaxWidth="600"
+                                                   Effect="{StaticResource DropShadowEffect}">
                                             <StackPanel>
                                                 <!-- 🚀 修改：题目标题：序号 + ID + 题型 -->
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                                                     <!-- 🚀 新增：题目序号 -->
                                                     <Border Background="#FF6B35" CornerRadius="15" 
-                           Padding="8,4" Margin="0,0,10,0">
+                                                            Padding="8,4" Margin="0,0,10,0">
                                                         <TextBlock Text="{Binding QuestionNumber, StringFormat='第{0}题'}" 
                                   FontSize="12" FontWeight="Bold" 
                                   Foreground="White"/>
@@ -1037,8 +1142,8 @@
             </TabControl>
 
             <!-- 右侧 - 控制面板 -->
-            <Border Grid.Column="1" Background="White" CornerRadius="15" 
-                    Margin="20,20,20,0" Padding="10"
+            <Border Grid.Column="3" Background="White" CornerRadius="15" 
+                    Margin="14,20,20,0" Padding="10"
                     Effect="{StaticResource DropShadowEffect}">
                 <DockPanel>
                     <!-- 顶部标题固定 -->
@@ -1059,7 +1164,7 @@
 
                     <!-- 中间内容区域可滚动 -->
                     <ScrollViewer VerticalScrollBarVisibility="Auto" >
-                        <StackPanel>                              
+                        <StackPanel>
                             <StackPanel>
                                 <TextBlock x:Name="LoadingProgressText"
                                            Text="正在加载试题和初始化设备，请稍候..."
@@ -1085,12 +1190,48 @@
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
                                     <TextBlock x:Name="ExamTeacherText" Text="出题老师：" 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
+
                                     <TextBlock x:Name="ExamMachineText" Text="考试设备：正在初始化试题！" 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
                                     <TextBlock x:Name="RepairPortStatusText" Text="检修端口：正在检测..." 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
                                     <TextBlock x:Name="ExamScoreText" Text="考试得分：" 
                                                FontSize="16" FontWeight="Normal" Margin="0,4"/>
+                                    <!-- 🚀 新增：试卷分值配置信息显示 -->
+                                    <Border Background="#F0F8FF" CornerRadius="5" Padding="8" Margin="0,8,0,4"
+        BorderBrush="#4A90E2" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock Text="💯 分值配置" FontSize="14" FontWeight="Bold" 
+                   Foreground="#2D3A4A" Margin="0,0,0,4"/>
+
+                                            <TextBlock x:Name="ExamTotalScoreText" Text="试卷总分：100分" 
+                   FontSize="14" FontWeight="Medium" 
+                   Foreground="#1976D2" Margin="0,2"/>
+
+                                            <Grid Margin="0,2,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- 左列：理论题和电路题 -->
+                                                <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                                    <TextBlock x:Name="TheoryScoreConfigText" Text="📚 理论题：40%(40分)" 
+                                                               FontSize="13" Foreground="#2E7D32" Margin="0,1"/>
+                                                    <TextBlock x:Name="CircuitScoreConfigText" Text="🔧 电路题：40%(40分)" 
+                                                               FontSize="13" Foreground="#1976D2" Margin="0,1"/>
+                                                </StackPanel>
+
+                                                <!-- 右列：飞控题 -->
+                                                <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                                    <TextBlock x:Name="FCScoreConfigText" Text="🎮 飞控题：20%(20分)" 
+                                                               FontSize="13" Foreground="#F57C00" Margin="0,1"/>
+                                                    <TextBlock x:Name="ScoreConfigStatusText" Text="✅ 配置有效" 
+                                                               FontSize="12" Foreground="#4CAF50" Margin="0,1"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                     <ListView x:Name="ExamStatListView" Margin="0,8,0,0" 
                                                Height="363" BorderThickness="1">
                                         <ListView.View>

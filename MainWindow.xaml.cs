@@ -30,7 +30,10 @@ namespace DroneSimulator
         private Dictionary<string, string> _fcAnswers = new Dictionary<string, string>();
         private List<TheoryQuestion> _theoryQuestions = new List<TheoryQuestion>();
         private List<FlightControlQuestion> _fcQuestions = new List<FlightControlQuestion>();
-               
+
+        // 在 MainWindow 类中添加新的字段来存储试卷分数配置
+        private ExamScoreConfig _currentExamScoreConfig = new ExamScoreConfig();
+        private MixedExamData _currentMixedExam;
 
         // ========== 使用 FcuOperate 提供的 ParameterService 重写电机测试 ==========
         private ParameterService? _fcService;
@@ -319,27 +322,29 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 验证飞控答案按钮点击事件
+        /// 🚀 修改：飞控实操验证，提交后禁止操作
         /// </summary>
         private async void VerifyFCAnswer_Click(object sender, RoutedEventArgs e)
         {
+            // 如果考试已提交，禁止继续答题
+            if (isExamSubmitted)
+            {
+                MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (sender is Button btn && btn.Tag is FlightControlQuestion question)
             {
-                // 如果考试已提交，禁止继续答题
-                if (isExamSubmitted)
-                {
-                    MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
                 btn.IsEnabled = false;
                 btn.Content = "验证中...";
 
                 try
                 {
                     // 查找同一行的输入框
-                    var parent = btn.Parent as Grid;
-                    var textBox = parent?.Children.OfType<TextBox>().FirstOrDefault();
+                    var parent = btn.Parent as StackPanel;
+                    var inputStackPanel = parent?.Children.OfType<StackPanel>()
+                        .FirstOrDefault(sp => sp.Children.OfType<TextBox>().Any());
+                    var textBox = inputStackPanel?.Children.OfType<TextBox>().FirstOrDefault();
 
                     if (textBox == null)
                     {
@@ -374,7 +379,7 @@ namespace DroneSimulator
                         btn.Content = "验证失败";
                     }
 
-                    // 更新统计
+                    // 更新统计（不包含实时得分）
                     UpdateExamStats();
                 }
                 catch (Exception ex)
@@ -392,12 +397,76 @@ namespace DroneSimulator
             }
         }
 
-        // ========== 修改：增强的加载混合试卷到UI的方法 ==========
+        /// <summary>
+        /// 🚀 新增：禁用所有理论题选项按钮
+        /// </summary>
+        private void DisableAllTheoryOptions()
+        {
+            try
+            {
+                var toggleButtons = new List<ToggleButton>();
+                FindVisualChildren<ToggleButton>(TheoryQuestionsPanel, toggleButtons);
+
+                foreach (var toggleButton in toggleButtons)
+                {
+                    toggleButton.IsEnabled = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"禁用理论题选项失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：禁用所有飞控实操输入框和验证按钮
+        /// </summary>
+        private void DisableAllFCControls()
+        {
+            try
+            {
+                var textBoxes = new List<TextBox>();
+                var buttons = new List<Button>();
+
+                FindVisualChildren<TextBox>(FCQuestionsPanel, textBoxes);
+                FindVisualChildren<Button>(FCQuestionsPanel, buttons);
+
+                foreach (var textBox in textBoxes)
+                {
+                    if (textBox.Name == "ParameterValueTextBox" || textBox.Tag != null)
+                    {
+                        textBox.IsEnabled = false;
+                    }
+                }
+
+                foreach (var button in buttons)
+                {
+                    if (button.Content?.ToString() == "验证" || button.Content?.ToString() == "验证中..." ||
+                        button.Content?.ToString() == "验证通过" || button.Content?.ToString() == "验证失败")
+                    {
+                        button.IsEnabled = false;
+                        button.Background = new SolidColorBrush(Colors.Gray);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"禁用飞控控件失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：LoadMixedExamToUI中也调用隐藏零分值页面
+        /// </summary>
         private async Task LoadMixedExamToUI(MixedExamData mixedExam)
         {
             try
             {
                 Debug.WriteLine("开始加载混合试卷到UI...");
+
+                // 🚀 新增：保存试卷分数配置
+                _currentMixedExam = mixedExam;
+                _currentExamScoreConfig = mixedExam.ScoreConfig ?? new ExamScoreConfig();
 
                 // 🔧 修复：理论题目加载逻辑
                 if (mixedExam.Content.TheoryQuestions.Any())
@@ -505,6 +574,12 @@ namespace DroneSimulator
                     await Dispatcher.InvokeAsync(() => LoadFCQuestionsToUI(_fcQuestions));
                 }
 
+                // 🚀 新增：在UI线程上调用隐藏零分值页面
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    HideZeroScoreTabPages();
+                });
+
                 Debug.WriteLine($"混合试卷加载完成：理论题 {_theoryQuestions.Count} 道，飞控题 {_fcQuestions.Count} 道");
             }
             catch (Exception ex)
@@ -517,6 +592,681 @@ namespace DroneSimulator
             }
         }
 
+        /// <summary>
+        /// 🚀 新增：调试方法，显示当前分数配置
+        /// </summary>
+        private void DebugScoreConfiguration()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 当前分数配置调试信息 ===");
+                if (_currentExamScoreConfig != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"总分: {_currentExamScoreConfig.TotalScore}");
+                    System.Diagnostics.Debug.WriteLine($"理论题: {_currentExamScoreConfig.TheoryPercentage}% ({_currentExamScoreConfig.TheoryScore}分)");
+                    System.Diagnostics.Debug.WriteLine($"电路题: {_currentExamScoreConfig.CircuitPercentage}% ({_currentExamScoreConfig.CircuitScore}分)");
+                    System.Diagnostics.Debug.WriteLine($"飞控题: {_currentExamScoreConfig.FCPercentage}% ({_currentExamScoreConfig.FCScore}分)");
+                    System.Diagnostics.Debug.WriteLine($"配置是否有效: {_currentExamScoreConfig.IsValid}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("分数配置为null，使用默认配置");
+                }
+                System.Diagnostics.Debug.WriteLine("================================");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"调试分数配置失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：根据分数配置隐藏分值为零的标签页
+        /// </summary>
+        private void HideZeroScoreTabPages()
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("=== 开始检查并隐藏零分值页面 ===");
+
+                if (_currentExamScoreConfig == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("⚠️ 分数配置为空，使用默认显示");
+                    return;
+                }
+
+                // 检查理论题标签页
+                if (_currentExamScoreConfig.TheoryScore == 0 || _currentExamScoreConfig.TheoryPercentage == 0)
+                {
+                    HideTabItemByHeader("理论题");
+                    System.Diagnostics.Debug.WriteLine($"✅ 理论题标签页已隐藏 (分值: {_currentExamScoreConfig.TheoryScore}分, 占比: {_currentExamScoreConfig.TheoryPercentage}%)");
+                }
+
+                // 检查电路检测标签页
+                if (_currentExamScoreConfig.CircuitScore == 0 || _currentExamScoreConfig.CircuitPercentage == 0)
+                {
+                    HideTabItemByHeader("电路检测");
+                    System.Diagnostics.Debug.WriteLine($"✅ 电路检测标签页已隐藏 (分值: {_currentExamScoreConfig.CircuitScore}分, 占比: {_currentExamScoreConfig.CircuitPercentage}%)");
+                }
+
+                // 检查飞控实操标签页
+                if (_currentExamScoreConfig.FCScore == 0 || _currentExamScoreConfig.FCPercentage == 0)
+                {
+                    HideTabItemByHeader("飞控实操");
+                    System.Diagnostics.Debug.WriteLine($"✅ 飞控实操标签页已隐藏 (分值: {_currentExamScoreConfig.FCScore}分, 占比: {_currentExamScoreConfig.FCPercentage}%)");
+                }
+
+                System.Diagnostics.Debug.WriteLine("=== 零分值页面隐藏检查完成 ===");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"隐藏零分值页面失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：根据标题隐藏标签页的辅助方法
+        /// </summary>
+        private void HideTabItemByHeader(string headerText)
+        {
+            try
+            {
+                // 查找主标签控件
+                var mainTabControl = FindName("MainTabControl") as TabControl;
+                if (mainTabControl == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("⚠️ 未找到MainTabControl");
+                    return;
+                }
+
+                // 查找匹配的标签页
+                TabItem? targetTab = null;
+                foreach (TabItem tabItem in mainTabControl.Items)
+                {
+                    string tabHeader = tabItem.Header?.ToString() ?? "";
+
+                    // 检查多种可能的标题匹配
+                    if (tabHeader.Contains(headerText) ||
+                        (headerText == "理论题" && tabHeader.Contains("理论")) ||
+                        (headerText == "电路检测" && (tabHeader.Contains("电路") || tabHeader.Contains("检测"))) ||
+                        (headerText == "飞控实操" && (tabHeader.Contains("飞控") || tabHeader.Contains("实操"))))
+                    {
+                        targetTab = tabItem;
+                        break;
+                    }
+                }
+
+                if (targetTab != null)
+                {
+                    targetTab.Visibility = Visibility.Collapsed;
+                    System.Diagnostics.Debug.WriteLine($"✅ 成功隐藏标签页: {targetTab.Header}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"⚠️ 未找到匹配的标签页: {headerText}");
+
+                    // 调试：列出所有可用的标签页
+                    System.Diagnostics.Debug.WriteLine("📋 所有可用标签页:");
+                    foreach (TabItem tabItem in mainTabControl.Items)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  - {tabItem.Header}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"隐藏标签页失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：显示所有标签页（重置用）
+        /// </summary>
+        private void ShowAllTabPages()
+        {
+            try
+            {
+                var mainTabControl = FindName("MainTabControl") as TabControl;
+                if (mainTabControl == null) return;
+
+                foreach (TabItem tabItem in mainTabControl.Items)
+                {
+                    tabItem.Visibility = Visibility.Visible;
+                }
+
+                System.Diagnostics.Debug.WriteLine("✅ 所有标签页已显示");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"显示所有标签页失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：计算理论试卷得分
+        /// </summary>
+        private double CalculateTheoryScore()
+        {
+            try
+            {
+                if (_theoryQuestions == null || !_theoryQuestions.Any())
+                    return 0.0;
+
+                double totalScore = 0.0;
+                double maxPossibleScore = 0.0;
+
+                foreach (var question in _theoryQuestions)
+                {
+                    maxPossibleScore += question.Points;
+
+                    // 检查学生是否作答
+                    if (!_theoryAnswers.ContainsKey(question.Id) || string.IsNullOrWhiteSpace(_theoryAnswers[question.Id]))
+                    {
+                        // 未作答，得0分
+                        continue;
+                    }
+
+                    string studentAnswer = _theoryAnswers[question.Id];
+                    List<string> studentSelectedOptions = studentAnswer.Split(';', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+                    // 判断答案是否正确
+                    bool isCorrect = IsTheoryAnswerCorrect(question, studentSelectedOptions);
+
+                    if (isCorrect)
+                    {
+                        totalScore += question.Points;
+                        System.Diagnostics.Debug.WriteLine($"题目 {question.Id} 答对了，得分：{question.Points}");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"题目 {question.Id} 答错了，得分：0");
+                    }
+                }
+
+                // 计算得分率
+                double scoreRate = maxPossibleScore > 0 ? totalScore / maxPossibleScore : 0.0;
+
+                System.Diagnostics.Debug.WriteLine($"理论试卷原始得分：{totalScore}/{maxPossibleScore}，得分率：{scoreRate:P2}");
+
+                return scoreRate;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"计算理论试卷得分失败：{ex.Message}");
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：判断理论题答案是否正确
+        /// </summary>
+        private bool IsTheoryAnswerCorrect(TheoryQuestion question, List<string> studentSelectedOptions)
+        {
+            try
+            {
+                // 获取正确答案列表
+                var correctAnswers = question.CorrectAnswers ?? new List<string>();
+
+                if (question.Type == TheoryQuestionType.SingleChoice)
+                {
+                    // 单选题：只能选择一个选项，且必须正确
+                    if (studentSelectedOptions.Count != 1)
+                        return false;
+
+                    return correctAnswers.Contains(studentSelectedOptions[0]);
+                }
+                else if (question.Type == TheoryQuestionType.MultipleChoice)
+                {
+                    // 多选题：选择的选项必须与正确答案完全匹配
+                    if (studentSelectedOptions.Count != correctAnswers.Count)
+                        return false;
+
+                    // 检查每个选中的选项是否都在正确答案中
+                    foreach (var selected in studentSelectedOptions)
+                    {
+                        if (!correctAnswers.Contains(selected))
+                            return false;
+                    }
+
+                    // 检查每个正确答案是否都被选中
+                    foreach (var correct in correctAnswers)
+                    {
+                        if (!studentSelectedOptions.Contains(correct))
+                            return false;
+                    }
+
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"判断理论题答案失败：{ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 修改：电路题数量只计算被勾选的题目
+        /// </summary>
+        private double CalculateCircuitScore()
+        {
+            try
+            {
+                // 🔧 修改：只计算被勾选的电路题数量
+                int circuitTotal = latestExam?.Questions?.Count(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+
+                if (circuitTotal == 0)
+                    return 0.0;
+
+                // 电路题得分率 = 正确修复数 / 被勾选的题数
+                double scoreRate = (double)correctAnswers / circuitTotal;
+
+                System.Diagnostics.Debug.WriteLine($"电路检测得分：{correctAnswers}/{circuitTotal}，得分率：{scoreRate:P2}");
+
+                return Math.Max(0.0, scoreRate); // 确保得分率不为负数
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"计算电路检测得分失败：{ex.Message}");
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 修改：根据分值配置计算总分，使用扣分机制
+        /// </summary>
+        private int CalculateExamScore()
+        {
+            // 🔧 修改：只有在考试提交后才计算分数
+            if (!isExamSubmitted)
+            {
+                return 0; // 考试未提交时返回0分，不显示实时得分
+            }
+
+            try
+            {
+                // 计算理论试卷得分率
+                double theoryScoreRate = CalculateTheoryScore();
+
+                // 🚀 重要修改：使用包含扣分机制的电路检测得分计算
+                double circuitScoreRate = CalculateCircuitScoreWithPenalty();
+
+                // 根据分值配置计算各部分得分
+                double theoryScore = _currentExamScoreConfig.TheoryScore * theoryScoreRate;
+                double circuitScore = _currentExamScoreConfig.CircuitScore * circuitScoreRate;
+
+                // 🚀 暂时不计算飞控实操分数
+                double fcScore = 0.0; // _currentExamScoreConfig.FCScore * fcScoreRate;
+
+                // 计算总分
+                double totalScore = theoryScore + circuitScore + fcScore;
+
+                // 更新分数显示
+                var theoryScoreInt = (int)Math.Round(theoryScore);
+                var circuitScoreInt = (int)Math.Round(circuitScore);
+                var fcScoreInt = (int)Math.Round(fcScore);
+                var totalScoreInt = (int)Math.Round(totalScore);
+
+                System.Diagnostics.Debug.WriteLine($"=== 考试得分详情 ===");
+                System.Diagnostics.Debug.WriteLine($"理论题得分：{theoryScoreInt}/{_currentExamScoreConfig.TheoryScore}分 (得分率：{theoryScoreRate:P2})");
+                System.Diagnostics.Debug.WriteLine($"电路题得分：{circuitScoreInt}/{_currentExamScoreConfig.CircuitScore}分 (得分率：{circuitScoreRate:P2})");
+                System.Diagnostics.Debug.WriteLine($"飞控题得分：{fcScoreInt}/{_currentExamScoreConfig.FCScore}分 (暂不计分)");
+                System.Diagnostics.Debug.WriteLine($"考试总分：{totalScoreInt}/{_currentExamScoreConfig.TotalScore}分");
+
+                // 更新UI显示
+                Dispatcher.Invoke(() =>
+                {
+                    ExamScoreText.Text = $"考试得分：总分为 {totalScoreInt} 分 \n" +
+                                         $"  理论卷:{theoryScoreInt}分\n  电路卷:{circuitScoreInt}分 \n  飞控卷:{fcScoreInt}分";
+                });
+
+                return totalScoreInt;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"计算考试得分失败：{ex.Message}");
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 修改：计算电路检测得分，只统计被勾选的题目，误修复不扣分机制
+        /// </summary>
+        private double CalculateCircuitScoreWithPenalty()
+        {
+            try
+            {
+                // 🔧 修改：只计算被勾选的电路题数量
+                int circuitTotal = latestExam?.Questions?.Count(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+
+                if (circuitTotal == 0)
+                    return 0.0;
+
+                int correctRepairs = 0;  // 正确修复数
+                int wrongRepairs = 0;    // 误修复数
+                int missedRepairs = 0;   // 漏修复数
+
+                // 🔧 修改：统计各种修复情况 - 只处理被勾选的题目
+                if (latestExam?.Questions != null)
+                {
+                    foreach (var question in latestExam.Questions.Where(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)))
+                    {
+                        if (_questionRepairStatus.ContainsKey(question.Name))
+                        {
+                            bool studentRepaired = _questionRepairStatus[question.Name];
+
+                            // 由于这里只处理被勾选的题目，所以都是需要修复的
+                            if (studentRepaired)
+                            {
+                                correctRepairs++; // 正确修复
+                            }
+                            else
+                            {
+                                // 这种情况不应该发生，因为 _questionRepairStatus 记录的是点击了按钮的情况
+                                System.Diagnostics.Debug.WriteLine($"⚠️ 异常状态：{question.Name} 标记为需要修复但记录为未正确修复");
+                            }
+                        }
+                        else
+                        {
+                            // 学生没有点击按钮 - 漏修复
+                            missedRepairs++; // 漏修复（应该修复但没有修复）
+                        }
+                    }
+
+                    // 🔧 新增：单独统计误修复的题目（未勾选但被点击的题目）
+                    foreach (var question in latestExam.Questions.Where(q => !q.IsChecked && !string.IsNullOrEmpty(q.CommandString)))
+                    {
+                        if (_questionRepairStatus.ContainsKey(question.Name))
+                        {
+                            bool studentRepaired = _questionRepairStatus[question.Name];
+                            if (!studentRepaired) // studentRepaired=false 表示误修复
+                            {
+                                wrongRepairs++; // 误修复
+                            }
+                        }
+                    }
+                }
+
+                // 🚀 新的计分规则：
+                // - 正确修复：+1分
+                // - 误修复：-0.5分  
+                // - 漏修复：0分（不得分但也不扣分）
+                double rawScore = correctRepairs - (wrongRepairs * 0.5);
+
+                // 🚀 确保得分不低于0分
+                double adjustedScore = Math.Max(0.0, rawScore);
+
+                // 计算得分率，但不能超过100%
+                double scoreRate = Math.Min(1.0, adjustedScore / circuitTotal);
+
+                // 📊 详细的调试信息
+                System.Diagnostics.Debug.WriteLine($"======== 电路检测详细计分统计（修改版）========");
+                System.Diagnostics.Debug.WriteLine($"  📋 被勾选的题数：{circuitTotal}");
+                System.Diagnostics.Debug.WriteLine($"  ✅ 正确修复：{correctRepairs} 题 (+{correctRepairs} 分)");
+                System.Diagnostics.Debug.WriteLine($"  ❌ 误修复：{wrongRepairs} 题 (-{wrongRepairs * 0.5} 分)");
+                System.Diagnostics.Debug.WriteLine($"  ⏸️ 漏修复：{missedRepairs} 题 (0 分)");
+                System.Diagnostics.Debug.WriteLine($"  📊 原始得分：{rawScore} 分");
+                System.Diagnostics.Debug.WriteLine($"  ⬆️ 调整后得分：{adjustedScore} 分 (不低于0分)");
+                System.Diagnostics.Debug.WriteLine($"  📈 最终得分率：{scoreRate:P2}");
+                System.Diagnostics.Debug.WriteLine($"==========================================");
+
+                return scoreRate;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"计算电路检测得分失败：{ex.Message}");
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// 🚀 修改：UpdateExamStats方法，只统计被勾选的电路题
+        /// </summary>
+        private void UpdateExamStats()
+        {
+            try
+            {
+                // 🔧 修改：只统计被勾选的电路题数量
+                int circuitTotal = latestExam?.Questions?.Count(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+                int circuitAnswered = _questionRepairStatus.Count(kvp =>
+                {
+                    var question = latestExam?.Questions?.FirstOrDefault(q => q.Name == kvp.Key);
+                    return question != null && question.IsChecked && !string.IsNullOrEmpty(question.CommandString);
+                }); // 只计算被勾选且已操作的题目数
+
+                // 📊 详细统计各种修复情况
+                int correctRepairs = 0;
+                int wrongRepairs = 0;
+                int missedRepairs = 0;
+
+                if (latestExam?.Questions != null)
+                {
+                    // 统计被勾选题目的修复情况
+                    foreach (var question in latestExam.Questions.Where(q => q.IsChecked && !string.IsNullOrEmpty(q.CommandString)))
+                    {
+                        if (_questionRepairStatus.ContainsKey(question.Name))
+                        {
+                            bool repairResult = _questionRepairStatus[question.Name];
+                            if (repairResult)
+                            {
+                                correctRepairs++; // 正确修复
+                            }
+                        }
+                        else
+                        {
+                            missedRepairs++; // 漏修复
+                        }
+                    }
+
+                    // 统计未勾选题目的误修复情况
+                    foreach (var question in latestExam.Questions.Where(q => !q.IsChecked && !string.IsNullOrEmpty(q.CommandString)))
+                    {
+                        if (_questionRepairStatus.ContainsKey(question.Name))
+                        {
+                            bool repairResult = _questionRepairStatus[question.Name];
+                            if (!repairResult)
+                            {
+                                wrongRepairs++; // 误修复
+                            }
+                        }
+                    }
+                }
+
+                // 理论题统计
+                int theoryTotal = _theoryQuestions?.Count ?? 0;
+                int theoryAnswered = _theoryAnswers.Count;
+
+                // 飞控实操题统计
+                int fcTotal = _fcQuestions?.Count ?? 0;
+                int fcAnswered = _fcAnswers.Count;
+
+                var duration = GetElapsedExamTime();
+
+                // 🚀 修改：只有在提交后才显示得分
+                string currentScoreDisplay = isExamSubmitted ? $"{CalculateExamScore()}分" : "提交后显示";
+
+                // 🚀 增强的统计信息，包含详细的修复情况
+                var stats = new List<ExamStatItem>
+        {
+            // 题目和分值配置信息
+            new ExamStatItem { Name = "试卷总分", Value = $"{_currentExamScoreConfig.TotalScore}分" },
+            new ExamStatItem { Name = "理论题权重", Value = $"{_currentExamScoreConfig.TheoryPercentage:F0}%({_currentExamScoreConfig.TheoryScore}分)" },
+            new ExamStatItem { Name = "电路题权重", Value = $"{_currentExamScoreConfig.CircuitPercentage:F0}%({_currentExamScoreConfig.CircuitScore}分)" },
+            new ExamStatItem { Name = "飞控题权重", Value = $"{_currentExamScoreConfig.FCPercentage:F0}%({_currentExamScoreConfig.FCScore}分)" },
+            
+            // 题目数量统计
+            new ExamStatItem { Name = "理论题", Value = $"{theoryTotal}题" },
+            new ExamStatItem { Name = "电路检测", Value = $"{circuitTotal}题 (勾选)" }, // 🔧 明确标示只显示勾选的题目
+            new ExamStatItem { Name = "飞控实操", Value = $"{fcTotal}题" },
+            new ExamStatItem { Name = "题目总数", Value = $"{circuitTotal + theoryTotal + fcTotal}题" },
+            
+            // 完成情况统计（增强版）
+            new ExamStatItem { Name = "理论已答", Value = $"{theoryAnswered}/{theoryTotal}" },
+            new ExamStatItem { Name = "电路已操作", Value = $"{circuitAnswered}/{circuitTotal}" },
+            new ExamStatItem { Name = "正确修复", Value = $"{correctRepairs}题" },
+            new ExamStatItem { Name = "误修复", Value = $"{wrongRepairs}题" },
+            new ExamStatItem { Name = "漏修复", Value = $"{missedRepairs}题" },
+            new ExamStatItem { Name = "飞控已验", Value = $"{fcAnswered}/{fcTotal}" },
+            
+            // 分数显示
+            new ExamStatItem { Name = "当前总分", Value = currentScoreDisplay },
+            
+            // 时间统计
+            new ExamStatItem { Name = "答题耗时", Value = duration.ToString(@"hh\:mm\:ss") }
+        };
+
+                ExamStatListView.ItemsSource = stats;
+
+                // 更新分值配置显示
+                UpdateScoreConfigurationDisplay();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新考试统计失败：{ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：ShowStudentAndExamInfoAsync中调用隐藏零分值页面
+        /// </summary>
+        private async Task ShowStudentAndExamInfoAsync()
+        {
+            // 显示学生信息
+            StudentNameText.Text = $"考生姓名：{currentUser.Name}";
+            StudentIdText.Text = $"身份证号：{currentUser.IdNumber}";
+
+            // 🚀 修正：支持混合试卷加载
+            string examFile = QuestionPanel.GetActiveExamForStudent();
+
+            if (!string.IsNullOrEmpty(examFile) && File.Exists(examFile))
+            {
+                try
+                {
+                    // 🚀 判断是否为混合试卷格式
+                    if (examFile.EndsWith("_mixed.json"))
+                    {
+                        // 加载混合试卷
+                        var json = await File.ReadAllTextAsync(examFile);
+                        var mixedExam = JsonSerializer.Deserialize<MixedExamData>(json);
+
+                        if (mixedExam != null)
+                        {
+                            // 🚀 新增：保存分数配置
+                            _currentMixedExam = mixedExam;
+                            _currentExamScoreConfig = mixedExam.ScoreConfig ?? new ExamScoreConfig();
+
+                            // 转换为兼容的ExamData格式
+                            latestExam = new ExamData
+                            {
+                                ExamName = mixedExam.ExamName,
+                                TeacherName = mixedExam.TeacherName,
+                                TeacherId = mixedExam.TeacherId,
+                                CreationTime = mixedExam.CreationTime,
+                                Questions = mixedExam.Content.GetAllQuestionsAsGeneric()
+                            };
+
+                            // 🚀 加载各类型题目到UI
+                            await LoadMixedExamToUI(mixedExam);
+
+                            // 🚀 新增：根据分数配置隐藏零分值页面
+                            HideZeroScoreTabPages();
+                        }
+                    }
+                    else
+                    {
+                        // 加载传统格式试卷 - 使用默认分数配置
+                        var json = await File.ReadAllTextAsync(examFile);
+                        latestExam = JsonSerializer.Deserialize<ExamData>(json);
+                        _currentExamScoreConfig = new ExamScoreConfig(); // 使用默认配置
+
+                        // 传统格式试卷通常只有电路题，隐藏其他页面
+                        HideTabItemByHeader("理论题");
+                        HideTabItemByHeader("飞控实操");
+                    }
+
+                    if (latestExam != null)
+                    {
+                        ExamTitleText.Text = $"试题名称：{latestExam.ExamName}";
+                        ExamTeacherText.Text = $"出题老师：{latestExam.TeacherName}";
+
+                        // 🚀 更新分值配置显示
+                        UpdateScoreConfigurationDisplay();
+
+                        // 🔧 修改：只统计被勾选且有CommandString的题目（电路实测题）
+                        int totalQuestions = latestExam.Questions?.Count(q =>
+                            q.IsChecked && !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+
+                        ShowExamStats(totalQuestions, 0, 0, TimeSpan.Zero);
+
+                        // 🚀 调用独立的电路题目初始化方法
+                        await InitializeCircuitQuestions();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"加载试卷失败：{ex.Message}", "错误",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("未找到试卷目录（Exams），请联系管理员！", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ExamTitleText.Text = "试题名称：";
+                ExamTeacherText.Text = "出题老师：";
+
+                // 🚀 显示默认分值配置
+                UpdateScoreConfigurationDisplay();
+            }
+        }
+
+        /// <summary>
+        /// 🚀 新增：更新分值配置信息显示
+        /// </summary>
+        private void UpdateScoreConfigurationDisplay()
+        {
+            try
+            {
+                if (_currentExamScoreConfig != null)
+                {
+                    // 更新总分显示
+                    ExamTotalScoreText.Text = $"试卷总分：{_currentExamScoreConfig.TotalScore}分";
+
+                    // 更新各类题目分值显示
+                    TheoryScoreConfigText.Text = $"📚 理论题：{_currentExamScoreConfig.TheoryPercentage:F0}%({_currentExamScoreConfig.TheoryScore}分)";
+                    CircuitScoreConfigText.Text = $"🔧 电路题：{_currentExamScoreConfig.CircuitPercentage:F0}%({_currentExamScoreConfig.CircuitScore}分)";
+                    FCScoreConfigText.Text = $"🎮 飞控题：{_currentExamScoreConfig.FCPercentage:F0}%({_currentExamScoreConfig.FCScore}分)";
+
+                    // 更新配置状态
+                    if (_currentExamScoreConfig.IsValid)
+                    {
+                        ScoreConfigStatusText.Text = "✅ 配置有效";
+                        ScoreConfigStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                    }
+                    else
+                    {
+                        ScoreConfigStatusText.Text = "⚠️ 配置异常";
+                        ScoreConfigStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                    }
+                }
+                else
+                {
+                    // 使用默认配置显示
+                    ExamTotalScoreText.Text = "试卷总分：100分 (默认)";
+                    TheoryScoreConfigText.Text = "📚 理论题：40%(40分)";
+                    CircuitScoreConfigText.Text = "🔧 电路题：40%(40分)";
+                    FCScoreConfigText.Text = "🎮 飞控题：20%(20分)";
+                    ScoreConfigStatusText.Text = "📋 默认配置";
+                    ScoreConfigStatusText.Foreground = new SolidColorBrush(Colors.Blue);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新分值配置显示失败：{ex.Message}");
+            }
+        }
         /// <summary>
         /// 加载理论题目到UI - 修改版本支持从混合试卷加载
         /// </summary>
@@ -718,25 +1468,7 @@ namespace DroneSimulator
 
         // 添加考试状态变量
         private bool isExamSubmitted = false;
-
-        // 添加计算分数的方法
-        private int CalculateExamScore()
-        {
-            int totalQuestions = latestExam?.Questions?.Count(q => q.IsChecked) ?? 0;
-            if (totalQuestions == 0) return 0;
-
-            // 简单的评分规则：
-            // 正确答题每题得分 = 100 / 总题数
-            // 误答题扣分 = (100 / 总题数) * 0.5
-            int baseScore = 100;
-            double scorePerQuestion = (double)baseScore / totalQuestions;
-
-            double totalScore = (correctAnswers * scorePerQuestion) - (wrongAnswers * scorePerQuestion * 0.5);
-
-            // 确保分数不低于0
-            return Math.Max(0, (int)Math.Round(totalScore));
-        }
-
+        
         // 禁用所有修复按钮
         private void DisableAllRepairButtons()
         {
@@ -748,21 +1480,42 @@ namespace DroneSimulator
             DisableCanvasButtons(ExtensionCanvas);
         }
 
-
-
+        /// <summary>
+        /// 🚀 确保DisableCanvasButtons方法也能处理误修复按钮
+        /// </summary>
         private void DisableCanvasButtons(Canvas canvas)
         {
             if (canvas == null) return;
 
             foreach (var child in canvas.Children)
             {
-                if (child is Button btn && btn.Content?.ToString() == "修  复")
+                if (child is Button btn)
                 {
-                    btn.IsEnabled = false;
-                    btn.Background = new SolidColorBrush(Colors.Gray);
+                    // 检查是否是修复相关的按钮
+                    string content = btn.Content?.ToString() ?? "";
+                    if (content == "修  复" || content == "已修复" || content == "误修复")
+                    {
+                        btn.IsEnabled = false;
+
+                        // 根据当前状态设置颜色
+                        if (content == "误修复")
+                        {
+                            btn.Background = new SolidColorBrush(Colors.DarkRed); // 误修复按钮变为深红色
+                        }
+                        else if (content == "已修复")
+                        {
+                            btn.Background = new SolidColorBrush(Colors.DarkGreen); // 正确修复按钮变为深绿色
+                        }
+                        else
+                        {
+                            btn.Background = new SolidColorBrush(Colors.Gray); // 未操作的按钮变为灰色
+                        }
+                    }
                 }
             }
         }
+
+
 
         private bool IsSerialWriteSuccessful(string result, out string errorMessage, out string receivedData)
         {
@@ -1366,91 +2119,36 @@ namespace DroneSimulator
             }
         }
 
-        private async Task ShowStudentAndExamInfoAsync()
-        {
-            // 显示学生信息
-            StudentNameText.Text = $"考生姓名：{currentUser.Name}";
-            StudentIdText.Text = $"身份证号：{currentUser.IdNumber}";
-
-            // 🚀 修正：支持混合试卷加载
-            string examFile = QuestionPanel.GetActiveExamForStudent();
-
-            if (!string.IsNullOrEmpty(examFile) && File.Exists(examFile))
-            {
-                try
-                {
-                    // 🚀 判断是否为混合试卷格式
-                    if (examFile.EndsWith("_mixed.json"))
-                    {
-                        // 加载混合试卷
-                        var json = await File.ReadAllTextAsync(examFile);
-                        var mixedExam = JsonSerializer.Deserialize<MixedExamData>(json);
-
-                        if (mixedExam != null)
-                        {
-                            // 转换为兼容的ExamData格式
-                            latestExam = new ExamData
-                            {
-                                ExamName = mixedExam.ExamName,
-                                TeacherName = mixedExam.TeacherName,
-                                TeacherId = mixedExam.TeacherId,
-                                CreationTime = mixedExam.CreationTime,
-                                Questions = mixedExam.Content.GetAllQuestionsAsGeneric()
-                            };
-
-                            // 🚀 加载各类型题目到UI
-                            await LoadMixedExamToUI(mixedExam);
-                        }
-                    }
-                    else
-                    {
-                        // 加载传统格式试卷
-                        var json = await File.ReadAllTextAsync(examFile);
-                        latestExam = JsonSerializer.Deserialize<ExamData>(json);
-                    }
-
-                    if (latestExam != null)
-                    {
-                        ExamTitleText.Text = $"试题名称：{latestExam.ExamName}";
-                        ExamTeacherText.Text = $"出题老师：{latestExam.TeacherName}";
-
-                        // 🚀 修正：只统计有CommandString的题目（电路实测题）
-                        int totalQuestions = latestExam.Questions?.Count(q =>
-                            q.IsChecked && !string.IsNullOrEmpty(q.CommandString)) ?? 0;
-
-                        ShowExamStats(totalQuestions, 0, 0, TimeSpan.Zero);
-
-                        // 🚀 调用独立的电路题目初始化方法
-                        await InitializeCircuitQuestions();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"加载试卷失败：{ex.Message}", "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            else
-            {
-                MessageBox.Show("未找到试卷目录（Exams），请联系管理员！", "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                ExamTitleText.Text = "试题名称：";
-                ExamTeacherText.Text = "出题老师：";
-            }
-        }
 
         private async Task InitializeCircuitQuestions()
         {
+            System.Diagnostics.Debug.WriteLine("=== 开始初始化电路题目（修复版） ===");
+
             if (latestExam?.Questions != null)
             {
+                // 🚀 新增：打印所有题目的状态
+                System.Diagnostics.Debug.WriteLine("=== 题目状态调试信息 ===");
+                int index = 0;
+                foreach (var q in latestExam.Questions.Where(qu => !string.IsNullOrEmpty(qu.CommandString)))
+                {
+                    System.Diagnostics.Debug.WriteLine($"题目[{++index}]：Name={q.Name}, IsChecked={q.IsChecked}, Content={q.Content}");
+                }
+                System.Diagnostics.Debug.WriteLine("========================");
+
                 var cfg = SerialConfig;
-                // 🚀 只处理有CommandString的题目（电路实测题）
-                var circuitQuestions = latestExam.Questions
+                System.Diagnostics.Debug.WriteLine($"串口配置：PortName={cfg.PortName}, BaudRate={cfg.BaudRate}");
+
+                // 🚀 重要修复：处理所有有CommandString的题目（不论是否勾选）
+                var allCircuitQuestions = latestExam.Questions
                     .Where(q => !string.IsNullOrEmpty(q.CommandString))
                     .ToList();
 
+                System.Diagnostics.Debug.WriteLine($"总电路题目数量：{allCircuitQuestions.Count}");
+                System.Diagnostics.Debug.WriteLine($"其中需要设置故障的题目：{allCircuitQuestions.Count(q => q.IsChecked)}");
+                System.Diagnostics.Debug.WriteLine($"其中需要消除故障的题目：{allCircuitQuestions.Count(q => !q.IsChecked)}");
+
                 // ========== 以下是原有的完整初始化逻辑 ==========
-                int total = circuitQuestions.Count;
+                int total = allCircuitQuestions.Count;
                 int done = 0;
                 LoadingProgressBar.Visibility = Visibility.Visible;
                 LoadingProgressBar.Value = 0;
@@ -1458,18 +2156,28 @@ namespace DroneSimulator
                 bool initializationSuccessful = true;
                 string errorMessage = "";
 
-                foreach (var question in circuitQuestions)
+                foreach (var question in allCircuitQuestions)
                 {
                     try
                     {
                         string cmd = question.CommandString;
 
-                        // 对未选中试题，指令第10位（下标9）改为 '0'
-                        if (!question.IsChecked && !string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
+                        // 🔧 关键修复：对所有题目发送指令
+                        if (question.IsChecked)
                         {
-                            var sb = new StringBuilder(cmd);
-                            sb[9] = '0';
-                            cmd = sb.ToString();
+                            // 需要修复的题目：发送原始指令（设置故障）
+                            System.Diagnostics.Debug.WriteLine($"设置故障：{question.Name} -> {cmd}");
+                        }
+                        else
+                        {
+                            // 不需要修复的题目：指令第10位（下标9）改为 '0'（消除故障）
+                            if (!string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
+                            {
+                                var sb = new StringBuilder(cmd);
+                                sb[9] = '0';
+                                cmd = sb.ToString();
+                            }
+                            System.Diagnostics.Debug.WriteLine($"消除故障：{question.Name} -> {cmd}");
                         }
 
                         // 在后台线程执行串口操作
@@ -1481,11 +2189,13 @@ namespace DroneSimulator
                         {
                             done++;
                             LoadingProgressBar.Value = (double)done / total * 100;
+                            System.Diagnostics.Debug.WriteLine($"初始化成功：{question.Name}");
                         }
                         else
                         {
                             errorMessage = $"试题初始化失败：指令 {cmd} 未能成功发送。错误：{error}";
                             initializationSuccessful = false;
+                            System.Diagnostics.Debug.WriteLine($"初始化失败：{question.Name} - {error}");
                             break;
                         }
                     }
@@ -1493,6 +2203,7 @@ namespace DroneSimulator
                     {
                         errorMessage = $"串口发送异常：{ex.Message}";
                         initializationSuccessful = false;
+                        System.Diagnostics.Debug.WriteLine($"初始化异常：{question.Name} - {ex.Message}");
                         break;
                     }
                 }
@@ -1503,16 +2214,19 @@ namespace DroneSimulator
                     LoadingProgressText.Text = "试题加载完毕，设备初始化完成！";
                     ExamMachineText.Text = "考试设备：正常";
                     StartExamTimer();
+                    System.Diagnostics.Debug.WriteLine("✅ 所有题目初始化完成");
                 }
                 else
                 {
                     LoadingProgressText.Text = "试题加载失败，设备初始化未完成！";
                     ExamMachineText.Text = "考试设备：异常！";
+                    System.Diagnostics.Debug.WriteLine($"❌ 题目初始化失败：{errorMessage}");
                     MessageBox.Show(errorMessage, "初始化错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             else
             {
+                System.Diagnostics.Debug.WriteLine("❌ latestExam?.Questions为空");
                 MessageBox.Show("试卷文件可能损坏，请联系管理员！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -1563,40 +2277,7 @@ namespace DroneSimulator
             int circuitTotal = latestExam?.Questions?.Count(q => !string.IsNullOrEmpty(q.CommandString)) ?? 0;
 
             ShowExamStats(circuitTotal, theoryTotal, fcTotal, correct, 0, 0, duration);
-        }
-
-        // 增强的UpdateExamStats方法
-        private void UpdateExamStats()
-        {
-            // 电路检测题统计
-            int circuitTotal = latestExam?.Questions?.Count(q => !string.IsNullOrEmpty(q.CommandString)) ?? 0;
-            int circuitCorrect = correctAnswers;
-
-            // 理论题统计
-            int theoryTotal = _theoryQuestions?.Count ?? 0;
-            int theoryAnswered = _theoryAnswers.Count;
-
-            // 飞控实操题统计
-            int fcTotal = _fcQuestions?.Count ?? 0;
-            int fcAnswered = _fcAnswers.Count;
-
-            var duration = GetElapsedExamTime();
-
-            // 使用新的统计显示
-            var stats = new List<ExamStatItem>
-    {
-        new ExamStatItem { Name = "理论题", Value = $"{theoryTotal}题" },
-        new ExamStatItem { Name = "电路检测", Value = $"{circuitTotal}题" },
-        new ExamStatItem { Name = "飞控实操", Value = $"{fcTotal}题" },
-        new ExamStatItem { Name = "题目总数", Value = $"{circuitTotal + theoryTotal + fcTotal}题" },
-        new ExamStatItem { Name = "理论已答", Value = $"{theoryAnswered}/{theoryTotal}" },
-        new ExamStatItem { Name = "电路已修", Value = $"{circuitCorrect}/{circuitTotal}" },
-        new ExamStatItem { Name = "飞控已验", Value = $"{fcAnswered}/{fcTotal}" },
-        new ExamStatItem { Name = "答题耗时", Value = duration.ToString(@"hh\:mm\:ss") }
-    };
-
-            ExamStatListView.ItemsSource = stats;
-        }
+        }              
 
         private const int WM_NCLBUTTONDBLCLK = 0x00A3;
 
@@ -1618,128 +2299,265 @@ namespace DroneSimulator
             StopExamTimer();
         }
 
-        // 修改 RepairButton_Click 方法，记录修复状态，添加检修端口状态更新
+        /// <summary>
+        /// 🚀 修改：修复按钮点击 - 误修复题不发送串口指令
+        /// </summary>
         private void RepairButton_Click(object sender, RoutedEventArgs e)
         {
+            // 🔍 最基本的调试信息
+            System.Diagnostics.Debug.WriteLine("=== RepairButton_Click 方法被调用（修改版）===");
+            Console.WriteLine("=== RepairButton_Click 方法被调用（修改版）===");
+
             // 如果考试已提交，禁止继续答题
             if (isExamSubmitted)
             {
+                System.Diagnostics.Debug.WriteLine("❌ 考试已提交，禁止答题");
                 MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            if (sender is not Button btn || btn.Tag is not string questionName || latestExam == null) return;
+            // 🔍 检查sender类型和Tag
+            System.Diagnostics.Debug.WriteLine($"🔍 Sender类型：{sender?.GetType().Name}");
+            System.Diagnostics.Debug.WriteLine($"🔍 Sender内容：{(sender as Button)?.Content}");
 
+            if (sender is not Button btn)
+            {
+                System.Diagnostics.Debug.WriteLine("❌ sender不是Button类型");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"🔍 按钮Tag：{btn.Tag}");
+            System.Diagnostics.Debug.WriteLine($"🔍 按钮Tag类型：{btn.Tag?.GetType().Name}");
+
+            if (btn.Tag is not string questionName)
+            {
+                System.Diagnostics.Debug.WriteLine("❌ 按钮Tag不是string类型或为空");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"🔍 题目名称：{questionName}");
+
+            if (latestExam == null)
+            {
+                System.Diagnostics.Debug.WriteLine("❌ latestExam为空");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"🔍 latestExam.Questions数量：{latestExam.Questions?.Count ?? 0}");
+
+            // 💡 重要：禁用按钮，防止重复点击
             btn.IsEnabled = false;
+            System.Diagnostics.Debug.WriteLine("🔍 按钮已禁用");
 
+            // 🔧 修复：查找题目时不限制CommandString
             var question = latestExam.Questions?.Find(q => q.Name == questionName);
 
-            if (question != null && question.IsChecked)
+            if (question == null)
             {
+                System.Diagnostics.Debug.WriteLine($"❌ 找不到题目：{questionName}");
+
+                // 🔍 列出所有题目名称用于调试
+                System.Diagnostics.Debug.WriteLine("📋 所有可用题目名称：");
+                if (latestExam.Questions != null)
+                {
+                    foreach (var q in latestExam.Questions)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"  - {q.Name} (IsChecked: {q.IsChecked}, HasCommand: {!string.IsNullOrEmpty(q.CommandString)})");
+                    }
+                }
+
+                // 恢复按钮状态
+                btn.IsEnabled = true;
+                return;
+            }
+
+            // 🚀 详细的调试信息
+            System.Diagnostics.Debug.WriteLine($"🔍 找到题目：{questionName}");
+            System.Diagnostics.Debug.WriteLine($"🔍 题目详细信息：");
+            System.Diagnostics.Debug.WriteLine($"  - Name：{question.Name}");
+            System.Diagnostics.Debug.WriteLine($"  - IsChecked：{question.IsChecked}");
+            System.Diagnostics.Debug.WriteLine($"  - Content：{question.Content}");
+            System.Diagnostics.Debug.WriteLine($"  - CommandString：{question.CommandString}");
+
+            bool shouldSendCommand = false; // 🔧 新增：控制是否发送串口指令
+
+            if (question.IsChecked) // 需要修复的题目
+            {
+                // ✅ 正确修复
+                System.Diagnostics.Debug.WriteLine("✅ 进入正确修复分支");
+
                 btn.Background = new SolidColorBrush(Colors.LightGreen);
                 btn.Content = "已修复";
-
-                // 增加正确答题计数
-                correctAnswers++;
+                btn.Foreground = new SolidColorBrush(Colors.DarkGreen);
 
                 // 记录正确修复
                 _questionRepairStatus[questionName] = true;
+                correctAnswers++; // 用于统计显示
 
-                if (!string.IsNullOrEmpty(question.CommandString))
+                shouldSendCommand = true; // 🔧 正确修复需要发送串口指令
+                System.Diagnostics.Debug.WriteLine($"✅ 正确修复：{questionName}，correctAnswers={correctAnswers}，需要发送串口指令");
+            }
+            else // 不需要修复的题目
+            {
+                // ❌ 误修复
+                System.Diagnostics.Debug.WriteLine($"🚨 进入误修复分支：{questionName}");
+
+                btn.Content = "误修复";
+                btn.Background = new SolidColorBrush(Colors.White);
+                btn.Foreground = new SolidColorBrush(Colors.IndianRed);
+
+                System.Diagnostics.Debug.WriteLine($"🚨 按钮状态已设置：Content={btn.Content}, Background=IndianRed");
+
+                // 🎯 关键：记录误修复状态
+                _questionRepairStatus[questionName] = false;
+                wrongAnswers++; // 用于统计显示
+
+                shouldSendCommand = false; // 🔧 误修复不发送串口指令
+                System.Diagnostics.Debug.WriteLine($"❌ 误修复记录：{questionName}，wrongAnswers={wrongAnswers}，不发送串口指令");
+                System.Diagnostics.Debug.WriteLine($"❌ _questionRepairStatus[{questionName}] = {_questionRepairStatus[questionName]}");
+
+                // 显示警告信息
+                MessageBox.Show("⚠️ 误修复！\n\n该连接点不需要修复，此操作将被记录为扣分项。",
+                                "误修复提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // 🔌 修改：只有在需要发送指令时才发送串口指令
+            if (shouldSendCommand && !string.IsNullOrEmpty(question.CommandString))
+            {
+                try
                 {
-                    try
+                    string cmd = question.CommandString;
+                    System.Diagnostics.Debug.WriteLine($"🔌 准备发送串口指令：{cmd}");
+
+                    // 根据修复类型设置指令（正确修复设置为'0'）
+                    if (!string.IsNullOrEmpty(cmd) && cmd.Length >= 10)
                     {
-                        string cmd = question.CommandString;
-
-                        if (!string.IsNullOrEmpty(cmd) && cmd.Length >= 9)
-                        {
-                            var sb = new StringBuilder(cmd);
-                            sb[9] = '0'; // 第十个字符（下标9）改为'0'
-                            cmd = sb.ToString();
-                        }
-                        else
-                        {
-                            MessageBox.Show("指令格式不正确，无法修复！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                            btn.IsEnabled = true;
-                            btn.Background = new SolidColorBrush(Colors.Goldenrod);
-                            btn.Content = "修  复";
-                            correctAnswers--;
-                            _questionRepairStatus.Remove(questionName);
-                            return;
-                        }
-
-                        var cfg = SerialConfig;
-
-                        // ========== 检修端口状态更新 ==========
-                        if (RepairPortStatusText != null)
-                        {
-                            RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 发送指令中...";
-                            // RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Yellow);
-                        }
-
-                        string result = SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd);
-
-                        if (IsSerialWriteSuccessful(result, out string error, out string received))
-                        {
-                            // 修复成功，更新状态
-                            if (RepairPortStatusText != null)
-                            {
-                                RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送成功";
-                                // RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Green);
-                            }
-                        }
-                        else
-                        {
-                            // 修复失败，更新状态
-                            if (RepairPortStatusText != null)
-                            {
-                                RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送失败";
-                                RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
-                            }
-
-                            MessageBox.Show($"修复指令发送失败：{error}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                            btn.IsEnabled = true;
-                            btn.Background = new SolidColorBrush(Colors.Goldenrod);
-                            btn.Content = "修  复";
-                            correctAnswers--;
-                            _questionRepairStatus.Remove(questionName);
-                            return;
-                        }
-
+                        var sb = new StringBuilder(cmd);
+                        sb[9] = '0'; // 正确修复设置为'0'
+                        cmd = sb.ToString();
+                        System.Diagnostics.Debug.WriteLine($"🔌 修改后的指令：{cmd}");
                     }
-                    catch (Exception ex)
+
+                    var cfg = SerialConfig;
+                    System.Diagnostics.Debug.WriteLine($"🔌 串口配置：PortName={cfg.PortName}, BaudRate={cfg.BaudRate}");
+
+                    if (string.IsNullOrEmpty(cfg.PortName))
                     {
-                        // 异常处理，更新状态
+                        System.Diagnostics.Debug.WriteLine("❌ 串口配置无效，PortName为空");
+                        MessageBox.Show("串口未配置，请检查设置！", "配置错误", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                        // 恢复按钮状态
+                        RestoreButtonToInitialState(btn, questionName, question);
+                        return;
+                    }
+
+                    // 更新端口状态
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 发送指令中...";
+                    }
+
+                    string result = SendSerialData(cfg.PortName, cfg.BaudRate, cfg.Parity, cfg.StopBits, cmd);
+                    System.Diagnostics.Debug.WriteLine($"🔌 串口发送结果：{result}");
+
+                    if (IsSerialWriteSuccessful(result, out string error, out string received))
+                    {
+                        // 指令发送成功
                         if (RepairPortStatusText != null)
                         {
-                            RepairPortStatusText.Text = $"检修端口：发送异常";
+                            RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送成功";
+                        }
+
+                        System.Diagnostics.Debug.WriteLine($"🔌 串口指令发送成功：{cmd}");
+                        System.Diagnostics.Debug.WriteLine($"✅ 最终按钮状态：Content={btn.Content}, IsEnabled={btn.IsEnabled}");
+                    }
+                    else
+                    {
+                        // 指令发送失败，需要恢复按钮状态
+                        System.Diagnostics.Debug.WriteLine($"❌ 串口指令发送失败：{error}，准备恢复按钮状态");
+
+                        if (RepairPortStatusText != null)
+                        {
+                            RepairPortStatusText.Text = $"检修端口：{cfg.PortName} - 指令发送失败";
                             RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
                         }
 
-                        MessageBox.Show($"端口发送异常: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                        btn.IsEnabled = true;
-                        btn.Background = new SolidColorBrush(Colors.Goldenrod);
-                        btn.Content = "修  复";
-                        correctAnswers--;
-                        _questionRepairStatus.Remove(questionName);
+                        MessageBox.Show($"修复指令发送失败：{error}", "串口错误",
+                                       MessageBoxButton.OK, MessageBoxImage.Error);
+
+                        // 🔄 恢复按钮到初始状态
+                        RestoreButtonToInitialState(btn, questionName, question);
+                        System.Diagnostics.Debug.WriteLine($"🔄 按钮状态已恢复，误修复记录已撤销");
                         return;
                     }
                 }
+                catch (Exception ex)
+                {
+                    // 异常处理，恢复按钮状态
+                    System.Diagnostics.Debug.WriteLine($"❌ 串口发送异常：{ex.Message}，准备恢复按钮状态");
+
+                    if (RepairPortStatusText != null)
+                    {
+                        RepairPortStatusText.Text = $"检修端口：发送异常";
+                        RepairPortStatusText.Foreground = new SolidColorBrush(Colors.Red);
+                    }
+
+                    MessageBox.Show($"端口发送异常: {ex.Message}", "系统错误",
+                                   MessageBoxButton.OK, MessageBoxImage.Error);
+
+                    // 🔄 恢复按钮到初始状态
+                    RestoreButtonToInitialState(btn, questionName, question);
+                    System.Diagnostics.Debug.WriteLine($"🔄 按钮状态已恢复，误修复记录已撤销");
+                    return;
+                }
+            }
+            else if (!shouldSendCommand)
+            {
+                System.Diagnostics.Debug.WriteLine($"🚫 误修复题目，跳过串口发送");
             }
             else
             {
-                btn.Content = "误修复";
-                btn.Background = new SolidColorBrush(Colors.IndianRed);
-                wrongAnswers++;
-
-                // 记录误修复
-                _questionRepairStatus[questionName] = false;
-
-                MessageBox.Show("请仔细检查，该连接不需要修复！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Diagnostics.Debug.WriteLine($"⚠️ 题目没有CommandString，跳过串口发送");
             }
 
-            // 更新统计显示
+            // 🚀 更新统计显示（不包含实时得分）
             UpdateExamStats();
+            System.Diagnostics.Debug.WriteLine($"📊 统计已更新，当前wrongAnswers={wrongAnswers}");
+            System.Diagnostics.Debug.WriteLine("=== RepairButton_Click 方法执行完毕（修改版）===");
+        }
+
+        /// <summary>
+        /// 🔄 恢复按钮到初始状态（当串口操作失败时使用）
+        /// </summary>
+        private void RestoreButtonToInitialState(Button btn, string questionName, Question question)
+        {
+            try
+            {
+                // 恢复按钮外观
+                btn.IsEnabled = true;
+                btn.Background = new SolidColorBrush(Colors.Goldenrod);
+                btn.Content = "修  复";
+                btn.Foreground = new SolidColorBrush(Colors.DarkSlateGray);
+
+                // 撤销状态记录
+                _questionRepairStatus.Remove(questionName);
+
+                // 撤销统计计数
+                if (question.IsChecked)
+                {
+                    correctAnswers = Math.Max(0, correctAnswers - 1);
+                }
+                else
+                {
+                    wrongAnswers = Math.Max(0, wrongAnswers - 1);
+                }
+
+                System.Diagnostics.Debug.WriteLine($"🔄 按钮状态已恢复：{questionName}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"恢复按钮状态失败：{ex.Message}");
+            }
         }
 
         // 添加检修端口连接测试方法
@@ -1797,8 +2615,9 @@ namespace DroneSimulator
             }
         }
 
-        // 提交与退出按钮事件
-        // 修改 SubmitButton_Click 方法，添加保存考试记录的功能
+        /// <summary>
+        /// 🚀 修复：提交按钮中也使用正确的扣分机制
+        /// </summary>
         private void SubmitButton_Click(object sender, RoutedEventArgs e)
         {
             // 防止重复提交
@@ -1823,19 +2642,20 @@ namespace DroneSimulator
             // 设置考试已提交状态
             isExamSubmitted = true;
 
-            // 计算并更新考试分数
+            // 🚀 重要：计算并显示最终分数
             int finalScore = CalculateExamScore();
-            ExamScoreText.Text = $"考试得分：{finalScore}分";
 
-            // 禁用所有修复按钮
-            DisableAllRepairButtons();
+            // 🚀 禁用所有答题控件
+            DisableAllRepairButtons();      // 禁用电路检测修复按钮
+            DisableAllTheoryOptions();      // 禁用理论题选项按钮
+            DisableAllFCControls();         // 禁用飞控实操控件
 
             // 禁用提交按钮自身
             SubmitButton.IsEnabled = false;
             SubmitButton.Content = "已提交";
             SubmitButton.Background = new SolidColorBrush(Colors.Gray);
 
-            // 更新最终统计
+            // 更新最终统计（现在会显示分数）
             UpdateExamStats();
 
             // 保存考试记录
@@ -1843,13 +2663,92 @@ namespace DroneSimulator
 
             // 显示提交成功消息
             var elapsedTime = GetElapsedExamTime();
-            MessageBox.Show($"提交成功！\n" +
-                           $"考试得分：{finalScore}分\n" +
-                           $"正确答题：{correctAnswers}题\n" +
-                           $"误答题：{wrongAnswers}题\n" +
-                           $"答题耗时：{elapsedTime:hh\\:mm\\:ss}",
+
+            // 🚀 计算各部分详细得分 - 使用正确的扣分机制
+            double theoryScoreRate = CalculateTheoryScore();
+            double circuitScoreRate = CalculateCircuitScoreWithPenalty(); // 使用扣分机制
+
+            var theoryScoreInt = (int)Math.Round(_currentExamScoreConfig.TheoryScore * theoryScoreRate);
+            var circuitScoreInt = (int)Math.Round(_currentExamScoreConfig.CircuitScore * circuitScoreRate);
+            var fcScoreInt = 0; // 暂不计分
+
+            // 🚀 获取详细的修复统计信息
+            string repairStatsMessage = GetRepairStatsMessage();
+
+            MessageBox.Show($"提交成功！\n\n" +
+                           $"📊 考试得分详情：\n" +
+                           $"总分：{finalScore}/{_currentExamScoreConfig.TotalScore}分\n\n" +
+                           $"📚 理论题：{theoryScoreInt}/{_currentExamScoreConfig.TheoryScore}分 (得分率：{theoryScoreRate:P2})\n" +
+                           $"🔧 电路题：{circuitScoreInt}/{_currentExamScoreConfig.CircuitScore}分 (得分率：{circuitScoreRate:P2})\n" +
+                           $"🎮 飞控题：{fcScoreInt}/{_currentExamScoreConfig.FCScore}分 (暂不计分)\n\n" +
+                           repairStatsMessage +
+                           $"⏱️ 答题耗时：{elapsedTime:hh\\:mm\\:ss}",
                            "考试结果", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+        /// <summary>
+        /// 🚀 新增：获取修复统计信息的详细消息
+        /// </summary>
+        private string GetRepairStatsMessage()
+        {
+            try
+            {
+                int circuitTotal = latestExam?.Questions?.Count(q => !string.IsNullOrEmpty(q.CommandString)) ?? 0;
+
+                if (circuitTotal == 0)
+                    return "";
+
+                int correctRepairs = 0;
+                int wrongRepairs = 0;
+                int missedRepairs = 0;
+
+                if (latestExam?.Questions != null)
+                {
+                    foreach (var question in latestExam.Questions.Where(q => !string.IsNullOrEmpty(q.CommandString)))
+                    {
+                        if (_questionRepairStatus.ContainsKey(question.Name))
+                        {
+                            bool repairResult = _questionRepairStatus[question.Name];
+                            if (question.IsChecked && repairResult)
+                            {
+                                correctRepairs++;
+                            }
+                            else if (!question.IsChecked && !repairResult)
+                            {
+                                wrongRepairs++;
+                            }
+                        }
+                        else if (question.IsChecked)
+                        {
+                            missedRepairs++;
+                        }
+                    }
+                }
+
+                string statsMessage = "🔧 电路检测详情：\n";
+                statsMessage += $"   ✅ 正确修复：{correctRepairs}题 (+{correctRepairs}分)\n";
+
+                if (wrongRepairs > 0)
+                {
+                    statsMessage += $"   ❌ 误修复：{wrongRepairs}题 (-{wrongRepairs * 0.5}分)\n";
+                }
+
+                if (missedRepairs > 0)
+                {
+                    statsMessage += $"   ⏸️ 漏修复：{missedRepairs}题 (0分)\n";
+                }
+
+                statsMessage += "\n";
+
+                return statsMessage;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"获取修复统计信息失败：{ex.Message}");
+                return "";
+            }
+        }
+
 
         // 新增：保存考试记录方法
         private void SaveExamRecord(int finalScore)
@@ -2052,10 +2951,21 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 理论题选项选中事件
+        /// 🚀 修改：理论题选项事件，不实时显示得分，提交后禁用
         /// </summary>
         private void TheoryOption_Checked(object sender, RoutedEventArgs e)
         {
+            // 如果考试已提交，禁止继续答题
+            if (isExamSubmitted)
+            {
+                if (sender is ToggleButton toggleButton)
+                {
+                    toggleButton.IsChecked = false; // 恢复未选中状态
+                }
+                MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 if (sender is ToggleButton toggleButton && toggleButton.Tag is TheoryOption option)
@@ -2069,7 +2979,7 @@ namespace DroneSimulator
                             ClearOtherOptionsInGroup(question.Id, option);
                         }
 
-                        // 记录学生答案
+                        // 记录学生答案（不计算实时得分）
                         UpdateTheoryAnswer(question);
 
                         System.Diagnostics.Debug.WriteLine($"题目类型：{question.Type}, 题目ID={question.Id}, 选择={option.Text}");
@@ -2083,10 +2993,21 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 理论题选项取消选中事件
+        /// 🚀 修改：理论题取消选中事件，提交后禁用
         /// </summary>
         private void TheoryOption_Unchecked(object sender, RoutedEventArgs e)
         {
+            // 如果考试已提交，禁止继续答题
+            if (isExamSubmitted)
+            {
+                if (sender is ToggleButton toggleButton)
+                {
+                    toggleButton.IsChecked = true; // 恢复选中状态
+                }
+                MessageBox.Show("考试已提交，无法继续答题！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
                 if (sender is ToggleButton toggleButton && toggleButton.Tag is TheoryOption option)
@@ -2094,7 +3015,7 @@ namespace DroneSimulator
                     var question = GetQuestionFromOption(option);
                     if (question != null)
                     {
-                        // 更新答案
+                        // 更新答案（不计算实时得分）
                         UpdateTheoryAnswer(question);
 
                         System.Diagnostics.Debug.WriteLine($"取消选择：题目ID={question.Id}, 选项={option.Text}");

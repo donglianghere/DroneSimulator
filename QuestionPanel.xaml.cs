@@ -158,6 +158,9 @@ namespace DroneSimulator
             InitializeComponent();
             currentTeacher = teacher;
 
+            // 🚀 新增：初始化分数配置
+            InitializeScoreConfiguration();
+
             // 初始化题目提供者（暂时使用简单实现）
             theoryProvider = new SimpleTheoryQuestionProvider();
             circuitProvider = new SimpleCircuitQuestionProvider();
@@ -578,6 +581,338 @@ namespace DroneSimulator
 
         #endregion
 
+        #region 🚀 新增：分数配置相关字段和方法
+
+        /// <summary>
+        /// 当前试卷分数配置
+        /// </summary>
+        private ExamScoreConfig currentScoreConfig = new();
+
+        /// <summary>
+        /// 总分文本框值改变事件
+        /// </summary>
+        private void TotalScoreTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (int.TryParse(TotalScoreTextBox.Text, out int totalScore) && totalScore > 0)
+                {
+                    currentScoreConfig.TotalScore = totalScore;
+                    UpdateScoreCalculation();
+                }
+                else
+                {
+                    ScoreConfigStatusText.Text = "⚠️ 请输入有效的总分值（大于0的整数）";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"总分文本框值改变处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 占比文本框值改变事件
+        /// </summary>
+        private void PercentageTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (sender is TextBox textBox)
+                {
+                    if (double.TryParse(textBox.Text, out double percentage) && percentage >= 0 && percentage <= 100)
+                    {
+                        // 根据文本框名称更新对应的占比
+                        switch (textBox.Name)
+                        {
+                            case "TheoryPercentageTextBox":
+                                currentScoreConfig.TheoryPercentage = percentage;
+                                TheoryPercentageSlider.Value = percentage;
+                                break;
+                            case "CircuitPercentageTextBox":
+                                currentScoreConfig.CircuitPercentage = percentage;
+                                CircuitPercentageSlider.Value = percentage;
+                                break;
+                            case "FCPercentageTextBox":
+                                currentScoreConfig.FCPercentage = percentage;
+                                FCPercentageSlider.Value = percentage;
+                                break;
+                        }
+
+                        UpdateScoreCalculation();
+                    }
+                    else
+                    {
+                        ScoreConfigStatusText.Text = "⚠️ 请输入0-100之间的有效百分比";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"占比文本框值改变处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 占比滑块值改变事件
+        /// </summary>
+        private void PercentageSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            try
+            {
+                if (sender is Slider slider)
+                {
+                    double value = Math.Round(slider.Value, 1);
+
+                    // 根据滑块名称更新对应的占比和文本框
+                    switch (slider.Name)
+                    {
+                        case "TheoryPercentageSlider":
+                            currentScoreConfig.TheoryPercentage = value;
+                            if (TheoryPercentageTextBox != null)
+                                TheoryPercentageTextBox.Text = value.ToString("F1");
+                            break;
+                        case "CircuitPercentageSlider":
+                            currentScoreConfig.CircuitPercentage = value;
+                            if (CircuitPercentageTextBox != null)
+                                CircuitPercentageTextBox.Text = value.ToString("F1");
+                            break;
+                        case "FCPercentageSlider":
+                            currentScoreConfig.FCPercentage = value;
+                            if (FCPercentageTextBox != null)
+                                FCPercentageTextBox.Text = value.ToString("F1");
+                            break;
+                    }
+
+                    UpdateScoreCalculation();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"占比滑块值改变处理失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 更新分数计算和显示
+        /// </summary>
+        private void UpdateScoreCalculation()
+        {
+            try
+            {
+                // 更新各部分分数显示
+                if (TheoryScoreText != null)
+                    TheoryScoreText.Text = $"({currentScoreConfig.TheoryScore}分)";
+                if (CircuitScoreText != null)
+                    CircuitScoreText.Text = $"({currentScoreConfig.CircuitScore}分)";
+                if (FCScoreText != null)
+                    FCScoreText.Text = $"({currentScoreConfig.FCScore}分)";
+
+                // 更新状态提示
+                double totalPercentage = currentScoreConfig.TheoryPercentage +
+                                       currentScoreConfig.CircuitPercentage +
+                                       currentScoreConfig.FCPercentage;
+
+                if (Math.Abs(totalPercentage - 100.0) < 0.1)
+                {
+                    ScoreConfigStatusText.Text = $"✅ {currentScoreConfig.ConfigurationText}";
+                    ScoreConfigStatusText.Foreground = new SolidColorBrush(Colors.Green);
+                }
+                else
+                {
+                    ScoreConfigStatusText.Text = $"⚠️ 当前占比总和：{totalPercentage:F1}%，请调整为100%";
+                    ScoreConfigStatusText.Foreground = new SolidColorBrush(Colors.Orange);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新分数计算失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：智能推荐分数占比按钮 - 基于被勾选的电路题目
+        /// </summary>
+        private void RecommendScore_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 获取当前题目数量
+                int theoryCount = GetActualSelectedTheoryQuestions().Count;
+
+                // 🔧 修改：只统计被勾选的电路题目
+                int circuitCount = FindAllCheckBoxes()
+                    .Count(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)) && cb.IsChecked == true);
+
+                int fcCount = GetActualSelectedFCQuestions().Count;
+
+                if (theoryCount + circuitCount + fcCount == 0)
+                {
+                    MessageBox.Show("请先选择题目，然后再使用智能推荐功能！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 使用智能推荐功能
+                currentScoreConfig.RecommendPercentages(theoryCount, circuitCount, fcCount);
+
+                // 更新UI显示
+                UpdateScoreConfigurationUI();
+                UpdateScoreCalculation();
+
+                MessageBox.Show($"智能推荐完成！\n\n" +
+                               $"基于题目数量：\n" +
+                               $"• 理论题目：{theoryCount} 题 → {currentScoreConfig.TheoryPercentage}%\n" +
+                               $"• 电路题目：{circuitCount} 题 (已勾选) → {currentScoreConfig.CircuitPercentage}%\n" +
+                               $"• 飞控题目：{fcCount} 题 → {currentScoreConfig.FCPercentage}%",
+                    "智能推荐", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"智能推荐失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 重置分数配置按钮点击事件
+        /// </summary>
+        private void ResetScore_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 重置为默认配置
+                currentScoreConfig = new ExamScoreConfig();
+
+                // 更新UI显示
+                UpdateScoreConfigurationUI();
+                UpdateScoreCalculation();
+
+                MessageBox.Show("分数配置已重置为默认值！\n\n" +
+                               "总分：100分\n" +
+                               "理论题：40%\n" +
+                               "电路题：40%\n" +
+                               "飞控题：20%",
+                    "重置完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"重置分数配置失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 🔧 修改：平均分配分数按钮 - 基于被勾选的电路题目
+        /// </summary>
+        private void EqualScore_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 计算有哪些题目类型
+                int theoryCount = GetActualSelectedTheoryQuestions().Count;
+
+                // 🔧 修改：只统计被勾选的电路题目
+                int circuitCount = FindAllCheckBoxes()
+                    .Count(cb => !string.IsNullOrEmpty(CheckBoxCommandHelper.GetCommandString(cb)) && cb.IsChecked == true);
+
+                int fcCount = GetActualSelectedFCQuestions().Count;
+
+                var activeTypes = new List<string>();
+                if (theoryCount > 0) activeTypes.Add("理论题");
+                if (circuitCount > 0) activeTypes.Add("电路题");
+                if (fcCount > 0) activeTypes.Add("飞控题");
+
+                if (activeTypes.Count == 0)
+                {
+                    MessageBox.Show("请先选择题目，然后再使用平均分配功能！", "提示",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // 平均分配
+                double averagePercentage = 100.0 / activeTypes.Count;
+
+                currentScoreConfig.TheoryPercentage = theoryCount > 0 ? averagePercentage : 0;
+                currentScoreConfig.CircuitPercentage = circuitCount > 0 ? averagePercentage : 0;
+                currentScoreConfig.FCPercentage = fcCount > 0 ? averagePercentage : 0;
+
+                // 自动调整以确保总和为100%
+                currentScoreConfig.AutoAdjustPercentages();
+
+                // 更新UI显示
+                UpdateScoreConfigurationUI();
+                UpdateScoreCalculation();
+
+                MessageBox.Show($"平均分配完成！\n\n" +
+                               $"活跃题目类型：{string.Join("、", activeTypes)}\n" +
+                               $"每类占比：{averagePercentage:F1}%\n\n" +
+                               $"题目详情：\n" +
+                               $"• 理论题目：{theoryCount} 题\n" +
+                               $"• 电路题目：{circuitCount} 题 (已勾选)\n" +
+                               $"• 飞控题目：{fcCount} 题",
+                    "平均分配", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"平均分配失败：{ex.Message}", "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// 更新分数配置UI显示
+        /// </summary>
+        private void UpdateScoreConfigurationUI()
+        {
+            try
+            {
+                // 更新文本框
+                if (TotalScoreTextBox != null)
+                    TotalScoreTextBox.Text = currentScoreConfig.TotalScore.ToString();
+                if (TheoryPercentageTextBox != null)
+                    TheoryPercentageTextBox.Text = currentScoreConfig.TheoryPercentage.ToString("F1");
+                if (CircuitPercentageTextBox != null)
+                    CircuitPercentageTextBox.Text = currentScoreConfig.CircuitPercentage.ToString("F1");
+                if (FCPercentageTextBox != null)
+                    FCPercentageTextBox.Text = currentScoreConfig.FCPercentage.ToString("F1");
+
+                // 更新滑块
+                if (TheoryPercentageSlider != null)
+                    TheoryPercentageSlider.Value = currentScoreConfig.TheoryPercentage;
+                if (CircuitPercentageSlider != null)
+                    CircuitPercentageSlider.Value = currentScoreConfig.CircuitPercentage;
+                if (FCPercentageSlider != null)
+                    FCPercentageSlider.Value = currentScoreConfig.FCPercentage;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"更新分数配置UI失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 初始化分数配置UI
+        /// </summary>
+        private void InitializeScoreConfiguration()
+        {
+            try
+            {
+                // 设置初始值
+                currentScoreConfig = new ExamScoreConfig();
+                UpdateScoreConfigurationUI();
+                UpdateScoreCalculation();
+
+                System.Diagnostics.Debug.WriteLine("✅ 分数配置UI初始化完成");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"初始化分数配置UI失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         // 添加简单的接口实现类
         private class SimpleTheoryQuestionProvider : ITheoryQuestionProvider
         {
@@ -663,16 +998,36 @@ namespace DroneSimulator
             return GetActualSelectedTheoryQuestions();
         }
 
+        /// <summary>
+        /// 🚀 重要修复：收集所有电路题目（包含勾选和未勾选的）
+        /// </summary>
         private List<CircuitQuestion> CollectSelectedCircuitQuestions()
         {
             var circuitQuestions = new List<CircuitQuestion>();
+
+            // 🔧 关键修复：获取所有有CommandString的CheckBox（不论是否勾选）
             foreach (var checkbox in FindAllCheckBoxes())
             {
-                if (checkbox.IsChecked == true)
+                string commandString = CheckBoxCommandHelper.GetCommandString(checkbox);
+                if (!string.IsNullOrEmpty(commandString))
                 {
-                    circuitQuestions.Add(new CircuitQuestion(checkbox));
+                    // 🚀 重要：记录所有题目及其真实的勾选状态
+                    circuitQuestions.Add(new CircuitQuestion
+                    {
+                        Name = checkbox.Name,
+                        Content = checkbox.Content?.ToString() ?? "",
+                        IsChecked = checkbox.IsChecked == true, // 🔧 保持真实的勾选状态
+                        CommandString = commandString
+                    });
+
+                    System.Diagnostics.Debug.WriteLine($"收集电路题目：{checkbox.Name}, 勾选状态：{checkbox.IsChecked}, 指令：{commandString}");
                 }
             }
+
+            System.Diagnostics.Debug.WriteLine($"总共收集了 {circuitQuestions.Count} 道电路题目");
+            System.Diagnostics.Debug.WriteLine($"其中勾选的题目：{circuitQuestions.Count(q => q.IsChecked)} 道");
+            System.Diagnostics.Debug.WriteLine($"其中未勾选的题目：{circuitQuestions.Count(q => !q.IsChecked)} 道");
+
             return circuitQuestions;
         }
 
@@ -1028,16 +1383,45 @@ namespace DroneSimulator
         }
 
 
+        /// <summary>
+        /// 🔧 修改：简化版试卷创建摘要（向后兼容） - 只统计被勾选的电路题目
+        /// </summary>
         private void ShowExamCreationSummary(MixedExamData examData)
         {
+            // 🔧 修改：只统计被勾选的电路题目
+            int selectedCircuitCount = examData.Content.CircuitQuestions.Count(q => q.IsChecked);
+            int actualExamQuestions = examData.Content.TheoryQuestions.Count + selectedCircuitCount + examData.Content.FCQuestions.Count;
+
             var message = $"试卷生成成功！\n\n" +
                           $"试卷名称：{examData.ExamName}\n" +
-                          $"理论题目：{examData.TheoryQuestions.Count} 题\n" +
-                          $"电路题目：{examData.CircuitQuestions.Count} 题\n" +
-                          $"飞控题目：{examData.Content?.FCQuestions?.Count ?? 0} 题\n" +
-                          $"总题目数：{examData.TotalQuestions} 题";
+                          $"理论题目：{examData.Content.TheoryQuestions.Count} 题\n" +
+                          $"电路题目：{selectedCircuitCount} 题 (已勾选)\n" +
+                          $"飞控题目：{examData.Content.FCQuestions?.Count ?? 0} 题\n" +
+                          $"考试题目总数：{actualExamQuestions} 题";
+
+            // 🔧 如果有未勾选的电路题目，添加说明
+            int totalCircuitCount = examData.Content.CircuitQuestions.Count;
+            if (totalCircuitCount > selectedCircuitCount)
+            {
+                int unselectedCount = totalCircuitCount - selectedCircuitCount;
+                message += $"\n\n💡 说明：另有 {unselectedCount} 道电路题目未勾选，\n用于误修复检测，已保存到试卷文件中。";
+            }
 
             MessageBox.Show(message, "试卷生成完成", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>
+        /// 🔧 修改：修复MixedExamData的GetStatistics方法调用 - 显示正确的统计信息
+        /// </summary>
+        private string GetEnhancedExamStatistics(MixedExamData examData)
+        {
+            var selectedCircuitCount = examData.Content.CircuitQuestions.Count(q => q.IsChecked);
+            var totalCircuitCount = examData.Content.CircuitQuestions.Count;
+
+            return $"电路实测：{selectedCircuitCount} 题已选中 (共 {totalCircuitCount} 题)，" +
+                   $"理论题目：{examData.Content.TheoryQuestions.Count} 题，" +
+                   $"飞控题目：{examData.Content.FCQuestions.Count} 题，" +
+                   $"考试总计：{selectedCircuitCount + examData.Content.TheoryQuestions.Count + examData.Content.FCQuestions.Count} 题";
         }
 
         private void ClearExamNameInput()
@@ -2750,8 +3134,8 @@ namespace DroneSimulator
 
         private void InitializeTeacherInfo()
         {
-            TeacherNameText.Text = $"姓名：{currentTeacher.Name}";
-            TeacherIdText.Text = $"工号：{currentTeacher.IdNumber}";
+            TeacherNameText.Text = $"老师姓名：{currentTeacher.Name}";
+            TeacherIdText.Text = $"老师工号：{currentTeacher.IdNumber}";
         }
                
 
@@ -4323,7 +4707,8 @@ namespace DroneSimulator
                 TeacherId = currentTeacher.IdNumber,
                 CreationTime = DateTime.Now,
                 ExamType = DetermineExamType(examContent),
-                Content = examContent
+                Content = examContent,
+                ScoreConfig = currentScoreConfig // 🚀 新增：应用分数配置
             };
         }
 
@@ -4437,7 +4822,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 🔧 修改：增强的试卷创建摘要 - 突出混合格式
+        /// 🔧 修改：增强的试卷创建摘要 - 只统计被勾选的电路题目
         /// </summary>
         private void ShowEnhancedExamCreationSummary(MixedExamData examData, SaveResult saveResult)
         {
@@ -4450,7 +4835,7 @@ namespace DroneSimulator
             summary.AppendLine($"📊 试卷类型：{GetExamTypeDisplayName(examData.ExamType)} (混合格式)");
             summary.AppendLine();
 
-            // 题目统计
+            // 🔧 修改：题目统计 - 只统计被勾选的电路题目
             summary.AppendLine("📋 题目统计：");
             if (examData.Content.TheoryQuestions.Any())
             {
@@ -4460,7 +4845,18 @@ namespace DroneSimulator
 
             if (examData.Content.CircuitQuestions.Any())
             {
-                summary.AppendLine($"  🔧 电路实测：{examData.Content.CircuitQuestions.Count} 题");
+                // 🔧 修改：只统计被勾选的电路题目
+                int selectedCircuitCount = examData.Content.CircuitQuestions.Count(q => q.IsChecked);
+                int totalCircuitCount = examData.Content.CircuitQuestions.Count;
+
+                summary.AppendLine($"  🔧 电路实测：{selectedCircuitCount} 题 (共 {totalCircuitCount} 题可选，已选中 {selectedCircuitCount} 题)");
+
+                // 如果有未勾选的题目，添加说明
+                if (totalCircuitCount > selectedCircuitCount)
+                {
+                    int unselectedCount = totalCircuitCount - selectedCircuitCount;
+                    summary.AppendLine($"     💡 说明：另有 {unselectedCount} 题未勾选，用于误修复检测");
+                }
             }
 
             if (examData.Content.FCQuestions.Any())
@@ -4468,22 +4864,53 @@ namespace DroneSimulator
                 summary.AppendLine($"  🛩️ 飞控实操：{examData.Content.FCQuestions.Count} 题");
             }
 
-            summary.AppendLine($"  📊 总计：{examData.TotalQuestions} 题");
+            // 🔧 修改：总计统计应该只计算实际考试的题目（理论题+被勾选的电路题+飞控题）
+            int actualExamQuestions = examData.Content.TheoryQuestions.Count +
+                                      examData.Content.CircuitQuestions.Count(q => q.IsChecked) +
+                                      examData.Content.FCQuestions.Count;
 
-            // 计算预估考试时间
-            int estimatedMinutes = CalculateEstimatedExamTime(examData.Content);
+            summary.AppendLine($"  📊 考试题目总计：{actualExamQuestions} 题 (实际答题数量)");
+
+            // 🔧 新增：显示文件保存的完整题目数量
+            summary.AppendLine($"  💾 文件保存总计：{examData.TotalQuestions} 题 (包含未勾选题目)");
+
+            // 计算预估考试时间 - 基于实际考试题目
+            int estimatedMinutes = CalculateEstimatedExamTimeForSelected(examData.Content);
             summary.AppendLine();
-            summary.AppendLine($"⏱️ 预估考试时间：{estimatedMinutes} 分钟");
+            summary.AppendLine($"⏱️ 预估考试时间：{estimatedMinutes} 分钟 (基于 {actualExamQuestions} 道考试题目)");
 
             // 保存信息
             summary.AppendLine();
             summary.AppendLine($"💾 {saveResult.Message}");
             summary.AppendLine($"📄 格式：混合试卷格式（{examData.ExamName}_mixed.json）");
             summary.AppendLine($"🎯 优势：支持理论、电路、飞控三种题型的统一管理");
+            summary.AppendLine($"🔧 电路题特性：保存所有题目状态，支持误修复检测功能");
 
             MessageBox.Show(summary.ToString(), "试卷生成完成",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+        /// <summary>
+        /// 🔧 新增：计算预估考试时间（基于被勾选的题目）
+        /// </summary>
+        private int CalculateEstimatedExamTimeForSelected(ExamContent examContent)
+        {
+            int totalMinutes = 0;
+
+            // 理论题目：每题约1.5分钟
+            totalMinutes += (int)(examContent.TheoryQuestions.Count * 1.5);
+
+            // 🔧 修改：电路题目只计算被勾选的题目，每题约2分钟
+            int selectedCircuitCount = examContent.CircuitQuestions.Count(q => q.IsChecked);
+            totalMinutes += selectedCircuitCount * 2;
+
+            // 飞控题目：每题约3分钟
+            totalMinutes += examContent.FCQuestions.Count * 3;
+
+            // 最小时间5分钟
+            return Math.Max(5, totalMinutes);
+        }
+
 
         /// <summary>
         /// 🚀 增强版：加载现有试卷（支持混合试卷和缓存）
@@ -4615,7 +5042,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 🚀 新增：异步加载单个试卷文件信息
+        /// 🔧 修改：异步加载单个试卷文件信息 - 只统计被勾选的电路题目
         /// </summary>
         private async Task<ExamFileInfo> LoadExamFileInfoAsync(string filePath)
         {
@@ -4632,13 +5059,29 @@ namespace DroneSimulator
                 ExamData? examData = null;
                 MixedExamData? mixedExamData = null;
 
+                int questionCount = 0; // 用于存储实际考试题目数量
+
                 if (isMixedExam)
                 {
                     mixedExamData = JsonSerializer.Deserialize<MixedExamData>(jsonContent);
+
+                    if (mixedExamData != null)
+                    {
+                        // 🔧 修改：只计算实际考试的题目数量
+                        questionCount = mixedExamData.Content.TheoryQuestions.Count +
+                                       mixedExamData.Content.CircuitQuestions.Count(q => q.IsChecked) +
+                                       mixedExamData.Content.FCQuestions.Count;
+                    }
                 }
                 else
                 {
                     examData = JsonSerializer.Deserialize<ExamData>(jsonContent);
+
+                    if (examData != null)
+                    {
+                        // 🔧 修改：传统格式也只统计被勾选的题目
+                        questionCount = examData.Questions?.Count(q => q.IsChecked) ?? 0;
+                    }
                 }
 
                 return new ExamFileInfo
@@ -4648,7 +5091,7 @@ namespace DroneSimulator
                     CreationTime = fileInfo.LastWriteTime,
                     FileSize = fileInfo.Length,
                     TeacherName = mixedExamData?.TeacherName ?? examData?.TeacherName ?? "未知",
-                    QuestionCount = mixedExamData?.TotalQuestions ?? examData?.Questions?.Count(q => q.IsChecked) ?? 0,
+                    QuestionCount = questionCount, // 🔧 修改：使用实际考试题目数量
                     ExamType = mixedExamData?.ExamType.ToString() ?? "传统",
                     IsMixedExam = isMixedExam
                 };
@@ -4674,7 +5117,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// 🔧 修改：增强的试卷摘要生成 - 支持混合试卷和详细信息
+        /// 🔧 修改：增强的试卷摘要生成 - 🚀 修正电路题目统计，只显示被勾选的题目
         /// </summary>
         private async Task<string> GenerateEnhancedExamSummary(string examName)
         {
@@ -4698,9 +5141,53 @@ namespace DroneSimulator
                         summary.AppendLine($"👨‍🏫 出题教师：{mixedExam.TeacherName} ({mixedExam.TeacherId})");
                         summary.AppendLine($"📅 创建时间：{mixedExam.CreationTime:yyyy-MM-dd HH:mm:ss}");
                         summary.AppendLine($"📊 试卷类型：{GetExamTypeDisplayName(mixedExam.ExamType)} (混合试卷)");
+
+                        // 分值分配信息显示
+                        if (mixedExam.ScoreConfig != null)
+                        {
+                            summary.AppendLine();
+                            summary.AppendLine("💯 分值分配：");
+                            summary.AppendLine($"  📚 试卷总分：{mixedExam.ScoreConfig.TotalScore} 分");
+
+                            if (mixedExam.Content.TheoryQuestions.Any())
+                            {
+                                summary.AppendLine($"  📖 理论题目：{mixedExam.ScoreConfig.TheoryPercentage:F1}% ({mixedExam.ScoreConfig.TheoryScore} 分)");
+                            }
+
+                            if (mixedExam.Content.CircuitQuestions.Any())
+                            {
+                                summary.AppendLine($"  🔧 电路实测：{mixedExam.ScoreConfig.CircuitPercentage:F1}% ({mixedExam.ScoreConfig.CircuitScore} 分)");
+                            }
+
+                            if (mixedExam.Content.FCQuestions.Any())
+                            {
+                                summary.AppendLine($"  🛩️ 飞控实操：{mixedExam.ScoreConfig.FCPercentage:F1}% ({mixedExam.ScoreConfig.FCScore} 分)");
+                            }
+
+                            // 显示分值配置合法性
+                            if (mixedExam.ScoreConfig.IsValid)
+                            {
+                                summary.AppendLine($"  ✅ 分值配置：{mixedExam.ScoreConfig.ConfigurationText}");
+                            }
+                            else
+                            {
+                                summary.AppendLine($"  ⚠️ 分值配置：占比总和不为100%，请检查配置");
+                            }
+                        }
+                        else
+                        {
+                            // 没有分数配置时显示默认信息
+                            summary.AppendLine();
+                            summary.AppendLine("💯 分值分配：");
+                            summary.AppendLine($"  📚 使用默认分值配置 (总分100分)");
+                            summary.AppendLine($"  📖 理论题目：40% (40分)");
+                            summary.AppendLine($"  🔧 电路实测：40% (40分)");
+                            summary.AppendLine($"  🛩️飞控实操：20% (20分)");
+                        }
+
                         summary.AppendLine();
 
-                        // 详细题目分析
+                        // 🔧 修改：详细题目分析 - 电路题目只统计被勾选的
                         summary.AppendLine("📋 题目详情：");
 
                         if (mixedExam.Content.TheoryQuestions.Any())
@@ -4708,26 +5195,88 @@ namespace DroneSimulator
                             var theoryAnalysis = AnalyzeTheoryQuestions(mixedExam.Content.TheoryQuestions);
                             summary.AppendLine($"  📚 理论题目：{mixedExam.Content.TheoryQuestions.Count} 题");
                             summary.AppendLine($"     {theoryAnalysis}");
+
+                            // 显示理论题目的总分值
+                            var theoryTotalPoints = mixedExam.Content.TheoryQuestions.Sum(q => q.Points);
+                            summary.AppendLine($"     原始分值：{theoryTotalPoints} 分，按权重调整为：{mixedExam.ScoreConfig?.TheoryScore ?? 40} 分");
                         }
 
                         if (mixedExam.Content.CircuitQuestions.Any())
                         {
-                            summary.AppendLine($"  🔧 电路实测：{mixedExam.Content.CircuitQuestions.Count} 题");
+                            // 🔧 修改：只统计被勾选的电路题目
+                            int selectedCircuitCount = mixedExam.Content.CircuitQuestions.Count(q => q.IsChecked);
+                            int totalCircuitCount = mixedExam.Content.CircuitQuestions.Count;
+
+                            if (selectedCircuitCount == totalCircuitCount)
+                            {
+                                // 全部勾选时的显示
+                                summary.AppendLine($"  🔧 电路实测：{selectedCircuitCount} 题");
+                            }
+                            else
+                            {
+                                // 部分勾选时的详细显示
+                                summary.AppendLine($"  🔧 电路实测：{selectedCircuitCount} 题已选中 (共 {totalCircuitCount} 题)");
+
+                                if (totalCircuitCount > selectedCircuitCount)
+                                {
+                                    int unselectedCount = totalCircuitCount - selectedCircuitCount;
+                                    summary.AppendLine($"     💡 未勾选：{unselectedCount} 题 (用于误修复检测)");
+                                }
+                            }
+
                             summary.AppendLine($"     已配置串口指令，支持设备初始化");
+                            summary.AppendLine($"     按权重计算得分：{mixedExam.ScoreConfig?.CircuitScore ?? 40} 分");
                         }
 
                         if (mixedExam.Content.FCQuestions.Any())
                         {
                             summary.AppendLine($"  🛩️ 飞控实操：{mixedExam.Content.FCQuestions.Count} 题");
                             summary.AppendLine($"     需要飞控设备连接进行参数验证");
+
+                            // 显示飞控题目的总分值
+                            var fcTotalPoints = mixedExam.Content.FCQuestions.Sum(q => q.Points);
+                            summary.AppendLine($"     原始分值：{fcTotalPoints} 分，按权重调整为：{mixedExam.ScoreConfig?.FCScore ?? 20} 分");
                         }
 
-                        summary.AppendLine($"  📊 总计：{mixedExam.TotalQuestions} 题");
+                        // 🔧 修改：总计显示应该明确区分实际考试题目和文件保存题目
+                        int actualExamQuestions = mixedExam.Content.TheoryQuestions.Count +
+                                                  mixedExam.Content.CircuitQuestions.Count(q => q.IsChecked) +
+                                                  mixedExam.Content.FCQuestions.Count;
 
-                        // 计算预估信息
-                        int estimatedTime = CalculateEstimatedExamTime(mixedExam.Content);
+                        summary.AppendLine($"  📊 考试题目总计：{actualExamQuestions} 题 (学生实际需要答题)");
+
+                        if (mixedExam.TotalQuestions != actualExamQuestions)
+                        {
+                            summary.AppendLine($"  💾 文件保存总计：{mixedExam.TotalQuestions} 题 (包含未勾选的电路题)");
+                        }
+
+                        // 显示理论考试和实操考试的分值比重
                         summary.AppendLine();
-                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟");
+                        summary.AppendLine("⚖️ 考试权重分析：");
+
+                        var theoryWeight = (mixedExam.ScoreConfig?.TheoryPercentage ?? 40);
+                        var practicalWeight = ((mixedExam.ScoreConfig?.CircuitPercentage ?? 40) + (mixedExam.ScoreConfig?.FCPercentage ?? 20));
+
+                        summary.AppendLine($"  📖 理论考试权重：{theoryWeight:F1}%");
+                        summary.AppendLine($"  🔧 实操考试权重：{practicalWeight:F1}% (电路实测 + 飞控实操)");
+
+                        if (theoryWeight > practicalWeight)
+                        {
+                            summary.AppendLine($"  📊 考试偏重：理论知识考核");
+                        }
+                        else if (practicalWeight > theoryWeight)
+                        {
+                            summary.AppendLine($"  📊 考试偏重：实际操作能力");
+                        }
+                        else
+                        {
+                            summary.AppendLine($"  📊 考试性质：理论与实操并重");
+                        }
+
+                        // 🔧 修改：计算预估信息基于实际考试题目
+                        int estimatedTime = CalculateEstimatedExamTimeForSelected(mixedExam.Content);
+                        summary.AppendLine();
+                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟 (基于 {actualExamQuestions} 道考试题目)");
 
                         var fileInfo = new FileInfo(mixedPath);
                         summary.AppendLine($"💾 文件大小：{FormatFileSize(fileInfo.Length)}");
@@ -4753,23 +5302,54 @@ namespace DroneSimulator
                         summary.AppendLine($"👨‍🏫 出题教师：{examData.TeacherName} ({examData.TeacherId})");
                         summary.AppendLine($"📅 创建时间：{examData.CreationTime:yyyy-MM-dd HH:mm:ss}");
                         summary.AppendLine($"📊 试卷类型：传统格式 (电路实测)");
+
+                        // 传统格式试卷的分值配置显示
+                        summary.AppendLine();
+                        summary.AppendLine("💯 分值分配：");
+                        summary.AppendLine($"  📚 试卷总分：100 分 (传统格式，默认配置)");
+                        summary.AppendLine($"  🔧 电路实测：100% (100分) - 仅电路检测题目");
+                        summary.AppendLine($"  ⚠️ 注意：传统格式试卷仅支持电路实测题目");
+
                         summary.AppendLine();
 
+                        // 🔧 修改：传统格式试卷也要只统计被勾选的题目
                         int selectedCount = examData.Questions?.Count(q => q.IsChecked) ?? 0;
                         int totalCount = examData.Questions?.Count ?? 0;
 
                         summary.AppendLine("📋 题目详情：");
-                        summary.AppendLine($"  🔧 电路实测题目：{selectedCount} 题 (总共 {totalCount} 题)");
+
+                        if (selectedCount == totalCount)
+                        {
+                            summary.AppendLine($"  🔧 电路实测题目：{selectedCount} 题");
+                        }
+                        else
+                        {
+                            summary.AppendLine($"  🔧 电路实测题目：{selectedCount} 题已选中 (总共 {totalCount} 题)");
+
+                            if (totalCount > selectedCount)
+                            {
+                                int unselectedCount = totalCount - selectedCount;
+                                summary.AppendLine($"     💡 未勾选：{unselectedCount} 题 (用于误修复检测)");
+                            }
+                        }
 
                         if (selectedCount > 0)
                         {
                             var categoryStats = AnalyzeCircuitQuestions(examData.Questions.Where(q => q.IsChecked));
                             summary.AppendLine($"     {categoryStats}");
+                            summary.AppendLine($"     计分方式：按题目数量等分，每题 {100.0 / selectedCount:F1} 分");
                         }
 
+                        // 传统格式的权重分析
+                        summary.AppendLine();
+                        summary.AppendLine("⚖️ 考试权重分析：");
+                        summary.AppendLine($"  🔧 实操考试权重：100% (纯电路实测)");
+                        summary.AppendLine($"  📊 考试性质：专注硬件故障排除能力");
+
+                        // 🔧 修改：基于被勾选的题目计算时间
                         int estimatedTime = selectedCount * 2; // 电路题目每题约2分钟
                         summary.AppendLine();
-                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟");
+                        summary.AppendLine($"⏱️ 预估考试时间：{estimatedTime} 分钟 (基于 {selectedCount} 道考试题目)");
 
                         var fileInfo = new FileInfo(normalPath);
                         summary.AppendLine($"💾 文件大小：{FormatFileSize(fileInfo.Length)}");
@@ -5697,9 +6277,9 @@ namespace DroneSimulator
             {
                 // 从TeacherNameText获取教师姓名
                 var fullText = TeacherNameText?.Text ?? "";
-                if (fullText.StartsWith("姓名："))
+                if (fullText.StartsWith("老师姓名："))
                 {
-                    return fullText.Substring("姓名：".Length).Trim();
+                    return fullText.Substring("老师姓名：".Length).Trim();
                 }
                 return currentTeacher?.Name ?? "";
             }
