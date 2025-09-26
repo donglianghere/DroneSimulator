@@ -1,4 +1,4 @@
-using System.IO;
+ï»¿using System.IO;
 using System.Text;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
@@ -6,86 +6,97 @@ using System.Text.Json.Serialization;
 namespace DroneSimulator
 {
     /// <summary>
-    /// ·É¿ØÊµ²ÙÌâÄ¿ÀàĞÍ
+    /// é£æ§å®æ“é¢˜ç›®ç±»å‹
     /// </summary>
     public enum FCQuestionType
     {
-        ParameterSetting,    // ²ÎÊıÉèÖÃÀàĞÍ
-        ParameterVerify,     // ²ÎÊıÑéÖ¤ÀàĞÍ
-        ParameterCalculation // ²ÎÊı¼ÆËãÀàĞÍ
+        ParameterSetting,    // å‚æ•°è®¾ç½®ç±»å‹
+        ParameterVerify,     // å‚æ•°éªŒè¯ç±»å‹
+        ParameterCalculation, // å‚æ•°è®¡ç®—ç±»å‹
+
+        // ğŸš€ æ–°å¢é¢˜ç›®ç±»å‹
+        MotorTest,              // ç”µæœºæµ‹è¯•æ“ä½œ
+        CalibrationOperation,   // æ ¡å‡†æ“ä½œ
+        FlightModeSwitch,       // é£è¡Œæ¨¡å¼åˆ‡æ¢
+        SafetyCheck,            // å®‰å…¨æ£€æŸ¥
+        SensorDiagnosis,        // ä¼ æ„Ÿå™¨è¯Šæ–­
+        SystemConfiguration,    // ç³»ç»Ÿé…ç½®
+        RealTimeMonitoring,     // å®æ—¶ç›‘æ§
+        ParameterComparison,    // å‚æ•°å¯¹æ¯”
+        TroubleShooting        // æ•…éšœæ’é™¤
     }
 
     /// <summary>
-    /// ·É¿ØÊµ²ÙÌâÄ¿·ÖÀà
+    /// é£æ§å®æ“é¢˜ç›®åˆ†ç±»
     /// </summary>
     public enum FCQuestionCategory
     {
-        BasicParameters,     // »ù´¡²ÎÊı
-        PIDTuning,          // PIDµ÷½Ú
-        SensorCalibration,  // ´«¸ĞÆ÷Ğ£×¼
-        FlightModes,        // ·ÉĞĞÄ£Ê½
-        SafetySettings,     // °²È«ÉèÖÃ
-        AdvancedFeatures    // ¸ß¼¶¹¦ÄÜ
+        BasicParameters,     // åŸºç¡€å‚æ•°
+        PIDTuning,          // PIDè°ƒèŠ‚
+        SensorCalibration,  // ä¼ æ„Ÿå™¨æ ¡å‡†
+        FlightModes,        // é£è¡Œæ¨¡å¼
+        SafetySettings,     // å®‰å…¨è®¾ç½®
+        AdvancedFeatures    // é«˜çº§åŠŸèƒ½
     }
 
     /// <summary>
-    /// ²ÎÊıÊı¾İÀàĞÍ
+    /// å‚æ•°æ•°æ®ç±»å‹
     /// </summary>
     public enum ParameterDataType
     {
-        Float,   // ¸¡µãÊı
-        Integer, // ÕûÊı
-        Boolean, // ²¼¶ûÖµ
-        String   // ×Ö·û´®
+        Float,   // æµ®ç‚¹æ•°
+        Integer, // æ•´æ•°
+        Boolean, // å¸ƒå°”å€¼
+        String   // å­—ç¬¦ä¸²
     }
 
     /// <summary>
-    /// ·É¿ØÊµ²ÙÌâÄ¿
+    /// é£æ§å®æ“é¢˜ç›®
     /// </summary>
     public class FlightControlQuestion : INotifyPropertyChanged
     {
-        #region »ù´¡ĞÅÏ¢
+        #region åŸºç¡€ä¿¡æ¯
         /// <summary>
-        /// ÌâÄ¿ID
+        /// é¢˜ç›®ID
         /// </summary>
         public string Id { get; set; } = "";
 
         /// <summary>
-        /// ÌâÄ¿³ÂÊö£¨Èç£º½«²ÎÊıMC_PITCHRATE_PÉèÖÃÎª0.15£©
+        /// é¢˜ç›®é™ˆè¿°ï¼ˆå¦‚ï¼šå°†å‚æ•°MC_PITCHRATE_Pè®¾ç½®ä¸º0.15ï¼‰
         /// </summary>
         public string QuestionStatement { get; set; } = "";
 
         /// <summary>
-        /// ÌâÄ¿ÀàĞÍ
+        /// é¢˜ç›®ç±»å‹
         /// </summary>
         public FCQuestionType Type { get; set; } = FCQuestionType.ParameterSetting;
 
         /// <summary>
-        /// ÌâÄ¿·ÖÀà
+        /// é¢˜ç›®åˆ†ç±»
         /// </summary>
         public FCQuestionCategory Category { get; set; } = FCQuestionCategory.BasicParameters;
 
         /// <summary>
-        /// ÄÑ¶ÈµÈ¼¶
+        /// éš¾åº¦ç­‰çº§
         /// </summary>
         public QuestionDifficulty Difficulty { get; set; } = QuestionDifficulty.Medium;
 
         /// <summary>
-        /// ·ÖÖµ
+        /// åˆ†å€¼
         /// </summary>
         public int Points { get; set; } = 5;
 
         /// <summary>
-        /// ÊÇ·ñÆôÓÃ
+        /// æ˜¯å¦å¯ç”¨
         /// </summary>
         public bool IsActive { get; set; } = true;
         #endregion
 
-        #region UIÑ¡Ôñ×´Ì¬
+        #region UIé€‰æ‹©çŠ¶æ€
         private bool _isSelected;
 
         /// <summary>
-        /// ÊÇ·ñ±»Ñ¡ÖĞ£¨ÓÃÓÚUI¸´Ñ¡¿ò£©
+        /// æ˜¯å¦è¢«é€‰ä¸­ï¼ˆç”¨äºUIå¤é€‰æ¡†ï¼‰
         /// </summary>
         [JsonIgnore]
         public bool IsSelected
@@ -102,126 +113,126 @@ namespace DroneSimulator
         }
         #endregion
 
-        #region ²ÎÊıÏà¹ØĞÅÏ¢
+        #region å‚æ•°ç›¸å…³ä¿¡æ¯
         /// <summary>
-        /// ²ÎÊıÃû³Æ£¨Èç£ºMC_PITCHRATE_P£©
+        /// å‚æ•°åç§°ï¼ˆå¦‚ï¼šMC_PITCHRATE_Pï¼‰
         /// </summary>
         public string ParameterName { get; set; } = "";
 
         /// <summary>
-        /// ²ÎÊıÃèÊö
+        /// å‚æ•°æè¿°
         /// </summary>
         public string ParameterDescription { get; set; } = "";
 
         /// <summary>
-        /// ²ÎÊıÊı¾İÀàĞÍ
+        /// å‚æ•°æ•°æ®ç±»å‹
         /// </summary>
         public ParameterDataType DataType { get; set; } = ParameterDataType.Float;
 
         /// <summary>
-        /// ÕıÈ·´ğ°¸Öµ£¨×Ö·û´®ĞÎÊ½´æ´¢£©
+        /// æ­£ç¡®ç­”æ¡ˆå€¼ï¼ˆå­—ç¬¦ä¸²å½¢å¼å­˜å‚¨ï¼‰
         /// </summary>
         public string CorrectValue { get; set; } = "";
 
         /// <summary>
-        /// Èİ²î·¶Î§£¨ÓÃÓÚ¸¡µãÊı±È½Ï£©
+        /// å®¹å·®èŒƒå›´ï¼ˆç”¨äºæµ®ç‚¹æ•°æ¯”è¾ƒï¼‰
         /// </summary>
         public double Tolerance { get; set; } = 0.001;
 
         /// <summary>
-        /// ²ÎÊıµÄÓĞĞ§·¶Î§£¨×îĞ¡Öµ£©
+        /// å‚æ•°çš„æœ‰æ•ˆèŒƒå›´ï¼ˆæœ€å°å€¼ï¼‰
         /// </summary>
         public string MinValue { get; set; } = "";
 
         /// <summary>
-        /// ²ÎÊıµÄÓĞĞ§·¶Î§£¨×î´óÖµ£©
+        /// å‚æ•°çš„æœ‰æ•ˆèŒƒå›´ï¼ˆæœ€å¤§å€¼ï¼‰
         /// </summary>
         public string MaxValue { get; set; } = "";
 
         /// <summary>
-        /// ²ÎÊıµ¥Î»
+        /// å‚æ•°å•ä½
         /// </summary>
         public string Unit { get; set; } = "";
         #endregion
 
-        #region ÌâÄ¿ÑéÖ¤Âß¼­
+        #region é¢˜ç›®éªŒè¯é€»è¾‘
         /// <summary>
-        /// ÊÇ·ñĞèÒª´Ó·É¿Ø¶ÁÈ¡²ÎÊıÑéÖ¤£¨true£º´Ó·É¿Ø¶ÁÈ¡£¬false£ºÖ±½ÓÊäÈëÑéÖ¤£©
+        /// æ˜¯å¦éœ€è¦ä»é£æ§è¯»å–å‚æ•°éªŒè¯ï¼ˆtrueï¼šä»é£æ§è¯»å–ï¼Œfalseï¼šç›´æ¥è¾“å…¥éªŒè¯ï¼‰
         /// </summary>
         public bool RequireFlightControllerRead { get; set; } = true;
 
         /// <summary>
-        /// ÑéÖ¤·½·¨ÀàĞÍ
+        /// éªŒè¯æ–¹æ³•ç±»å‹
         /// </summary>
         public ParameterVerifyMethod VerifyMethod { get; set; } = ParameterVerifyMethod.ExactMatch;
         #endregion
 
-        #region ÔªÊı¾İ
+        #region å…ƒæ•°æ®
         /// <summary>
-        /// ÌâÄ¿½âÊÍËµÃ÷
+        /// é¢˜ç›®è§£é‡Šè¯´æ˜
         /// </summary>
         public string Explanation { get; set; } = "";
 
         /// <summary>
-        /// ´´½¨Õß
+        /// åˆ›å»ºè€…
         /// </summary>
         public string CreatedBy { get; set; } = "";
 
         /// <summary>
-        /// ´´½¨Ê±¼ä
+        /// åˆ›å»ºæ—¶é—´
         /// </summary>
         public DateTime CreatedTime { get; set; } = DateTime.Now;
 
         /// <summary>
-        /// ×îºóĞŞ¸ÄÊ±¼ä
+        /// æœ€åä¿®æ”¹æ—¶é—´
         /// </summary>
         public DateTime LastModified { get; set; } = DateTime.Now;
 
         /// <summary>
-        /// ×îºóĞŞ¸ÄÕß
+        /// æœ€åä¿®æ”¹è€…
         /// </summary>
         public string LastModifiedBy { get; set; } = "";
 
         /// <summary>
-        /// Ê¹ÓÃ´ÎÊı
+        /// ä½¿ç”¨æ¬¡æ•°
         /// </summary>
         public int UsageCount { get; set; } = 0;
 
         /// <summary>
-        /// Æ½¾ùÕıÈ·ÂÊ
+        /// å¹³å‡æ­£ç¡®ç‡
         /// </summary>
         public double AverageCorrectRate { get; set; } = 0.0;
         #endregion
 
-        #region ÏÔÊ¾ÊôĞÔ
+        #region æ˜¾ç¤ºå±æ€§
         [JsonIgnore]
         public string TypeDisplayName => Type switch
         {
-            FCQuestionType.ParameterSetting => "²ÎÊıÉèÖÃ",
-            FCQuestionType.ParameterVerify => "²ÎÊıÑéÖ¤",
-            FCQuestionType.ParameterCalculation => "²ÎÊı¼ÆËã",
-            _ => "Î´ÖªÀàĞÍ"
+            FCQuestionType.ParameterSetting => "å‚æ•°è®¾ç½®",
+            FCQuestionType.ParameterVerify => "å‚æ•°éªŒè¯",
+            FCQuestionType.ParameterCalculation => "å‚æ•°è®¡ç®—",
+            _ => "æœªçŸ¥ç±»å‹"
         };
 
         [JsonIgnore]
         public string CategoryDisplayName => Category switch
         {
-            FCQuestionCategory.BasicParameters => "»ù´¡²ÎÊı",
-            FCQuestionCategory.PIDTuning => "PIDµ÷½Ú",
-            FCQuestionCategory.SensorCalibration => "´«¸ĞÆ÷Ğ£×¼",
-            FCQuestionCategory.FlightModes => "·ÉĞĞÄ£Ê½",
-            FCQuestionCategory.SafetySettings => "°²È«ÉèÖÃ",
-            FCQuestionCategory.AdvancedFeatures => "¸ß¼¶¹¦ÄÜ",
-            _ => "Î´Öª·ÖÀà"
+            FCQuestionCategory.BasicParameters => "åŸºç¡€å‚æ•°",
+            FCQuestionCategory.PIDTuning => "PIDè°ƒèŠ‚",
+            FCQuestionCategory.SensorCalibration => "ä¼ æ„Ÿå™¨æ ¡å‡†",
+            FCQuestionCategory.FlightModes => "é£è¡Œæ¨¡å¼",
+            FCQuestionCategory.SafetySettings => "å®‰å…¨è®¾ç½®",
+            FCQuestionCategory.AdvancedFeatures => "é«˜çº§åŠŸèƒ½",
+            _ => "æœªçŸ¥åˆ†ç±»"
         };
 
         [JsonIgnore]
         public string DifficultyDisplayName => Difficulty switch
         {
-            QuestionDifficulty.Easy => "¼òµ¥",
-            QuestionDifficulty.Medium => "ÖĞµÈ",
-            QuestionDifficulty.Hard => "À§ÄÑ",
-            _ => "Î´Öª"
+            QuestionDifficulty.Easy => "ç®€å•",
+            QuestionDifficulty.Medium => "ä¸­ç­‰",
+            QuestionDifficulty.Hard => "å›°éš¾",
+            _ => "æœªçŸ¥"
         };
 
         [JsonIgnore]
@@ -229,13 +240,13 @@ namespace DroneSimulator
 
         [JsonIgnore]
         public string ValueRange => string.IsNullOrEmpty(MinValue) || string.IsNullOrEmpty(MaxValue) 
-            ? "ÎŞÏŞÖÆ" 
+            ? "æ— é™åˆ¶" 
             : $"{MinValue} ~ {MaxValue}";
         #endregion
 
-        #region ÑéÖ¤·½·¨
+        #region éªŒè¯æ–¹æ³•
         /// <summary>
-        /// ÑéÖ¤ÌâÄ¿Êı¾İÊÇ·ñÍêÕû
+        /// éªŒè¯é¢˜ç›®æ•°æ®æ˜¯å¦å®Œæ•´
         /// </summary>
         public bool IsValid()
         {
@@ -246,7 +257,7 @@ namespace DroneSimulator
         }
 
         /// <summary>
-        /// ÑéÖ¤´ğ°¸ÊÇ·ñÕıÈ·
+        /// éªŒè¯ç­”æ¡ˆæ˜¯å¦æ­£ç¡®
         /// </summary>
         public bool ValidateAnswer(string studentAnswer)
         {
@@ -291,7 +302,7 @@ namespace DroneSimulator
         }
         #endregion
 
-        #region INotifyPropertyChanged ÊµÏÖ
+        #region INotifyPropertyChanged å®ç°
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected virtual void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
@@ -302,12 +313,12 @@ namespace DroneSimulator
     }
 
     /// <summary>
-    /// ²ÎÊıÑéÖ¤·½·¨
+    /// å‚æ•°éªŒè¯æ–¹æ³•
     /// </summary>
     public enum ParameterVerifyMethod
     {
-        ExactMatch,      // ¾«È·Æ¥Åä
-        NumericRange,    // ÊıÖµ·¶Î§
-        FloatTolerance   // ¸¡µãÈİ²î
+        ExactMatch,      // ç²¾ç¡®åŒ¹é…
+        NumericRange,    // æ•°å€¼èŒƒå›´
+        FloatTolerance   // æµ®ç‚¹å®¹å·®
     }
 }

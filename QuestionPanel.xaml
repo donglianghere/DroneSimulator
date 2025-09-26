@@ -293,7 +293,10 @@
                     BorderBrush="#23395d" BorderThickness="2"
                     SelectionChanged="TabControl_SelectionChanged">
             <!-- 新增：理论题库选项卡 - 放在最前面 -->
-            <TabItem Header="理论题库" Background="#D4C6E8">
+            <TabItem Header="理论题库" 
+                     FontSize="16" FontWeight="Bold" FontFamily="Microsoft YaHei"
+                     Foreground="#2E7D32" Background="#34C6E8" BorderBrush="#C8E6C9"
+                     Padding="15,8" Margin="2,0">
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
                         <TextBlock Text="理论题库" FontSize="16" FontWeight="Bold" 
@@ -301,15 +304,16 @@
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
 
-                <Grid Background="#D4C6E8">
+                <Grid Background="#64C6E8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="7*"/>
-                        <ColumnDefinition Width="142*"/>
+                        <ColumnDefinition Width="42*"/>
+                        <ColumnDefinition Width="15*"/>
+                        <ColumnDefinition Width="1136*"/>
                     </Grid.ColumnDefinitions>
                     <!-- 顶部控制按钮组 -->
                     <StackPanel Orientation="Horizontal" 
                     Margin="0,10,0,0" HorizontalAlignment="Right" 
-                    VerticalAlignment="Top" Grid.Column="1">
+                    VerticalAlignment="Top" Grid.Column="2">
                         <RadioButton x:Name="TheorySelectAllRadio" Content="全选  " Margin="0,0,10,0" 
                          GroupName="TheorySelectGroup" FontSize="18" VerticalAlignment="Center" 
                          Checked="TheorySelectAllRadio_Checked"/>
@@ -347,7 +351,7 @@
                     </StackPanel>
 
                     <!-- 理论题库内容区域 - 动态显示题目 -->
-                    <ScrollViewer Margin="0,50,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent" Grid.ColumnSpan="2">
+                    <ScrollViewer Margin="0,50,0,0" VerticalScrollBarVisibility="Auto" Background="Transparent" Grid.ColumnSpan="3">
                         <StackPanel x:Name="TheoryQuestionsPanel" Margin="20">
                             <!-- 动态生成的题目将显示在这里 -->
                         </StackPanel>
@@ -356,7 +360,10 @@
             </TabItem>
 
             <!-- 电路实测选择选项卡 -->
-            <TabItem Header="电路实测" Background="#B3AAC6">
+            <TabItem Header="电路实测" 
+                     FontSize="16" FontWeight="Bold" FontFamily="Microsoft YaHei"
+                     Foreground="#1976D2" Background="#B3AAC6" BorderBrush="#BBDEFB"
+                     Padding="15,8" Margin="2,0">
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
                         <TextBlock Text="电路实测" FontSize="16" FontWeight="Bold" 
@@ -640,7 +647,10 @@
             </TabItem>
 
             <!-- 新增：飞控实操选项卡 - 放在电路题库和统计分析之间 -->
-            <TabItem Header="飞控实操" Background="#C6D8E8">
+            <TabItem Header="飞控实操" 
+                     FontSize="16" FontWeight="Bold" FontFamily="Microsoft YaHei"
+                     Foreground="#897200" Background="#AFF3E0" BorderBrush="#FFE0B2"
+                     Padding="15,8" Margin="2,0">
                 <TabItem.HeaderTemplate>
                     <DataTemplate>
                         <TextBlock Text="飞控实操" FontSize="16" FontWeight="Bold" 
@@ -648,7 +658,7 @@
                     </DataTemplate>
                 </TabItem.HeaderTemplate>
 
-                <Grid Background="#C6D8E8">
+                <Grid Background="#AFF3E0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="61*"/>
                         <ColumnDefinition Width="237*"/>
